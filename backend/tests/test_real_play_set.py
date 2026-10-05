@@ -118,3 +118,54 @@ def test_the_sheets_ask_questions_that_distinguish_every_label():
         assert items >= 30
         assert text.count("  - A. ") == items and text.count("  - B. ") == items and text.count("  - C. ") == items
         assert "mate" in text.lower()  # the compensation / mate question is there
+
+
+def test_hanging_own_real_items_have_the_safe_and_unsafe_choice_their_label_needs():
+    # A move can only be a miss (or a good choice) if there was a choice. Found in review:
+    # 12 blunders had no safe alternative and 2 "safe" items had nothing that could hang.
+    b = builder()
+    for r in rows():
+        if r["category"] not in ("real_blunder", "real_safe"):
+            continue
+        board = chess.Board(r["fen"])
+        move = chess.Move.from_uci(r["move_uci"])
+        flags = b.choice_flags(board)
+        where = (r["id"], r["category"], r["fen"], r["move_uci"])
+        if r["category"] == "real_blunder":
+            assert flags[move] and any(not v for m, v in flags.items() if m != move), where
+        else:
+            assert not flags[move] and any(flags.values()), where
+
+
+def test_real_blunders_are_labelled_by_the_engine_evidence_rule():
+    b = builder()
+    seen = set()
+    for r in rows():
+        if r["category"] != "real_blunder":
+            continue
+        seen.add(r["label"])
+        assert {"engine_best_cp", "engine_after_cp", "loss_cp"} <= set(r)  # evidence kept for reproduction
+        assert r["loss_cp"] == r["engine_best_cp"] - r["engine_after_cp"]
+        if r["label"] == "missed":
+            assert r["loss_cp"] >= b.MISS_LOSS_CP and r["material_label"] == "missed"
+        else:  # it hangs a piece but the engine does not confirm a loss (found in review: rp1-080)
+            assert r["label"] == "uncertain" and r["loss_cp"] < b.UNCERTAIN_LOSS_CP
+            assert r["material_label"] == "missed"
+    assert seen <= {"missed", "uncertain"}
+
+
+def test_material_label_is_what_the_hand_check_validates():
+    for r in rows():
+        assert "material_label" in r
+        if r["label"] != r["material_label"]:  # only an engine override may differ
+            assert (r["detector"], r["label"], r["material_label"]) == ("hanging_own", "uncertain", "missed")
+
+
+def test_adversarial_items_carry_engine_evidence_that_agrees_with_their_labels():
+    b = builder()
+    for r in rows():
+        if r["category"] != "adversarial":
+            continue
+        assert {"engine_best_cp", "engine_after_cp", "loss_cp"} <= set(r)
+        if r["label"] == "missed":
+            assert r["loss_cp"] >= b.UNCERTAIN_LOSS_CP
