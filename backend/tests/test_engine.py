@@ -68,3 +68,19 @@ def test_normalise_flips_sign_exactly():
     mate = chess.engine.PovScore(chess.engine.Mate(2), chess.WHITE)
     assert normalise(mate, chess.WHITE).mate == 2
     assert normalise(mate, chess.BLACK).mate == -2
+
+
+def test_play_returns_a_legal_move_at_every_level(engine):
+    board = chess.Board()
+    legal = {m.uci() for m in board.legal_moves}
+    for level in (1, 5, 10):
+        assert engine.play(board, level, movetime_ms=50) in legal
+
+
+def test_levels_map_to_skill_and_reject_out_of_range():
+    from app.engine.stockfish import skill_for_level
+
+    assert [skill_for_level(n) for n in (1, 2, 10)] == [0, 2, 18]
+    for bad in (0, 11):
+        with pytest.raises(ValueError):
+            skill_for_level(bad)
