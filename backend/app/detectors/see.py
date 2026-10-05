@@ -42,3 +42,16 @@ def see(board: chess.Board, square: chess.Square, side: chess.Color) -> int:
     for value in reversed(captured):  # each side may stop capturing: gain never goes below 0
         gain = max(0, value - gain)
     return gain
+
+
+def capture_net(board: chess.Board, move: chess.Move) -> int:
+    """Net material the mover gets from this specific capture, after the opponent's best
+    recapture sequence. Negative when the capture loses material (queen takes a defended
+    rook). Not a capture, or en passant (no piece on the target square): 0.
+    """
+    victim = board.piece_at(move.to_square)
+    if victim is None or not board.is_capture(move):
+        return 0
+    after = board.copy(stack=False)
+    after.push(move)
+    return VALUES[victim.piece_type] - see(after, move.to_square, not board.turn)

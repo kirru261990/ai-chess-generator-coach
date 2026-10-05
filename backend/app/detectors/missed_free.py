@@ -12,9 +12,11 @@ the exchange nets at least HANGING_MIN_GAIN pawns. Outcomes:
   from both numerator and denominator by the pattern layer.
 - not_applicable: no free piece to win
 
-Requiring a *legal* capture removes pinned capturers that the static exchange
-alone would count. Pawns and kings are not counted in v1. `Result.hanging` lists
-the opponent pieces that were available to win.
+Each *legal* capture is evaluated on its own, starting with that capturer, so a
+pinned cheap attacker is never used and a capture that loses material (queen takes a
+defended rook) is neither an opportunity nor a "taken". Pawns and kings are not
+counted in v1, and en passant and promotion gains are ignored. `Result.hanging` lists
+the opponent pieces that were available to win, with the best net gain.
 """
 
 from __future__ import annotations
@@ -22,26 +24,26 @@ from __future__ import annotations
 import chess
 
 from app.detectors.hanging_own import CONFIRM_LOSS_CP, HANGING_MIN_GAIN, Evidence, Hanging, Result
-from app.detectors.see import see
+from app.detectors.see import capture_net
 
 DETECTOR = "missed_free"
 VERSION = "1"
 
 
 def free_pieces(board: chess.Board) -> tuple[Hanging, ...]:
-    """Opponent pieces the side to move can win by a legal capture."""
-    mover = board.turn
-    capture_squares = {m.to_square for m in board.legal_moves if board.is_capture(m)}
-    found = []
-    for square, piece in board.piece_map().items():
-        if piece.color == mover or piece.piece_type in (chess.PAWN, chess.KING):
+    """Opponent pieces the side to move can win by some legal capture (net gain per capture)."""
+    best: dict[chess.Square, int] = {}
+    for move in board.legal_moves:
+        victim = board.piece_at(move.to_square)
+        if victim is None or victim.piece_type in (chess.PAWN, chess.KING):
             continue
-        if square not in capture_squares:
-            continue
-        gain = see(board, square, mover)
-        if gain >= HANGING_MIN_GAIN:
-            found.append(Hanging(chess.square_name(square), piece.symbol(), gain))
-    return tuple(found)
+        net = capture_net(board, move)
+        if net >= HANGING_MIN_GAIN:
+            best[move.to_square] = max(best.get(move.to_square, 0), net)
+    return tuple(
+        Hanging(chess.square_name(sq), board.piece_at(sq).symbol(), net)
+        for sq, net in sorted(best.items())
+    )
 
 
 def _result(outcome: str, free=(), confirmed=None, notes=()) -> Result:
@@ -55,8 +57,10 @@ def detect(board: chess.Board, move: chess.Move, evidence: Evidence | None = Non
     free = free_pieces(board)
     if not free:
         return _result("not_applicable", notes=("no free piece to win",))
-    if board.is_capture(move) and chess.square_name(move.to_square) in {h.square for h in free}:
-        return _result("taken", free)
+    if capture_net(board, move) >= HANGING_MIN_GAIN and (
+        chess.square_name(move.to_square) in {h.square for h in free}
+    ):
+        return _result("taken", free)  # this capture itself wins material, not just the victim's square
     if evidence is None:
         return _result("missed", free)
     if evidence.best_cp - evidence.after_cp >= CONFIRM_LOSS_CP:
