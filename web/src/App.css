@@ -1,0 +1,3 @@
+.app { max-width: 560px; margin: 0 auto; padding: 16px; text-align: center; }
+.board { width: 100%; max-width: 520px; margin: 0 auto; }
+.error { color: #c0392b; }
