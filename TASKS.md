@@ -9,7 +9,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T04 MCP skeleton exposing `get_game`
 
 ## Day 2 — Play
-- [ ] T05 Engine wrapper (version + budget recorded; scores normalised to player's side; mate handled separately)
+- [x] T05 Engine wrapper (version + budget recorded; scores normalised to player's side; mate handled separately)
 - [ ] T06 Play vs Stockfish: level, colour, resign, game end
 - [ ] T07 Play/Practice flag; `assisted` set permanently on switch
 
