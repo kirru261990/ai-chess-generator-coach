@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import threading
 from dataclasses import dataclass
 from typing import Self
 
@@ -17,6 +18,18 @@ import chess
 import chess.engine
 
 DEFAULT_DEPTH = 14
+MAX_LEVEL = 10
+PLAY_MOVETIME_MS = 200
+
+
+def skill_for_level(level: int) -> int:
+    """Map product "Level 1..10" to Stockfish Skill Level (0, 2, ..., 18).
+
+    Levels are labels for relative strength, not Elo ratings (spec A2).
+    """
+    if not 1 <= level <= MAX_LEVEL:
+        raise ValueError(f"level must be 1..{MAX_LEVEL}")
+    return (level - 1) * 2
 
 
 class EngineError(Exception):
@@ -94,6 +107,7 @@ class Engine:
             depth=int(os.environ.get("ENGINE_DEFAULT_DEPTH", DEFAULT_DEPTH))
         )
         self._engine: chess.engine.SimpleEngine | None = None
+        self._lock = threading.Lock()  # one search at a time per process
         self.name = ""
 
     def __enter__(self) -> Self:
@@ -117,7 +131,9 @@ class Engine:
             raise EngineError("engine_not_running", "use Engine as a context manager")
         budget = budget or self.default_budget
         perspective = board.turn if perspective is None else perspective
-        info = self._engine.analyse(board, budget.limit())
+        with self._lock:
+            self._engine.configure({"Skill Level": 20})  # analysis is always full strength
+            info = self._engine.analyse(board, budget.limit())
         pv = tuple(m.uci() for m in info.get("pv", []))
         return Analysis(
             best_move=pv[0] if pv else None,
@@ -127,3 +143,15 @@ class Engine:
             engine=self.name,
             budget=budget,
         )
+
+    def play(self, board: chess.Board, level: int, movetime_ms: int = PLAY_MOVETIME_MS) -> str:
+        """Pick an opponent move (UCI) at the given product level."""
+        if self._engine is None:
+            raise EngineError("engine_not_running", "use Engine as a context manager")
+        skill = skill_for_level(level)
+        with self._lock:
+            self._engine.configure({"Skill Level": skill})
+            result = self._engine.play(board, chess.engine.Limit(time=movetime_ms / 1000))
+        if result.move is None:
+            raise EngineError("no_move", "engine returned no move")
+        return result.move.uci()
