@@ -15,6 +15,7 @@ type GameView = {
   assisted: boolean
   engine_level: number | null
   outcome: { result: string; termination: string } | null
+  legal_moves: string[]
 }
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
   const [level, setLevel] = useState(3)
   const [mode, setMode] = useState<'play' | 'practice'>('play')
   const engineInFlight = useRef(false)
+  const [selected, setSelected] = useState<string | null>(null)
 
   const call = useCallback(async (path: string, body?: object): Promise<GameView | null> => {
     try {
@@ -59,6 +61,10 @@ export default function App() {
     void newGame()
   }, [])
 
+  useEffect(() => {
+    setSelected(null)
+  }, [game?.id, game?.revision])
+
   const engineToMove =
     !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
 
@@ -76,30 +82,44 @@ export default function App() {
     })
   }, [game, engineToMove, busy, engineFailed, call])
 
-  // The board only ever shows the server-confirmed position: a drop sends the
-  // move to the API and returns false, so a rejected move snaps back.
-  function onDrop({
-    piece,
-    sourceSquare,
-    targetSquare,
-  }: {
-    piece: { pieceType: string }
-    sourceSquare: string
-    targetSquare: string | null
-  }): boolean {
-    if (!game || !targetSquare || game.outcome || busy || engineToMove) return false
-    const isPawn = piece.pieceType[1] === 'P'
-    const promo = isPawn && (targetSquare[1] === '8' || targetSquare[1] === '1') ? 'q' : ''
+  // Click a piece, then click where it should go. The board only ever shows the
+  // server-confirmed position; legal targets come from the server's list.
+  function onSquareClick({ piece, square }: { piece: { pieceType: string } | null; square: string }) {
+    if (!game || game.outcome || busy || engineToMove) return
+    const mine = piece !== null && piece.pieceType[0] === (game.user_color === 'white' ? 'w' : 'b')
+    if (mine) {
+      setSelected(square === selected ? null : square)
+      return
+    }
+    if (!selected) return
+    const candidates = game.legal_moves.filter((m) => m.startsWith(selected + square))
+    if (candidates.length === 0) {
+      setSelected(null) // not a legal target: clear the selection
+      return
+    }
+    const uci = candidates.find((m) => m.endsWith('q')) ?? candidates[0] // auto-queen
+    setSelected(null)
     setBusy(true)
     void call(`/games/${game.id}/moves`, {
-      uci: sourceSquare + targetSquare + promo,
+      uci,
       expected_revision: game.revision,
       engine_reply: false, // show my move now; the engine's reply follows
     }).then((g) => {
       setBusy(false)
       if (g) setGame(g)
     })
-    return false
+  }
+
+  const highlights: Record<string, React.CSSProperties> = {}
+  if (game && selected) {
+    highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
+    for (const m of game.legal_moves) {
+      if (m.startsWith(selected)) {
+        highlights[m.slice(2, 4)] = {
+          background: 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)',
+        }
+      }
+    }
   }
 
   async function switchMode(next: 'play' | 'practice') {
@@ -168,7 +188,9 @@ export default function App() {
               options={{
                 position: game.fen,
                 boardOrientation: game.user_color,
-                onPieceDrop: onDrop,
+                allowDragging: false,
+                onSquareClick,
+                squareStyles: highlights,
                 id: 'main-board',
               }}
             />
