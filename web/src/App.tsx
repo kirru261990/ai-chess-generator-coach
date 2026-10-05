@@ -24,6 +24,7 @@ export default function App() {
   const [engineFailed, setEngineFailed] = useState(false)
   const [color, setColor] = useState<'white' | 'black'>('white')
   const [level, setLevel] = useState(3)
+  const [mode, setMode] = useState<'play' | 'practice'>('play')
   const engineInFlight = useRef(false)
 
   const call = useCallback(async (path: string, body?: object): Promise<GameView | null> => {
@@ -49,7 +50,7 @@ export default function App() {
   async function newGame() {
     setBusy(true)
     setEngineFailed(false)
-    const g = await call('/games', { color, mode: 'play', level })
+    const g = await call('/games', { color, mode, level })
     setBusy(false)
     if (g) setGame(g)
   }
@@ -101,6 +102,19 @@ export default function App() {
     return false
   }
 
+  async function switchMode(next: 'play' | 'practice') {
+    if (!game || game.outcome || next === game.mode) return
+    if (
+      next === 'practice' &&
+      !window.confirm(
+        'Switch to Practice? This game will be marked assisted permanently, even if you switch back.',
+      )
+    )
+      return
+    const g = await call(`/games/${game.id}/mode`, { mode: next })
+    if (g) setGame(g)
+  }
+
   async function resign() {
     if (!game || game.outcome) return
     const g = await call(`/games/${game.id}/resign`, {})
@@ -124,6 +138,13 @@ export default function App() {
           <select value={color} onChange={(e) => setColor(e.target.value as 'white' | 'black')}>
             <option value="white">White</option>
             <option value="black">Black</option>
+          </select>
+        </label>
+        <label>
+          Mode{' '}
+          <select value={mode} onChange={(e) => setMode(e.target.value as 'play' | 'practice')}>
+            <option value="play">Play</option>
+            <option value="practice">Practice (assisted)</option>
           </select>
         </label>
         <label>
@@ -153,10 +174,16 @@ export default function App() {
             />
           </div>
           <p>
-            {status} · {game.mode}
-            {game.assisted && ' · assisted'}
+            {status} · {game.mode === 'play' ? 'Play' : 'Practice'}
+            {game.assisted && <span className="badge"> assisted</span>}
           </p>
           <div className="controls">
+            <button
+              onClick={() => void switchMode(game.mode === 'play' ? 'practice' : 'play')}
+              disabled={!!game.outcome}
+            >
+              {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
+            </button>
             <button onClick={() => void resign()} disabled={!!game.outcome}>
               Resign
             </button>
