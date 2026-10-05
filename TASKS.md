@@ -14,9 +14,9 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T07 Play/Practice flag; `assisted` set permanently on switch
 
 ## Day 3 — Sync + analysis
-- [ ] T08 Chess.com sync: serial requests, User-Agent, filter 10|0 and 15|10, dedupe by game URL
-- [ ] T09 Count available case-study games → note in `HANDOFF.md`
-- [ ] T10 Batch shallow engine pass over synced games; review of one game (up to 3 key moments)
+- [x] T08 Chess.com sync: serial requests, User-Agent, filter 10|0 and 15|10, dedupe by game URL
+- [x] T09 Count available case-study games → note in `HANDOFF.md`
+- [x] T10 Batch shallow engine pass over synced games; review of one game (up to 3 key moments)
 
 ## Day 4 — Detectors
 - [ ] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
