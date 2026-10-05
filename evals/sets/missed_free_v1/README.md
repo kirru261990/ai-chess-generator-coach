@@ -48,6 +48,14 @@ before the move, and the material count is followed along the engine's best line
 5. "Free piece" here excludes pawns and requires a legal capture; the detector and the
    oracle agree on that scope by design.
 
+## Second detector change (audit, 5 Oct 2026)
+
+A full-repository audit found that exchange evaluation still let a defender pinned to
+its king recapture. `see()` now plays out real legal moves and `missed_free` is v2. On this
+set `missed` calls went from 24/24 correct with 24/25 misses found to 25/25 and 25/25: the
+one position previously missed was this case. That is a smoke check on an easy, draft,
+engine-labelled set; it is not a result.
+
 ## Status
 
 Draft. Not frozen. `HANDOFF.md` lists no frozen sets; update it when this changes.
