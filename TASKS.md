@@ -26,6 +26,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Adversarial cases on purpose: pinned capturers, pinned defenders, losing captures, several capturers on one target
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
   - Report each detector's version next to its numbers
+  - **Status:** rule written and decided (`evals/sets/real_play_v1/LABEL_RULE.md`); set built as a DRAFT (202 items, `build_real_play_set.py`); hand-check sheets generated. Still to do: hand-check, freeze, run detectors, write the precision/recall script and report
 
 ## Day 5 — Blind-spot map + baseline
 - [ ] T14 Run detectors over last 100 case-study games
