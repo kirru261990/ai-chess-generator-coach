@@ -163,3 +163,27 @@ def test_a_late_engine_move_after_a_takeback_is_rejected(monkeypatch):
     r = client.post(f"/games/{gid}/engine-move")
     assert r.status_code == 409 and r.json()["error"] == "revision_conflict"
     assert client.get(f"/games/{gid}").json()["moves"] == []  # nothing was applied
+
+
+def test_null_move_over_http_is_a_400_and_changes_nothing():
+    gid = client.post("/games", json={}).json()["id"]
+    r = move(gid, "0000", 0, engine_reply=False)
+    assert r.status_code == 400 and r.json()["error"] == "illegal_move"
+    g = client.get(f"/games/{gid}").json()
+    assert g["moves"] == [] and g["turn"] == "white" and g["revision"] == 0
+
+
+def test_a_late_engine_move_after_a_resignation_is_rejected(monkeypatch):
+    class SlowEngine:
+        def play(self, board, level):
+            tools.resign_game(gid)  # the user resigns while the engine is still "thinking"
+            return "e7e5"
+
+    gid = client.post("/games", json={}).json()["id"]
+    move(gid, "e2e4", 0, engine_reply=False)
+    monkeypatch.setattr(tools, "get_engine", lambda: SlowEngine())
+    r = client.post(f"/games/{gid}/engine-move")
+    assert r.status_code == 409 and r.json()["error"] == "revision_conflict"
+    final = client.get(f"/games/{gid}").json()
+    assert final["outcome"] == {"result": "0-1", "termination": "resignation"}
+    assert final["moves"] == ["e2e4"]
