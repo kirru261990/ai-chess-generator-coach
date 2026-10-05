@@ -109,9 +109,18 @@ def test_switching_to_practice_marks_assisted_permanently():
     assert 'Assisted "true"' in client.get(f"/games/{gid}/pgn").text.replace("[", "").replace("]", "")
 
 
-def test_mode_switch_does_not_change_revision_and_rejects_bad_input():
+def test_a_mode_change_bumps_the_revision_and_a_no_op_does_not():
     gid = client.post("/games", json={}).json()["id"]
-    assert client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()["revision"] == 0
+    to_practice = client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()
+    assert to_practice["revision"] == 1 and to_practice["assisted"] is True
+    again = client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()
+    assert again["revision"] == 1  # nothing changed
+    back = client.post(f"/games/{gid}/mode", json={"mode": "play"}).json()
+    assert back["revision"] == 2 and back["assisted"] is True  # assisted never reverts
+
+
+def test_mode_switch_rejects_bad_input():
+    gid = client.post("/games", json={}).json()["id"]
     assert client.post(f"/games/{gid}/mode", json={"mode": "x"}).json()["error"] == "invalid_mode"
     assert client.post("/games/nope/mode", json={"mode": "play"}).status_code == 404
 
