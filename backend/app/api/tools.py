@@ -12,6 +12,12 @@ def _color(c: chess.Color) -> str:
     return "white" if c == chess.WHITE else "black"
 
 
+def _user_legal_moves(game: Game, board: chess.Board) -> list[str]:
+    if game.outcome() is not None or board.turn != game.user_color:
+        return []
+    return [m.uci() for m in board.legal_moves]
+
+
 def game_view(game: Game) -> dict:
     board = game.board()
     return {
@@ -25,6 +31,9 @@ def game_view(game: Game) -> dict:
         "assisted": game.assisted,
         "engine_level": game.engine_level,
         "outcome": game.outcome(),
+        # Legal moves for the user, so the client can highlight targets. The server still
+        # validates every move; this list is a convenience, never the authority.
+        "legal_moves": _user_legal_moves(game, board),
     }
 
 

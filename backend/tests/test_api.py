@@ -126,3 +126,12 @@ def test_cors_allows_any_local_dev_port_but_not_other_sites():
         assert preflight(ok).headers.get("access-control-allow-origin") == ok
     for bad in ("https://evil.example", "http://localhost.evil.example", "http://example.com:5173"):
         assert "access-control-allow-origin" not in preflight(bad).headers
+
+
+def test_legal_moves_are_listed_only_on_the_users_turn():
+    g = client.post("/games", json={}).json()
+    assert len(g["legal_moves"]) == 20 and "e2e4" in g["legal_moves"]
+    pending = move(g["id"], "e2e4", 0, engine_reply=False).json()
+    assert pending["legal_moves"] == []  # the opponent's turn
+    over = client.post(f"/games/{g['id']}/resign").json()
+    assert over["legal_moves"] == []
