@@ -8,7 +8,7 @@
   "puzzle_file_sha256": "76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d",
   "counts": {
     "missed_free": {
-      "engine_no_opportunity:not_applicable": 20,
+      "no_opportunity:not_applicable": 20,
       "adversarial:not_applicable": 5,
       "constructed_miss:missed": 40,
       "real_taken:taken": 40,
@@ -28,8 +28,8 @@
     "eligible_pool": 89214,
     "left_band_400": 15055,
     "left_band_600": 19545,
-    "left_band_800": 27878,
-    "left_band_1000": 26576
+    "left_band_800": 27877,
+    "left_band_1000": 26574
   },
   "shortfall": {},
   "items": 202,
