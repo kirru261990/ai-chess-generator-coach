@@ -29,6 +29,11 @@ def _user_legal_moves(game: Game, board: chess.Board) -> list[str]:
 
 
 def game_view(game: Game) -> dict:
+    with game.lock:
+        return _game_view(game)
+
+
+def _game_view(game: Game) -> dict:
     board = game.board()
     return {
         "id": game.id,
@@ -66,13 +71,18 @@ def _engine_to_move(game: Game) -> bool:
 def engine_reply(game_id: str) -> dict:
     """Play the engine's move if it is the engine's turn; otherwise return state unchanged.
 
-    Idempotent, so a client can safely retry after a failure.
+    Idempotent, so a client can safely retry after a failure. The search runs outside the
+    game's lock (it is slow); the move is then applied against the revision captured before
+    thinking, so a takeback, resignation or mode change in the meantime rejects the late
+    move (revision_conflict) instead of playing it on the wrong position.
     """
     game = _get(game_id)
-    if _engine_to_move(game):
-        revision = game.revision  # captured before thinking: if the game changes meanwhile
-        uci = get_engine().play(game.board(), game.engine_level)  # (e.g. a takeback), the
-        make_move(game, uci, revision)  # stale move is rejected instead of played
+    with game.lock:
+        if not _engine_to_move(game):
+            return _game_view(game)
+        revision, board, level = game.revision, game.board(), game.engine_level
+    uci = get_engine().play(board, level)
+    make_move(game, uci, revision)  # validates and applies atomically under the lock
     return game_view(game)
 
 
@@ -105,9 +115,10 @@ def get_game(game_id: str) -> dict:
 
 def apply_move(game_id: str, uci: str, expected_revision: int, engine_reply_: bool = True) -> dict:
     game = _get(game_id)
-    if game.outcome() is None and game.board().turn != game.user_color:
-        raise GameError("not_your_turn", "it is the opponent's turn")
-    make_move(game, uci, expected_revision)
+    with game.lock:  # the turn check and the move are one step
+        if game.outcome() is None and game.board().turn != game.user_color:
+            raise GameError("not_your_turn", "it is the opponent's turn")
+        make_move(game, uci, expected_revision)
     return engine_reply(game_id) if engine_reply_ else game_view(game)
 
 
