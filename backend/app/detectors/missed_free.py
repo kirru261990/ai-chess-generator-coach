@@ -15,7 +15,9 @@ the exchange nets at least HANGING_MIN_GAIN pawns. Outcomes:
 Each *legal* capture is evaluated on its own, starting with that capturer, so a
 pinned cheap attacker is never used and a capture that loses material (queen takes a
 defended rook) is neither an opportunity nor a "taken". Pawns and kings are not
-counted in v1, and en passant and promotion gains are ignored. `Result.hanging` lists
+counted, and en passant and promotion gains are ignored. v2: recaptures are legal
+too, so a defender pinned to its king no longer protects a piece (found by the
+full-repository audit of 5 Oct 2026). `Result.hanging` lists
 the opponent pieces that were available to win, with the best net gain.
 """
 
@@ -27,7 +29,7 @@ from app.detectors.hanging_own import CONFIRM_LOSS_CP, HANGING_MIN_GAIN, Evidenc
 from app.detectors.see import capture_net
 
 DETECTOR = "missed_free"
-VERSION = "1"
+VERSION = "2"  # v2: exchanges use legal recaptures (a pinned defender cannot recapture)
 
 
 def free_pieces(board: chess.Board) -> tuple[Hanging, ...]:

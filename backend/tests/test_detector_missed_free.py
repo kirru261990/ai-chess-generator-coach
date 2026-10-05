@@ -14,7 +14,7 @@ def mv(uci):
 def test_taking_the_free_piece_is_taken():
     r = detect(chess.Board(FREE_KNIGHT), mv("d1d5"))
     assert r.outcome == "taken" and r.hanging[0].square == "d5" and r.hanging[0].gain == 3
-    assert r.detector == "missed_free" and r.version == "1"
+    assert r.detector == "missed_free" and r.version == "2"
 
 
 def test_ignoring_it_is_missed():
@@ -102,3 +102,24 @@ def test_capture_net_is_signed_and_exact():
     assert capture_net(board, mv("c4d5")) == 5  # rook won; the pawn trade that follows is even
     assert capture_net(board, mv("d1d5")) == -3  # rook (5) won, queen (9) then lost, pawn back (1)
     assert capture_net(board, mv("e1e2")) == 0  # not a capture
+
+
+# ---- regressions from the full-repository audit (legal recaptures) ----
+
+def test_a_pinned_defender_cannot_recapture():
+    # Rxd5 wins the knight: ...exd5 is illegal because the e6 pawn is pinned to Ke8 by Re1.
+    from app.detectors.see import capture_net
+
+    board = chess.Board("4k3/8/4p3/3n4/8/8/8/3RR1K1 w - - 0 1")
+    assert capture_net(board, mv("d1d5")) == 3
+    assert [(h.square, h.gain) for h in free_pieces(board)] == [("d5", 3)]
+    assert detect(board, mv("d1d5")).outcome == "taken"
+    assert detect(board, mv("g1f1")).outcome == "missed"
+
+
+def test_an_unpinned_defender_still_recaptures():
+    from app.detectors.see import capture_net
+
+    board = chess.Board("4k3/8/4p3/3n4/8/8/8/3R2K1 w - - 0 1")  # same, but nothing pins e6
+    assert capture_net(board, mv("d1d5")) == -2  # rook (5) lost for a knight (3)
+    assert free_pieces(board) == ()
