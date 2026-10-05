@@ -29,7 +29,9 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ### 2026-10-05 · MacBook · Claude Code (session 9)
 - **Done:** T12. `detectors/missed_free.py` (v1) and a 50-position draft set (`evals/sets/missed_free_v1/`, builder `evals/tools/build_missed_free_set.py`). Also web: engine reply is shown 1 s after the player's move (`ENGINE_MIN_REPLY_MS`). Takeback rule confirmed by the user: 2 undos per move (a new move resets the allowance), which is what is implemented.
+- **GPT review of PR #12 found two real `missed_free` bugs** (losing capture credited as taken; pinned attacker creating a free piece). Both fixed with regression tests; each legal capture is now evaluated on its own (`see.capture_net`). The draft set gave the same numbers before and after, so it cannot catch this class of bug: the T13 set needs adversarial cases (pins, losing captures, several capturers).
 - **Smoke check only:** 24/24 `missed` calls correct, 24/25 misses found on the draft set. The set is easy; do not quote.
+- **Process:** `REVIEW.md` and the PR template with a Reviewed-by section are merged. `hanging_own` (already merged) likely has the same two weaknesses in its own form (it uses `see` on squares and ignores pins when picking attackers); worth a review pass before T13.
 - **Next:** T13.
 - **Blockers:** none. Both draft sets need a human spot-check of labels.
 - **Branch / PR:** `feat/missed-free-detector`
