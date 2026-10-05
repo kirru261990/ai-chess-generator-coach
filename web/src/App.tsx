@@ -3,6 +3,9 @@ import { Chessboard } from 'react-chessboard'
 import './App.css'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+// The engine answers in ~0.2 s, which is too fast for the player to follow what happened.
+// Show its reply no sooner than this after the player's move.
+const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
 
 type GameView = {
@@ -76,7 +79,10 @@ export default function App() {
     if (!game || !engineToMove || busy || engineFailed || engineInFlight.current) return
     engineInFlight.current = true
     setBusy(true)
-    void call(`/games/${game.id}/engine-move`, {}).then((g) => {
+    const started = Date.now()
+    void call(`/games/${game.id}/engine-move`, {}).then(async (g) => {
+      const wait = ENGINE_MIN_REPLY_MS - (Date.now() - started)
+      if (g && wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
       engineInFlight.current = false
       setBusy(false)
       if (g) setGame(g)
