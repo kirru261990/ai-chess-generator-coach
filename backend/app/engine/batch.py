@@ -25,6 +25,9 @@ from app import config
 from app.engine.stockfish import Budget, Engine
 
 BATCH_BUDGET = Budget(depth=10)
+# Bump when the stored record layout or meaning changes; older records are re-analysed.
+# 2: positions carry mate_sign, so a position that is already checkmate keeps its winner.
+SCHEMA = 2
 
 
 def game_id(source_id: str) -> str:
@@ -56,6 +59,7 @@ def analyse_game(engine: Engine, pgn: str, budget: Budget) -> dict | None:
                 "fen": board.fen(),
                 "cp": a.score.cp,
                 "mate": a.score.mate,
+                "mate_sign": a.score.mate_sign,  # +1 White mates, -1 Black mates (White's view)
                 "best": a.best_move,
                 "depth": a.depth,
             }
@@ -64,6 +68,7 @@ def analyse_game(engine: Engine, pgn: str, budget: Budget) -> dict | None:
             sans.append(board.san(moves[i]))
             board.push(moves[i])
     return {
+        "schema": SCHEMA,
         "engine": engine.name,
         "budget": {"depth": budget.depth, "movetime_ms": budget.movetime_ms},
         "moves": [m.uci() for m in moves],
@@ -86,9 +91,18 @@ class AnalysisStore:
                         self._records[r["source_id"]] = r
 
     def has(self, source_id: str, engine: str, budget: Budget) -> bool:
+        """True only if the stored record was made by this engine, at this budget, in the current
+        record layout. Anything else must be re-analysed, never reused."""
         r = self._records.get(source_id)
         want = {"depth": budget.depth, "movetime_ms": budget.movetime_ms}
-        return bool(r and r["engine"] == engine and r["budget"] == want)
+        return bool(
+            r and r.get("schema") == SCHEMA and r["engine"] == engine and r["budget"] == want
+        )
+
+    def has_current_schema(self, source_id: str) -> bool:
+        """Cheap check that needs no engine: is there a record in the current layout?"""
+        r = self._records.get(source_id)
+        return bool(r and r.get("schema") == SCHEMA)
 
     def get(self, source_id: str) -> dict | None:
         return self._records.get(source_id)

@@ -30,7 +30,7 @@ def list_synced_games(limit: int = 20) -> list[dict]:
             "user_result": g["user_result"],
             "time_control": g["time_control"],
             "end_time": g["end_time"],
-            "analysed": analyses.get(g["source_id"]) is not None,
+            "analysed": analyses.has_current_schema(g["source_id"]),
         }
         for g in rows
     ]
@@ -42,8 +42,11 @@ def review_synced_game(gid: str) -> dict:
     if game is None:
         raise GameError("not_found", f"no synced game {gid}")
     engine = get_engine()
-    analysis = analyses.get(game["source_id"])
-    if analysis is None:  # not in the batch yet: run the fast pass for this one game
+    # Reuse the stored fast pass only if this engine, budget and record layout produced it.
+    # Otherwise (missing, older engine, shallower budget, old layout) analyse again.
+    if analyses.has(game["source_id"], engine.name, BATCH_BUDGET):
+        analysis = analyses.get(game["source_id"])
+    else:
         analysis = analyse_game(engine, game["pgn"], BATCH_BUDGET)
         if analysis is None:
             raise GameError("unusable_game", "this game's PGN could not be analysed")
