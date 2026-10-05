@@ -93,3 +93,104 @@ def test_pgn_export_roundtrip():
     g = play(new_game(), "e2e4", "e7e5", "g1f3")
     pgn = to_pgn(g)
     assert "1. e4 e5 2. Nf3" in pgn and '[Result "*"]' in pgn and '[Assisted "false"]' in pgn
+
+
+# ---- takebacks (Practice mode) ----
+
+def practice(color=chess.WHITE, level=3):
+    from app.core.game import new_game as ng
+
+    return ng(color, Mode.PRACTICE, engine_level=level)
+
+
+def test_takeback_removes_engine_reply_and_user_move():
+    from app.core.game import take_back
+
+    g = play(practice(), "e2e4", "e7e5")  # user move + engine reply
+    take_back(g)
+    assert g.moves == [] and g.board().turn == chess.WHITE
+
+
+def test_takeback_when_engine_has_not_replied_removes_only_the_users_move():
+    from app.core.game import take_back
+
+    g = play(practice(), "e2e4")  # engine's turn
+    take_back(g)
+    assert g.moves == []
+
+
+def test_at_most_two_takebacks_in_a_row_and_a_move_resets_the_count():
+    from app.core.game import take_back
+
+    g = play(practice(), "e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6")
+    assert g.takebacks_left == 2
+    take_back(g)
+    take_back(g)
+    assert g.moves == ["e2e4", "e7e5"] and g.takebacks_left == 0
+    with pytest.raises(GameError) as e:
+        take_back(g)
+    assert e.value.code == "takeback_limit"
+    play(g, "d2d4")  # a new move starts a fresh allowance
+    assert g.takebacks_left == 2
+
+
+def test_takeback_only_in_practice_and_never_after_resigning():
+    from app.core.game import take_back
+
+    g = play(new_game(engine_level=3), "e2e4", "e7e5")
+    with pytest.raises(GameError) as e:
+        take_back(g)
+    assert e.value.code == "takeback_not_allowed" and g.takebacks_left == 0
+    p = play(practice(), "e2e4", "e7e5")
+    resign(p, chess.WHITE)
+    with pytest.raises(GameError) as e:
+        take_back(p)
+    assert e.value.code == "game_over"
+
+
+def test_nothing_to_take_back_when_the_engine_only_opened():
+    from app.core.game import take_back
+
+    g = play(practice(chess.BLACK), "e2e4")  # engine (white) opened; black user to move
+    assert g.takebacks_left == 0
+    with pytest.raises(GameError) as e:
+        take_back(g)
+    assert e.value.code == "nothing_to_take_back" and g.moves == ["e2e4"]
+
+
+def test_black_user_takeback_returns_to_the_users_turn():
+    from app.core.game import take_back
+
+    g = play(practice(chess.BLACK), "e2e4", "e7e5", "g1f3")
+    take_back(g)  # drops e5 and Nf3
+    assert g.moves == ["e2e4"] and g.board().turn == chess.BLACK
+
+
+def test_takeback_after_being_mated_lets_the_user_rectify():
+    from app.core.game import take_back
+
+    g = play(practice(chess.BLACK), "f2f3", "e7e5", "g2g4", "d8h4")  # black user mates; engine to move
+    assert g.outcome()["termination"] == "checkmate"
+    take_back(g)  # undoes the mating move only
+    assert g.outcome() is None and g.moves == ["f2f3", "e7e5", "g2g4"]
+
+
+def test_revision_only_goes_up_so_stale_clients_cannot_match_after_an_undo():
+    from app.core.game import take_back
+
+    g = play(practice(), "e2e4", "e7e5")
+    seen = g.revision
+    take_back(g)
+    assert g.revision > seen
+    with pytest.raises(GameError) as e:
+        make_move(g, "d2d4", seen)  # the revision the client held before the undo
+    assert e.value.code == "revision_conflict"
+
+
+def test_takeback_keeps_the_game_assisted():
+    from app.core.game import take_back
+
+    g = play(practice(), "e2e4", "e7e5")
+    take_back(g)
+    set_mode(g, Mode.PLAY)
+    assert g.assisted is True
