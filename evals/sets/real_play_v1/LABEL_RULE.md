@@ -1,4 +1,4 @@
-# real_play_v1: label rule (v0.3, decisions made, set not yet frozen)
+# real_play_v1: label rule (v0.4, decisions made, set not yet frozen)
 
 **Status:** the owner delegated the open decisions on 2026-10-05 and asked that each be
 reversible; they are in section 12 with reasons and how to undo them. **No detector has been run
@@ -24,6 +24,21 @@ are curated tactics, so opportunities are far denser than in normal play.
    by Lichess's theme and solution.
 3. The theme exclusions now apply to **every** sampler (the negatives skipped them before).
 4. The hand-check questions were rewritten so the answers map to **all four labels** (section 9).
+
+**Changes in v0.4** (after GPT's second pair of comments on PR #21; both reproduced):
+1. `hanging_own` real items now require the **safe-versus-hanging choice** their label assumes. A blunder
+   needs at least one safe alternative; a "safe" move needs at least one alternative that would have hung
+   something. Otherwise the correct outcome is `not_applicable`, not `missed` or `taken` (found: 12 blunders
+   with no safe alternative, 2 safe items where nothing could hang).
+2. Real blunders are labelled by the **same evidence rule as the detectors**: `missed` if the engine loss is
+   at least 300 cp, `uncertain` if it is under 100 cp (the move hangs material but the engine does not
+   confirm a loss, for example when mate is coming anyway), excluded if 100-299 cp. The engine numbers are
+   stored on every such item (`engine_best_cp`, `engine_after_cp`, `loss_cp`). Hand-built adversarial items
+   record the same numbers and the builder asserts they agree with the label.
+3. Each item has a `label` (the outcome a correct detector gives **with** engine evidence) and a
+   `material_label` (what the board alone shows). They differ only when the engine overrides the material
+   picture. **The hand-check validates `material_label`**; the engine part of a label is verified by the
+   stored numbers, which people cannot judge.
 
 ---
 
@@ -74,8 +89,8 @@ excluded theme (section 6) are eligible. Deduplicate by `PuzzleId`.
 
 | Label | Item | How the label is decided |
 |---|---|---|
-| `missed` (real) | position = `FEN`; move = `Moves[0]` | Eligible if `Moves[1]` captures a **non-pawn piece belonging to the side that played `Moves[0]`** **and** the independent exchange search confirms that, after `Moves[0]`, the opponent can win at least 2 pawns by capturing one of that side's non-pawn pieces. Real human blunders that hung a piece. |
-| `taken` (real, safe) | position after `Moves[0]`; move = `Moves[1]` | A solver move Lichess verified as best. Eligible only if the puzzle has none of the sacrifice-type themes (section 6) **and** the independent exchange search confirms that, after the move, the opponent cannot win 2 pawns by capturing one of the mover's non-pawn pieces. |
+| `missed` (real) | position = `FEN`; move = `Moves[0]` | Eligible if `Moves[1]` captures a **non-pawn piece belonging to the side that played `Moves[0]`** **and** the independent exchange search confirms that, after `Moves[0]`, the opponent can win at least 2 pawns by capturing one of that side's non-pawn pieces, **and** the mover had at least one safe alternative. The label is then set by the engine evidence: `missed` if the loss is at least 300 cp, `uncertain` if under 100 cp, excluded if in between. Real human moves that hung a piece. |
+| `taken` (real, safe) | position after `Moves[0]`; move = `Moves[1]` | A solver move Lichess verified as best. Eligible only if the puzzle has none of the sacrifice-type themes (section 6) **and** the independent exchange search confirms that, after the move, the opponent cannot win 2 pawns by capturing one of the mover's non-pawn pieces, **and** some other legal move would have hung a piece (so there was a real choice). |
 | `not_applicable` | adversarial positions only | Positions where no move can hang a piece, or where every move does. |
 | any | adversarial positions (section 5) | By construction. |
 
@@ -192,6 +207,7 @@ legal move have left a piece to be won?)
 | no | n/a | yes | `taken` |
 | no | n/a | no | `not_applicable` (nothing could hang) |
 
+- **What the answers are compared with:** each item's `material_label`, not its `label`. A few real blunders are `uncertain` in `label` because the engine does not confirm a loss; the checkers answer only about material, and their answers map to `missed` for those.
 - **Two checkers, independently:** the owner (30 items) and a second reviewer such as GPT following
   `REVIEW.md` (a different 30, plus all adversarial items). A question the owner cannot answer is marked
   `can't tell`; it is not forced.
@@ -244,6 +260,7 @@ described as a rate of mistakes in anyone's play.
 | 5 | **Hand-check by yes/no board questions**, owner plus a second reviewer, labels hidden | The owner said they could not judge chess labels directly; concrete yes/no questions about the board are answerable and avoid anchoring on our label | Add or swap reviewers; the sheet is regenerable |
 | 8 | **"No opportunity" is defined by the material search, not the engine's choice** | An engine can prefer another move while a capture still legally wins material (found in review) | Add the engine condition back as an extra filter and rebuild as v2 |
 | 6 | **No real-games sample in v1**; a bounded one is a v2 option | The games files are about 28 GB a month and need a streaming plan and fresh approval | v2 |
+| 9 | Real blunders use the **same evidence thresholds as the detectors' labels**: 300 cp for `missed`, under 100 cp for `uncertain`, excluded between | The label is an outcome with engine evidence; material alone overstated 8 of 40 (found in review) | Change the thresholds and build v2; the engine numbers are stored per item |
 | 7 | Constructed-miss and `taken` items come from **different puzzles** | Keeps items independent | Seeded sampler option |
 
 Open for later, not blocking: the licence choice (T24) and the real-games sample (decision 6).

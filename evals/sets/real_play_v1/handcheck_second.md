@@ -21,8 +21,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-122
-- White to move; move played: **Qxc6**
-- Board: https://lichess.org/analysis/2r3k1/p4pbp/2r1p1p1/q1P5/P7/4BQ1P/2R2PP1/1R4K1_w_-_-_1_22
+- Black to move; move played: **Qxb5**
+- Board: https://lichess.org/analysis/rnb1k2r/3ppp1p/6p1/qBpP4/8/2Q1PN2/PP3PPP/1R2K2R_b_Kkq_-_0_12
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -39,8 +39,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-139
-- White to move; move played: **h3**
-- Board: https://lichess.org/analysis/1k1r1b1r/1pp1ppp1/5n1p/1N6/8/5nP1/PP3PKP/R2R4_w_-_-_0_18
+- White to move; move played: **b4**
+- Board: https://lichess.org/analysis/rnb2k2/1p3p1p/p3pPp1/4P3/3r4/3B4/PP4PP/2R2RK1_w_-_-_0_25
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -48,8 +48,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-113
-- Black to move; move played: **Qc3**
-- Board: https://lichess.org/analysis/r1k5/2p3Qp/2q5/1p1p4/8/p5P1/2N2PP1/4R1K1_b_-_-_2_32
+- Black to move; move played: **b4**
+- Board: https://lichess.org/analysis/4rbk1/2q1rp1p/2bB1pp1/1p1B1P2/p3P1P1/P1P4P/1P1Q4/1K1RR3_b_-_-_0_26
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -75,8 +75,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-175
-- Black to move; move played: **Rf6**
-- Board: https://lichess.org/analysis/5r1k/pp6/2p5/2P1BBR1/6P1/8/P1K5/4r3_b_-_-_2_38
+- Black to move; move played: **Kh8**
+- Board: https://lichess.org/analysis/6k1/8/1p1p2pp/3P1q2/3b4/5BP1/P6P/4Q2K_b_-_-_0_34
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -84,8 +84,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-190
-- White to move; move played: **Bxc7**
-- Board: https://lichess.org/analysis/3r2k1/1pq3pp/p2B4/3R1p2/8/1P5P/P3rPP1/3R2K1_w_-_-_0_28
+- Black to move; move played: **Qxh3#**
+- Board: https://lichess.org/analysis/8/1p5q/p7/4p3/1PP1P1P1/k2PNn1Q/8/7K_b_-_-_6_58
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -93,8 +93,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-167
-- Black to move; move played: **Kg7**
-- Board: https://lichess.org/analysis/4r3/1p2P2P/2p3k1/p4p1R/P4K2/1P6/8/8_b_-_-_0_52
+- Black to move; move played: **Qd3**
+- Board: https://lichess.org/analysis/r6r/1p1k1pbp/2pp2p1/p2N4/Q3P3/5q2/PPP4P/1K1R1B1R_b_-_-_1_18
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -111,8 +111,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-120
-- Black to move; move played: **Rh4**
-- Board: https://lichess.org/analysis/3R3r/4kpQ1/6p1/4p3/1n4P1/pP3P2/P1P5/1K5R_b_-_-_0_33
+- Black to move; move played: **Rab8**
+- Board: https://lichess.org/analysis/r3r1k1/pbp2p1p/1p4p1/3P4/3p4/6Q1/P1P2PPP/R1B1R1K1_b_-_-_0_21
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -147,8 +147,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-061
-- Black to move; move played: **Qh5**
-- Board: https://lichess.org/analysis/r3k2r/ppp1np2/4b3/q7/3QN3/8/PPP2PPP/R3R1K1_b_kq_-_0_15
+- Black to move; move played: **Rxe8**
+- Board: https://lichess.org/analysis/r2kR2r/1pp3p1/7p/1Q6/8/2P5/PP1q1PPP/4R1K1_b_-_-_1_21
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -174,8 +174,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-192
-- White to move; move played: **f3**
-- Board: https://lichess.org/analysis/r2q1bkr/p1pb2pp/8/3nN3/8/1Q6/P4PPP/RN3RK1_w_-_-_3_15
+- White to move; move played: **Kh2**
+- Board: https://lichess.org/analysis/4k1r1/5p2/2p1PQ2/3p4/p4Pr1/n1P5/P4qp1/4R1K1_w_-_-_0_33
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -183,8 +183,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-086
-- White to move; move played: **Rg1**
-- Board: https://lichess.org/analysis/r1br2k1/ppp1nppp/2p2q2/2b5/2B1P2P/2N2P2/PPP3P1/R1BQK2R_w_KQ_-_1_10
+- White to move; move played: **Qe7**
+- Board: https://lichess.org/analysis/4q2k/2p2Qpp/2Pp2r1/1p1B4/1P6/6Pb/PnP2P1P/R5K1_w_-_-_0_20
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -192,8 +192,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-097
-- White to move; move played: **Bxd5**
-- Board: https://lichess.org/analysis/2r5/4p1kp/5pp1/1P1q4/2B5/8/5PPP/2R3K1_w_-_-_0_31
+- White to move; move played: **Rxd7**
+- Board: https://lichess.org/analysis/5rk1/p2rqp1p/1p4p1/8/1PQR4/P1P5/6PP/4R2K_w_-_-_3_29
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -210,8 +210,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-185
-- Black to move; move played: **fxg6**
-- Board: https://lichess.org/analysis/5rk1/2r2p2/2N3R1/p1q5/1p6/4PQ2/PP4P1/5RK1_b_-_-_0_28
+- Black to move; move played: **Qxc5**
+- Board: https://lichess.org/analysis/1r2k2r/p1pbqpb1/2B2npp/2B1p3/8/2N5/PPPQ1PPP/R4RK1_b_k_-_4_15
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -246,8 +246,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-146
-- White to move; move played: **Rxf7**
-- Board: https://lichess.org/analysis/2Q2bk1/2R2r1p/p4p2/1b1p2p1/1P1Pq3/P3P1B1/5PPP/1R4K1_w_-_-_8_31
+- Black to move; move played: **Bxf3**
+- Board: https://lichess.org/analysis/3r2k1/p3pp1p/6p1/1Q1bb3/8/PP3NNq/5P1P/3R2K1_b_-_-_0_30
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -255,8 +255,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-150
-- Black to move; move played: **Qb3**
-- Board: https://lichess.org/analysis/r6r/1p1k1pbp/2pp2p1/p2N4/Q3P3/5q2/PPP4P/1K1R1B1R_b_-_-_1_18
+- White to move; move played: **Rc1**
+- Board: https://lichess.org/analysis/2b3k1/pp2q1pp/3r1p2/8/1P6/6N1/PBP2PPP/4R1K1_w_-_-_0_21
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -336,8 +336,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-056
-- Black to move; move played: **Qxf1+**
-- Board: https://lichess.org/analysis/6k1/2p5/p1b4Q/1p3pp1/2pR4/2P2P1P/PP2r1P1/2q2N1K_b_-_-_4_33
+- Black to move; move played: **Rxf1#**
+- Board: https://lichess.org/analysis/r1b2r2/ppp1k1pp/1b6/4N3/2B5/2Pn4/PP4PP/R1B2R1K_b_-_-_6_17
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -363,8 +363,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-058
-- Black to move; move played: **Bxf4+**
-- Board: https://lichess.org/analysis/4Q3/ppb4k/8/8/PPN2R2/7p/5p1K/8_b_-_-_0_43
+- White to move; move played: **Rxd8#**
+- Board: https://lichess.org/analysis/1k1r1b1r/1pp1ppp1/5n1p/1N6/8/5nP1/PP3PKP/R2R4_w_-_-_0_18
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -381,8 +381,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-105
-- White to move; move played: **Rh3+**
-- Board: https://lichess.org/analysis/r7/p1pbqQ1p/1pnp2pk/4p3/2B1P3/2P1R3/P1P2P2/1R4K1_w_-_-_0_29
+- Black to move; move played: **Rxe5**
+- Board: https://lichess.org/analysis/r3r1k1/pp1q1pb1/2p2npp/4P3/6b1/2P1BNP1/PP2QPBP/R3R1K1_b_-_-_0_16
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -390,7 +390,7 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-171
-- White to move; move played: **Qg7+**
+- White to move; move played: **Qh5**
 - Board: https://lichess.org/analysis/r1b2r1k/pp3p1p/4p1pQ/3p4/5P2/1B6/PqP3PP/R4R1K_w_-_-_0_20
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
@@ -408,8 +408,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-200
-- Black to move; move played: **Bxe4+**
-- Board: https://lichess.org/analysis/6k1/p1q4p/4p1p1/1p1b4/4N1P1/1PQ5/P1K5/7R_b_-_-_2_36
+- Black to move; move played: **Qxe1#**
+- Board: https://lichess.org/analysis/8/3kB2p/4pQp1/P2p1p2/1qp5/8/2P3PP/4R2K_b_-_-_0_34
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -435,8 +435,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-153
-- White to move; move played: **Bxh6**
-- Board: https://lichess.org/analysis/r4rk1/pp3pp1/2p4p/3b1qB1/3Q4/3P2R1/PP3PP1/R6K_w_-_-_0_21
+- Black to move; move played: **Bxb5**
+- Board: https://lichess.org/analysis/r2qkbnr/pp1b1ppp/3p4/1Bp5/4P3/2N2Q2/PPPP2PP/R1B2RK1_b_kq_-_3_8
 - Questions (yes / no / can't tell):
   - A. Before this move, could the side to move win material by capturing a knight, bishop, rook or queen, gaining at least two pawns' worth after the opponent takes back as well as it can? (A rook for a bishop counts. A trade of equal pieces does not.)
   - B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)
@@ -444,8 +444,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-036
-- White to move; move played: **Qxh1**
-- Board: https://lichess.org/analysis/8/5R2/2p3pk/4p2p/P1B5/2P2PRK/1P4Q1/2q4r_w_-_-_7_59
+- White to move; move played: **Bd4**
+- Board: https://lichess.org/analysis/8/r3bkpp/4p3/2n5/1p2P1P1/1B3P2/1B5P/2R3K1_w_-_-_3_36
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
@@ -453,8 +453,8 @@ Answer each question from the board. **Do not run the detectors.** If you cannot
 - Your answers (A, B, C): ______
 
 ## rp1-114
-- White to move; move played: **Kh5**
-- Board: https://lichess.org/analysis/8/pp4pk/8/2p5/7K/2PPBn1Q/PP4q1/R7_w_-_-_8_34
+- White to move; move played: **Qf3**
+- Board: https://lichess.org/analysis/rnbr2k1/pp3pbp/6p1/q1pNN3/8/8/PPP2PPP/R1BQR1K1_w_-_-_1_14
 - Questions (yes / no / can't tell):
   - A. After this move, can the opponent win at least two pawns' worth of material by capturing one of the mover's knights, bishops, rooks or queens, counting what the mover can take back?
   - B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that avoids this?
