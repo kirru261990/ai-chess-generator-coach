@@ -3,7 +3,17 @@
 import chess
 
 from app.api.store import GAMES
-from app.core.game import Game, GameError, Mode, make_move, new_game, resign, set_mode, to_pgn
+from app.core.game import (
+    Game,
+    GameError,
+    Mode,
+    make_move,
+    new_game,
+    resign,
+    set_mode,
+    take_back,
+    to_pgn,
+)
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL
 
@@ -29,6 +39,7 @@ def game_view(game: Game) -> dict:
         "user_color": _color(game.user_color),
         "mode": game.mode.value,
         "assisted": game.assisted,
+        "takebacks_left": game.takebacks_left,
         "engine_level": game.engine_level,
         "outcome": game.outcome(),
         # Legal moves for the user, so the client can highlight targets. The server still
@@ -59,8 +70,9 @@ def engine_reply(game_id: str) -> dict:
     """
     game = _get(game_id)
     if _engine_to_move(game):
-        uci = get_engine().play(game.board(), game.engine_level)
-        make_move(game, uci, game.revision)
+        revision = game.revision  # captured before thinking: if the game changes meanwhile
+        uci = get_engine().play(game.board(), game.engine_level)  # (e.g. a takeback), the
+        make_move(game, uci, revision)  # stale move is rejected instead of played
     return game_view(game)
 
 
@@ -97,6 +109,10 @@ def apply_move(game_id: str, uci: str, expected_revision: int, engine_reply_: bo
         raise GameError("not_your_turn", "it is the opponent's turn")
     make_move(game, uci, expected_revision)
     return engine_reply(game_id) if engine_reply_ else game_view(game)
+
+
+def take_back_move(game_id: str) -> dict:
+    return game_view(take_back(_get(game_id)))
 
 
 def resign_game(game_id: str) -> dict:

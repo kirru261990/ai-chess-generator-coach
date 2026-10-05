@@ -26,7 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_STATUS = {"not_found": 404, "revision_conflict": 409, "not_your_turn": 409}
+_STATUS = {
+    "not_found": 404,
+    "revision_conflict": 409,
+    "not_your_turn": 409,
+    "takeback_not_allowed": 409,
+    "takeback_limit": 409,
+    "nothing_to_take_back": 409,
+}
 
 
 @app.exception_handler(GameError)
@@ -88,6 +95,11 @@ def switch_mode(game_id: str, body: ModeIn):
 @app.post("/games/{game_id}/engine-move")
 def engine_move(game_id: str):
     return tools.engine_reply(game_id)
+
+
+@app.post("/games/{game_id}/takeback")
+def takeback(game_id: str):
+    return tools.take_back_move(game_id)
 
 
 @app.post("/games/{game_id}/resign")

@@ -135,3 +135,31 @@ def test_legal_moves_are_listed_only_on_the_users_turn():
     assert pending["legal_moves"] == []  # the opponent's turn
     over = client.post(f"/games/{g['id']}/resign").json()
     assert over["legal_moves"] == []
+
+
+def test_takeback_api_flow_and_errors():
+    gid = client.post("/games", json={"mode": "practice"}).json()["id"]
+    r = move(gid, "e2e4", 0, engine_reply=False).json()
+    assert r["takebacks_left"] == 2
+    back = client.post(f"/games/{gid}/takeback").json()
+    assert back["moves"] == [] and back["takebacks_left"] == 0 and back["revision"] > r["revision"]
+    assert move(gid, "e2e4", r["revision"], engine_reply=False).json()["error"] == "revision_conflict"
+    play_gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    err = client.post(f"/games/{play_gid}/takeback")
+    assert err.status_code == 409 and err.json()["error"] == "takeback_not_allowed"
+    assert client.post(f"/games/{gid}/takeback").json()["error"] == "nothing_to_take_back"
+
+
+def test_a_late_engine_move_after_a_takeback_is_rejected(monkeypatch):
+    class SlowEngine:
+        def play(self, board, level):
+            tools_take_back(gid)  # the user undoes while the engine is still "thinking"
+            return "e7e5"
+
+    gid = client.post("/games", json={"mode": "practice"}).json()["id"]
+    move(gid, "e2e4", 0, engine_reply=False)
+    monkeypatch.setattr(tools, "get_engine", lambda: SlowEngine())
+    tools_take_back = tools.take_back_move
+    r = client.post(f"/games/{gid}/engine-move")
+    assert r.status_code == 409 and r.json()["error"] == "revision_conflict"
+    assert client.get(f"/games/{gid}").json()["moves"] == []  # nothing was applied
