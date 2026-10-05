@@ -17,19 +17,20 @@
       "adversarial:uncertain": 1
     },
     "hanging_own": {
-      "real_blunder:missed": 40,
+      "real_blunder:missed": 38,
       "real_safe:taken": 40,
       "adversarial:taken": 3,
       "adversarial:missed": 4,
-      "adversarial:not_applicable": 2
+      "adversarial:not_applicable": 2,
+      "real_blunder:uncertain": 2
     }
   },
   "pool": {
     "eligible_pool": 89214,
-    "left_band_400": 15055,
-    "left_band_600": 19545,
-    "left_band_800": 27877,
-    "left_band_1000": 26574
+    "left_band_400": 15049,
+    "left_band_600": 19542,
+    "left_band_800": 27874,
+    "left_band_1000": 26569
   },
   "shortfall": {},
   "items": 202,
