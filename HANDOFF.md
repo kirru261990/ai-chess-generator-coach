@@ -6,15 +6,15 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 3 done — Day 4 (detectors) next
-- **Active branch:** `feat/batch-analysis` (PR into `main`)
+- **Phase:** Week 1, Day 4 in progress — T11 done, T12/T13 next
+- **Active branch:** `feat/hanging-own-detector` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
 - **Frozen eval sets:** none yet
 
 ## Next up
 
-1. Day 4: T11 `hanging_own` v1 detector + 50 labelled positions; T12 `missed_free` v1 + 50; T13 precision/recall script.
+1. Day 4: T12 `missed_free` v1 detector + 50 labelled positions (reuse `detectors/see.py`); T13 precision/recall script, evaluated on a FRESH seeded set (see `evals/sets/hanging_own_v1/README.md`).
 2. Day 5: T14 run detectors over the baseline window; T15 freeze baseline; T16 blind-spot map page.
 
 ## Blockers / open questions
@@ -26,6 +26,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 6)
+- **Done:** T11. `detectors/see.py`, `detectors/hanging_own.py` (v1), 50-position draft set built by `evals/tools/build_hanging_own_set.py`. Quick check on that set: 20 of 22 detector `missed` calls correct, 20 of 25 real misses found (~91% / 80%), but see the set README: labels were refined once after viewing detector output, so do not quote these.
+- **Repo moved** out of the `Claude workshops` folder to `~/Projects/ai-chess-generator-coach` so the unrelated `26c8015_AI_Agent` repo cannot see it. Virtualenv and node_modules were rebuilt there.
+- **Next:** T12, then T13.
+- **Blockers:** none. Labels in the set are engine-derived and need a human spot-check.
+- **Branch / PR:** `feat/hanging-own-detector`
 
 ### 2026-10-05 · MacBook · Claude Code (session 5)
 - **Done:** T08 Chess.com sync (`uv run python -m app.sync`, 450 games into `data/`); T09 count (above); T10 fast pass over all 450 games (`uv run python -m app.engine.batch`, ~5 min at depth 10, Stockfish 19) and `GET /synced-games/{id}/review` (up to 3 moments, deep-checked at depth 16). Spot-checked one real game: findings were sensible.
