@@ -194,3 +194,69 @@ def test_takeback_keeps_the_game_assisted():
     take_back(g)
     set_mode(g, Mode.PLAY)
     assert g.assisted is True
+
+
+# ---- regressions from the full-repository audit ----
+
+def test_the_null_move_is_rejected_and_does_not_skip_a_turn():
+    g = new_game()
+    for bad in ("0000", "e2e2"):
+        with pytest.raises(GameError) as e:
+            make_move(g, bad, 0)
+        assert e.value.code == "illegal_move"
+    assert g.moves == [] and g.board().turn == chess.WHITE and g.revision == 0
+
+
+def test_concurrent_moves_at_the_same_revision_cannot_both_apply(monkeypatch):
+    import threading
+
+    barrier = threading.Barrier(2)
+    real_parse = chess.Board.parse_uci
+
+    def parse_then_wait(self, uci):  # both threads reach this point before either appends
+        move = real_parse(self, uci)
+        try:
+            barrier.wait(timeout=0.3)
+        except threading.BrokenBarrierError:
+            pass  # with the lock held, the second thread cannot get here: the barrier times out
+        return move
+
+    monkeypatch.setattr(chess.Board, "parse_uci", parse_then_wait)
+    g = new_game()
+    outcomes = []
+
+    def submit(uci):
+        try:
+            make_move(g, uci, 0)
+            outcomes.append("ok")
+        except GameError as e:
+            outcomes.append(e.code)
+
+    threads = [threading.Thread(target=submit, args=(u,)) for u in ("e2e4", "d2d4")]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sorted(outcomes) == ["ok", "revision_conflict"]
+    assert len(g.moves) == 1 and g.revision == 1
+    monkeypatch.undo()
+    assert g.board().turn == chess.BLACK  # the history replays cleanly
+
+
+def test_a_repetition_that_the_next_move_would_create_does_not_end_the_game():
+    g = play(new_game(), "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1")
+    assert not g.board().is_repetition(3) and g.outcome() is None  # a claim would be prospective
+
+
+def test_an_actual_threefold_repetition_ends_the_game():
+    g = play(new_game(), "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8")
+    assert g.outcome() == {"result": "1/2-1/2", "termination": "threefold_repetition"}
+    with pytest.raises(GameError) as e:
+        make_move(g, "g1f3", g.revision)
+    assert e.value.code == "game_over"
+
+
+def test_the_fifty_move_rule_applies_when_the_clock_actually_reaches_100():
+    g = new_game(start_fen="4k3/8/8/8/8/8/8/R3K3 w - - 98 80")
+    play(g, "a1a2")  # clock 99
+    assert g.outcome() is None
+    play(g, "e8d8")  # clock 100
+    assert g.outcome() == {"result": "1/2-1/2", "termination": "fifty_moves"}
