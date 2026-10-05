@@ -85,7 +85,7 @@ docker compose up -d db
 
 - Only one agent works on a branch at a time.
 - Switch agents at task boundaries, after `HANDOFF.md` is updated and pushed.
-- Default roles: one agent builds, the other reviews the PR. Note the reviewer and findings in the PR description.
+- Default roles: one agent builds, the other reviews the PR by following `REVIEW.md`. A reviewer only comments and never pushes to the branch. Fill in the **Reviewed by** section of the PR description.
 - If you disagree with an earlier agent's design, write a short ADR in `docs/decisions/` instead of silently rewriting it.
 
 ## Definition of done
