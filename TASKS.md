@@ -3,10 +3,10 @@
 Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Day 1 — Foundations
-- [ ] T01 Repo skeleton per `AGENTS.md` layout; `docker-compose.yml` with Postgres
-- [ ] T02 `core/`: create game, legal move, illegal move rejected, outcomes (mate, stalemate, draws), PGN export — with tests
-- [ ] T03 Web: board renders, sends move to API, shows server-confirmed position
-- [ ] T04 MCP skeleton exposing `get_game`
+- [x] T01 Repo skeleton per `AGENTS.md` layout; `docker-compose.yml` with Postgres
+- [x] T02 `core/`: create game, legal move, illegal move rejected, outcomes (mate, stalemate, draws), PGN export — with tests
+- [x] T03 Web: board renders, sends move to API, shows server-confirmed position
+- [x] T04 MCP skeleton exposing `get_game`
 
 ## Day 2 — Play
 - [ ] T05 Engine wrapper (version + budget recorded; scores normalised to player's side; mate handled separately)
