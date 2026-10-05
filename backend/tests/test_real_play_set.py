@@ -2,6 +2,7 @@
 independence the label rule depends on."""
 
 import ast
+import importlib.util
 import json
 from pathlib import Path
 
@@ -9,6 +10,13 @@ import chess
 
 SET = Path(__file__).resolve().parents[2] / "evals" / "sets" / "real_play_v1"
 BUILDER = Path(__file__).resolve().parents[2] / "evals" / "tools" / "build_real_play_set.py"
+
+
+def builder():
+    spec = importlib.util.spec_from_file_location("build_real_play_set", BUILDER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def rows():
@@ -37,7 +45,7 @@ def test_the_set_is_well_formed_and_matches_the_rule_counts():
     for r in data:
         cats[r["category"]] = cats.get(r["category"], 0) + 1
     assert cats == {"real_taken": 40, "real_blunder": 40, "real_safe": 40, "constructed_miss": 40,
-                    "engine_no_opportunity": 20, "adversarial": 22}
+                    "no_opportunity": 20, "adversarial": 22}
 
 
 def test_real_items_come_from_distinct_puzzles_in_even_rating_bands():
@@ -73,3 +81,40 @@ def test_the_hand_check_sheets_do_not_show_labels():
         text = (SET / name).read_text().lower()
         for leak in ("not_applicable", "constructed", "adversarial", "real_taken", "label:", "reason"):
             assert leak not in text
+
+
+def test_no_item_carries_an_excluded_theme():
+    excluded = builder().EXCLUDED_THEMES
+    bad = [(r["id"], r["themes"]) for r in rows() if excluded & set(r["themes"])]
+    assert bad == []  # the negatives sampler once skipped this filter (review of PR #21)
+
+
+def test_every_stored_item_agrees_with_the_independent_material_check():
+    b = builder()
+    for r in rows():
+        board = chess.Board(r["fen"])
+        move = chess.Move.from_uci(r["move_uci"])
+        where = (r["id"], r["category"], r["label"], r["fen"], r["move_uci"])
+        if r["category"] == "no_opportunity":
+            # a capture that legally wins material means "no opportunity" is wrong, however
+            # much the engine may prefer another move (found in review: rp1-028)
+            assert b.best_capture_net(board) < b.MIN_GAIN, where
+        elif r["category"] == "real_taken":
+            assert b.capture_net(board, move) >= b.MIN_GAIN, where
+        elif r["category"] == "constructed_miss":
+            assert b.best_capture_net(board) >= b.MIN_GAIN and not board.is_capture(move), where
+        elif r["category"] == "real_blunder":
+            assert b.hang_gain_after(board, move) >= b.MIN_GAIN, where
+        elif r["category"] == "real_safe":
+            assert b.hang_gain_after(board, move) < b.MIN_GAIN, where
+        elif r["category"] == "adversarial":
+            b._check_adversarial_label(r["detector"], r["label"], board, move, r["fen"], r["move_uci"])
+
+
+def test_the_sheets_ask_questions_that_distinguish_every_label():
+    for name in ("handcheck_owner.md", "handcheck_second.md"):
+        text = (SET / name).read_text()
+        items = text.count("\n## ")
+        assert items >= 30
+        assert text.count("  - A. ") == items and text.count("  - B. ") == items and text.count("  - C. ") == items
+        assert "mate" in text.lower()  # the compensation / mate question is there
