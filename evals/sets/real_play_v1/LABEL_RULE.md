@@ -1,9 +1,10 @@
-# real_play_v1: label rule (DRAFT v0.1, not frozen)
+# real_play_v1: label rule (v0.2, decisions made, set not yet frozen)
 
-**Status:** draft for the owner's review. **No detector has been run on any position of this
-set, and no position has been chosen yet.** Once approved, this file is frozen (see section 8):
-it is committed, hashed, and never edited. A flaw found later means a new set version, never an
-edit.
+**Status:** the owner delegated the open decisions on 2026-10-05 and asked that each be
+reversible; they are in section 12 with reasons and how to undo them. **No detector has been run
+on any position of this set, and no position has been chosen yet.** This file freezes at the
+freeze step (section 8): it is hashed and never edited afterwards. A flaw found later means a new
+set version, never an edit.
 
 **Purpose:** measure how accurately `hanging_own` and `missed_free` classify moves on
 positions from real play, including cases built to break them, without the labels depending on
@@ -34,7 +35,7 @@ are curated tactics, so opportunities are far denser than in normal play.
 | Source | Used for | Independence |
 |---|---|---|
 | **Lichess puzzle database** (CC0; file `lichess_db_puzzle.csv.zst`, sha256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d`, downloaded 2026-10-05) | real positives and real safe moves | Puzzle themes and solutions were produced by Lichess's own generator and engine checks, not by our code. |
-| **Stockfish at fixed depth** (version and depth recorded) | confirming constructed "ignored it" moves; confirming "no opportunity" positions | Search results, not our static exchange. |
+| **Stockfish at depth 14** (version recorded) | confirming constructed "ignored it" moves; confirming "no opportunity" positions | Search results, not our static exchange. |
 | **Hand-built adversarial positions** | pins, losing captures, several capturers, pinned defenders | Labelled by construction with a written reason for each; every one hand-checked. |
 
 The builder script must import **nothing** from `app/detectors/`. It may use `python-chess`,
@@ -54,7 +55,7 @@ excluded theme (section 6) are eligible. Deduplicate by `PuzzleId`.
 | Label | Item `(position, move played)` | How the label is decided |
 |---|---|---|
 | `taken` | position after `Moves[0]`; move = `Moves[1]` | Eligible if `Moves[1]` captures a non-pawn piece. The puzzle's own solution is the proof that taking it is right. |
-| `missed` (constructed) | the same position; move = a different legal, non-capturing move | Kept only if Stockfish (depth D) says that move is worse than the best move by **at least 300 cp** and the best move is the puzzle's capture. Marked `constructed`: it is not real behaviour. |
+| `missed` (constructed) | a position from a *different* puzzle in the pool (so it is independent of the `taken` items); move = a random legal, non-capturing move | Kept only if Stockfish (depth 14) says that move is worse than the best move by **at least 300 cp** and the engine's best move is the puzzle's capture. Up to 6 random moves are tried per puzzle. Marked `constructed`: it is not real behaviour. |
 | `not_applicable` | engine-derived hard negatives (below) | Kept only if Stockfish's best move is **not** a capture that wins at least 2 pawns along its line (6 plies), although the mover has a capture of a defended non-pawn piece. |
 | any | adversarial positions (section 5) | By construction. |
 
@@ -67,7 +68,7 @@ excluded theme (section 6) are eligible. Deduplicate by `PuzzleId`.
 | `not_applicable` | adversarial positions only | Positions where no move can hang a piece, or where every move does. |
 | any | adversarial positions (section 5) | By construction. |
 
-## 5. Adversarial positions (hand-built, about 20 per detector)
+## 5. Adversarial positions (hand-built, about 10 per detector in v1)
 
 Each carries a one-line written reason, and **all are hand-checked**:
 
@@ -82,16 +83,16 @@ Each carries a one-line written reason, and **all are hand-checked**:
 
 ## 6. Exclusions (decided now, applied before any detector runs)
 
-Puzzles with any of these themes are excluded, because a deliberate sacrifice or a mate makes
-"free piece" or "hanging" ambiguous: `sacrifice`, `attraction`, `deflection`, `intermezzo`,
-`quietMove`, `clearance`, `zugzwang`, `mate`, `mateIn1` to `mateIn5`, `anastasiaMate`,
-`arabianMate`, `backRankMate`, `bodenMate`, `doubleBishopMate`, `dovetailMate`,
-`hookMate`, `smotheredMate`, `killBoxMate`, `vukovicMate`, `cornerMate`.
-Also excluded: positions where `Moves[1]` is a promotion or en passant capture, and any
-position that is not a valid, reachable chess position when replayed with `python-chess`.
+Puzzles with a **deliberate-sacrifice theme** are excluded, because a move that is meant to give
+material makes "hanging" ambiguous: `sacrifice`, `attraction`, `deflection`, `intermezzo`,
+`quietMove`, `clearance`, `zugzwang`. Also excluded: positions where `Moves[1]` is a promotion or
+en passant capture, and any position that is not valid and reachable when replayed with
+`python-chess`.
 
-(The `pin`, `fork`, `skewer` and `discoveredAttack` themes are **kept**: they supply the
-pin-related positions we need.)
+**Mate and pin themes are kept.** An earlier draft excluded all mate themes; the feasibility
+count (section 7) showed that removed 64% of puzzles and left the 400-599 band with 373. Instead,
+each item carries a `mate_theme` tag, and results are reported **with and without** mate-theme
+items, so a mate that competes with a free piece cannot hide inside a headline number.
 
 ## 7. Sample sizes and sampling
 
@@ -100,39 +101,39 @@ Seeded and reproducible; the seed is recorded in the builder and in the set READ
 | Stratum | Target |
 |---|---|
 | `missed_free` `taken` (real), 10 per rating band: 400-599, 600-799, 800-999, 1000-1199 | 40 |
-| `missed_free` `missed` (constructed), same positions where an eligible move exists | 40 |
+| `missed_free` `missed` (constructed), from other puzzles | 40 |
 | `missed_free` `not_applicable` (engine-derived) | 20 |
 | `hanging_own` `missed` (real), 10 per band | 40 |
 | `hanging_own` `taken` (real, safe), 10 per band | 40 |
-| Adversarial, per detector | 20 |
+| Adversarial, per detector | 10 |
 
 **The two detectors draw on the same puzzles** (a solver's capture always takes a piece of the
 side that blundered), so the sampler draws **disjoint** puzzle sets for the two detectors; no
 puzzle supports both.
 
-About 100 labelled items per detector. At that size a precision or recall figure carries a wide
+About 90 labelled items per detector. At that size a precision or recall figure carries a wide
 interval, so **every figure is reported with its denominator and a 95% Wilson interval**, per
 stratum and overall. If a stratum cannot be filled, the shortfall is reported, not hidden.
 
 ### Feasibility check (counts only; nothing was selected and no detector was run)
 
-Counted on 5 Oct 2026 with the rule above, using only `python-chess` and the puzzle file:
-91,511 puzzles are tagged `hangingPiece` with rating 400 to 1199 (after de-duplication); the
-theme exclusions in section 6 remove **58,724 (64%)**; the rest are all valid. Of the
-remaining puzzles, those whose first solver move captures a non-pawn piece (eligible for
-both detectors' real items) number **32,774**:
+Counted on 5 Oct 2026 using only `python-chess` and the puzzle file. 91,511 puzzles are tagged
+`hangingPiece` with rating 400 to 1199 (after de-duplication), all valid.
 
-| Rating band | Eligible puzzles |
-|---|---|
-| 400-599 | 373 |
-| 600-799 | 2,908 |
-| 800-999 | 11,753 |
-| 1000-1199 | 17,740 |
+- **First draft (all mate themes excluded):** 58,724 (64%) removed, leaving 32,774 eligible, with
+  only **373** in the 400-599 band. Rejected for that reason.
+- **Current rule (sacrifice-type themes only):** 2,201 removed, leaving **89,214 eligible** (first
+  solver move captures a non-pawn piece), spread evenly enough for 10 per band:
 
-So the targets in section 7 can be met in every band, but the lowest band is thin and **the
-exclusions change the mix**: most low-rated hanging-piece puzzles are also mate-in-1, and
-excluding mates tilts the set toward harder, higher-rated puzzles. That is a cost of excluding
-mates (question 4).
+| Rating band | Eligible puzzles | Of which carry a mate theme |
+|---|---|---|
+| 400-599 | 15,095 | 14,722 |
+| 600-799 | 19,585 | 16,677 |
+| 800-999 | 27,918 | 16,165 |
+| 1000-1199 | 26,616 | 8,876 |
+
+63% of eligible puzzles carry a mate theme, so the `mate_theme` tag matters. The two detectors
+draw on this same pool, so the sampler uses disjoint puzzles for each stratum.
 
 ## 8. Freezing procedure (the order matters)
 
@@ -152,18 +153,24 @@ explaining the problem, and a new set version is built. The set is never tuned t
 detectors, and the detectors are never tuned toward this set's results before the report is
 written.
 
-## 9. Hand-check protocol (owner, about 30 labels)
+## 9. Hand-check protocol (about 30 labels, plain yes/no questions)
 
-- A sheet lists, for each sampled item: id, the FEN, the move, the proposed label, the one-line
-  reason, and a Lichess analysis-board link for that FEN.
-- **Sample:** 8 real `taken`, 8 `missed` (4 real, 4 constructed), 4 `not_applicable`, and 10
-  adversarial, drawn by the seeded sampler. The adversarial positions are checked in full.
-- For each, mark **agree / disagree / unsure** and one sentence on any disagreement. Do not run
-  the detectors while checking.
-- **Pass rule:** at most 2 of the 30 disagreements and no systematic pattern. Otherwise the rule
-  is revised and the set rebuilt as v2 (step 4 above). `unsure` counts as a disagreement.
-- Record the result (counts, date, who checked) in the set README. "Human-reviewed" may be
-  claimed only for the items actually reviewed.
+The checker answers simple questions about the board, not "is this label right?". Examples:
+"After this move, can Black capture the queen for free?"; "Could White have won a piece for
+nothing here?"; "Is the capturing pawn pinned to its king?". Each sheet row gives the FEN, the
+move, a Lichess analysis-board link for the position, and the yes/no question, **without
+showing the proposed label**. The label is compared afterwards.
+
+- **Two checkers, independently:** the owner (30 items) and a second reviewer such as GPT
+  following `REVIEW.md` (a different 30, plus all adversarial items). A question the owner
+  cannot answer is marked `can't tell`; it is not forced.
+- **Sample (seeded):** about 8 real `taken`, 8 `missed` (4 real, 4 constructed), 4
+  `not_applicable`, and the adversarial items.
+- **Pass rule:** at most 10% of answered items disagree with the proposed label (3 of 30), and
+  no pattern in the disagreements. Otherwise the rule is revised and the set rebuilt as v2
+  (step 4 of section 8). `can't tell` items are replaced, not counted as agreement.
+- Record the counts, the date and who checked in the set README. "Human-reviewed" may be claimed
+  only for the items actually reviewed, and only by whom.
 
 ## 10. What is reported
 
@@ -171,7 +178,7 @@ For each detector version, static-only and with engine evidence:
 
 - Precision and recall for `missed`, with denominators and 95% Wilson intervals
 - The full confusion matrix (including `uncertain` and `not_applicable`)
-- Results per stratum and per rating band, and **separately for real and constructed items**
+- Results per stratum and per rating band, **separately for real and constructed items**, and with and without mate-theme items
 - Every disagreement, listed, with a failure category (not just a count)
 
 Claims must separate: what the detectors do on curated puzzle positions, what they do on
@@ -195,19 +202,16 @@ described as a rate of mistakes in anyone's play.
 6. About 100 items per detector gives wide intervals. Small differences between detector versions
    will not be distinguishable.
 
-## 12. Questions for the owner (decisions before this is frozen)
+## 12. Decisions made (owner delegated on 2026-10-05; each is reversible)
 
-1. Accept **constructed** `missed` items, clearly marked and reported separately? The
-   alternative is no `missed` examples at all in v1.
-2. Is **300 cp** the right threshold for a constructed miss, and **depth 12 or 14** for the
-   engine?
-3. Are the sizes in section 7 right, or would you prefer fewer items and a more thorough
-   hand-check?
-4. Is the **theme exclusion list** in section 6 acceptable? In particular, excluding every mate
-   theme removes 64% of eligible puzzles and thins the 400-599 band to 373 (see the
-   feasibility check). The alternative is to keep mate puzzles and label them `uncertain` where a
-   mate competes with the free piece.
-5. Who hand-checks (you only, or you plus a second reviewer such as GPT), and is **30**
-   enough?
-6. Should a bounded sample of real Lichess games be added later (v2) to supply real
-   "ignored a free piece" and "safe move" examples?
+| # | Decision | Why | How to reverse |
+|---|---|---|---|
+| 1 | **Keep constructed `missed` items**, marked `constructed`, reported separately | Puzzles only show correct solutions, so without them there are no `missed` examples to measure recall on | Drop items with `constructed=true` in the analysis. No rebuild needed |
+| 2 | **300 cp** loss threshold, **depth 14** | About a piece's worth: clearly an error, not noise; depth 14 is stronger than the earlier sets' 12 and cheap for ~100 items | Parameters are recorded per item; change them and build v2 |
+| 3 | **About 90 items per detector**, 10 adversarial each | Enough to see gross failures with honest wide intervals, small enough to hand-check | Add a v2 with a new seed; v1 stays |
+| 4 | **Keep mate themes, tag them**, report with and without; exclude only sacrifice-type themes | Excluding mates left the 400-599 band with 373 puzzles and tilted the set toward harder ones | Filter on `mate_theme` in the analysis |
+| 5 | **Hand-check by yes/no board questions**, owner plus a second reviewer, labels hidden | The owner said they could not judge chess labels directly; concrete yes/no questions about the board are answerable and avoid anchoring on our label | Add or swap reviewers; the sheet is regenerable |
+| 6 | **No real-games sample in v1**; a bounded one is a v2 option | The games files are about 28 GB a month and need a streaming plan and fresh approval | v2 |
+| 7 | Constructed-miss and `taken` items come from **different puzzles** | Keeps items independent | Seeded sampler option |
+
+Open for later, not blocking: the licence choice (T24) and the real-games sample (decision 6).
