@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from app.api import tools
+from app.api import synced, tools
 from app.core.game import GameError
 from app.engine.shared import close_engine
 from app.engine.stockfish import EngineError
@@ -63,6 +63,16 @@ def get_game(game_id: str):
 @app.post("/games/{game_id}/moves")
 def make_move(game_id: str, body: MoveIn):
     return tools.apply_move(game_id, body.uci, body.expected_revision, body.engine_reply)
+
+
+@app.get("/synced-games")
+def synced_games(limit: int = 20):
+    return synced.list_synced_games(limit)
+
+
+@app.get("/synced-games/{gid}/review")
+def synced_game_review(gid: str):
+    return synced.review_synced_game(gid)
 
 
 class ModeIn(BaseModel):
