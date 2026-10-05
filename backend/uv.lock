@@ -154,6 +154,7 @@ dependencies = [
     { name = "chess" },
     { name = "fastapi" },
     { name = "mcp" },
+    { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -169,6 +170,7 @@ requires-dist = [
     { name = "chess", specifier = ">=1.11.2" },
     { name = "fastapi", specifier = ">=0.142.2" },
     { name = "mcp", specifier = ">=2.3.0" },
+    { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 
