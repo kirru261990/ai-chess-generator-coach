@@ -63,3 +63,42 @@ def test_no_free_piece_is_not_applicable_and_inputs_are_checked():
     with pytest.raises(ValueError):
         detect(start, mv("e2e5"))
     assert start.fen() == fen and not start.move_stack
+
+
+# ---- regressions from the GPT review of PR #12 ----
+
+def test_a_losing_capture_of_the_victim_is_not_credited_as_taken():
+    # c4xd5 wins the rook (...exd5 Qxd5 is an even pawn trade); Qxd5?? loses the queen to ...exd5.
+    board = chess.Board("4k3/8/4p3/3r4/2P5/8/8/3QK3 w - - 0 1")
+    good = detect(board, mv("c4d5"))
+    assert good.outcome == "taken" and good.hanging[0].gain == 5  # the whole rook
+    bad = detect(board, mv("d1d5"))
+    assert bad.outcome == "missed"
+    confirmed = detect(board, mv("d1d5"), Evidence(best_cp=400, after_cp=-400))
+    assert confirmed.outcome == "missed" and confirmed.engine_confirmed is True  # evidence is used
+    assert detect(board, mv("d1d5"), Evidence(best_cp=400, after_cp=390)).outcome == "uncertain"
+
+
+def test_a_pinned_cheap_attacker_does_not_create_a_free_piece():
+    # e2xd3 is illegal (the pawn is pinned by Re8). The only legal capture is Qxd3, which
+    # loses the queen to ...cxd3, so d3 is not free and ignoring it is not a miss.
+    board = chess.Board("4rk2/8/8/8/2p5/3n4/4P3/3QK3 w - - 0 1")
+    assert [m.uci() for m in board.legal_moves if board.is_capture(m)] == ["d1d3"]
+    assert free_pieces(board) == ()
+    assert detect(board, mv("e1f1")).outcome == "not_applicable"
+
+
+def test_the_best_legal_capturer_sets_the_gain_when_several_share_a_target():
+    # Knight d5 can be taken by the pawn (net 3) or the queen (net lower); the best counts.
+    board = chess.Board("4k3/8/8/3n4/2P5/8/8/3QK3 w - - 0 1")
+    assert [(h.square, h.gain) for h in free_pieces(board)] == [("d5", 3)]
+    assert detect(board, mv("c4d5")).outcome == "taken"
+
+
+def test_capture_net_is_signed_and_exact():
+    from app.detectors.see import capture_net
+
+    board = chess.Board("4k3/8/4p3/3r4/2P5/8/8/3QK3 w - - 0 1")
+    assert capture_net(board, mv("c4d5")) == 5  # rook won; the pawn trade that follows is even
+    assert capture_net(board, mv("d1d5")) == -3  # rook (5) won, queen (9) then lost, pawn back (1)
+    assert capture_net(board, mv("e1e2")) == 0  # not a capture
