@@ -6,23 +6,32 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 2 done — Day 3 (sync + analysis) next
-- **Active branch:** `feat/play-practice-flag` (PR into `main`)
+- **Phase:** Week 1, Day 3 done — Day 4 (detectors) next
+- **Active branch:** `feat/batch-analysis` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
 - **Frozen eval sets:** none yet
 
 ## Next up
 
-1. Day 3: Chess.com sync (10|0 and 15|10 rapid); batch engine pass; one-game review.
+1. Day 4: T11 `hanging_own` v1 detector + 50 labelled positions; T12 `missed_free` v1 + 50; T13 precision/recall script.
+2. Day 5: T14 run detectors over the baseline window; T15 freeze baseline; T16 blind-spot map page.
 
 ## Blockers / open questions
 
-- Confirm count of Chess.com 10|0 + 15|10 games available for the 100-game baseline.
+- ~~Baseline game count~~ resolved: 450 case-study games available (253 at 10|0, 197 at 15|10), 4 Jul – 5 Oct 2026. Enough for a 100-game baseline; the window still needs choosing before Day 5 freeze.
+- Fast-pass evaluations are not yet flagged as uncertain when unstable (spec B2); needs a second-depth comparison.
+- Reviews are not cached; each call re-runs the deep check (a few seconds).
 
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 5)
+- **Done:** T08 Chess.com sync (`uv run python -m app.sync`, 450 games into `data/`); T09 count (above); T10 fast pass over all 450 games (`uv run python -m app.engine.batch`, ~5 min at depth 10, Stockfish 19) and `GET /synced-games/{id}/review` (up to 3 moments, deep-checked at depth 16). Spot-checked one real game: findings were sensible.
+- **Next:** T11 `hanging_own` detector with 50 labelled positions, then T12, T13.
+- **Blockers:** none. `.env` holds the username and contact email (git-ignored, not committed).
+- **Branch / PR:** `feat/batch-analysis`
 
 ### 2026-10-05 · MacBook · Claude Code (session 4)
 - **Done:** T07. `POST /games/{id}/mode`; web mode selector, switch button with confirmation, assisted badge. Hints, scan prompts and takebacks do not exist yet; the flag is in place for when they do.
