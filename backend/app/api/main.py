@@ -65,6 +65,15 @@ def make_move(game_id: str, body: MoveIn):
     return tools.apply_move(game_id, body.uci, body.expected_revision, body.engine_reply)
 
 
+class ModeIn(BaseModel):
+    mode: str
+
+
+@app.post("/games/{game_id}/mode")
+def switch_mode(game_id: str, body: ModeIn):
+    return tools.switch_mode(game_id, body.mode)
+
+
 @app.post("/games/{game_id}/engine-move")
 def engine_move(game_id: str):
     return tools.engine_reply(game_id)

@@ -92,3 +92,25 @@ def test_mcp_get_game_matches_api():
 
 def test_game_view_has_engine_level():
     assert tools.start_game(level=4)["engine_level"] == 4
+
+
+def test_play_game_is_unassisted_and_practice_game_starts_assisted():
+    assert client.post("/games", json={"mode": "play"}).json()["assisted"] is False
+    assert client.post("/games", json={"mode": "practice"}).json()["assisted"] is True
+    assert client.post("/games", json={"mode": "cheat"}).json()["error"] == "invalid_mode"
+
+
+def test_switching_to_practice_marks_assisted_permanently():
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    r = client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()
+    assert r["mode"] == "practice" and r["assisted"] is True
+    r = client.post(f"/games/{gid}/mode", json={"mode": "play"}).json()
+    assert r["mode"] == "play" and r["assisted"] is True  # never reverts
+    assert 'Assisted "true"' in client.get(f"/games/{gid}/pgn").text.replace("[", "").replace("]", "")
+
+
+def test_mode_switch_does_not_change_revision_and_rejects_bad_input():
+    gid = client.post("/games", json={}).json()["id"]
+    assert client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()["revision"] == 0
+    assert client.post(f"/games/{gid}/mode", json={"mode": "x"}).json()["error"] == "invalid_mode"
+    assert client.post("/games/nope/mode", json={"mode": "play"}).status_code == 404

@@ -3,7 +3,7 @@
 import chess
 
 from app.api.store import GAMES
-from app.core.game import Game, GameError, Mode, make_move, new_game, resign, to_pgn
+from app.core.game import Game, GameError, Mode, make_move, new_game, resign, set_mode, to_pgn
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL
 
@@ -60,10 +60,21 @@ def start_game(color: str = "white", mode: str = "play", level: int = 3) -> dict
         raise GameError("invalid_color", "color must be white or black")
     if not 1 <= level <= MAX_LEVEL:
         raise GameError("invalid_level", f"level must be 1..{MAX_LEVEL}")
+    if mode not in {m.value for m in Mode}:
+        raise GameError("invalid_mode", "mode must be play or practice")
     game = new_game(chess.WHITE if color == "white" else chess.BLACK, Mode(mode), engine_level=level)
     GAMES[game.id] = game
     if _engine_to_move(game):  # user chose black: engine opens
         return engine_reply(game.id)
+    return game_view(game)
+
+
+def switch_mode(game_id: str, mode: str) -> dict:
+    """Switch Play/Practice. Moving to Practice marks the game assisted permanently."""
+    if mode not in {m.value for m in Mode}:
+        raise GameError("invalid_mode", "mode must be play or practice")
+    game = _get(game_id)
+    set_mode(game, Mode(mode))
     return game_view(game)
 
 
