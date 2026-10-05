@@ -1,4 +1,4 @@
-# real_play_v1: label rule (v0.2, decisions made, set not yet frozen)
+# real_play_v1: label rule (v0.3, decisions made, set not yet frozen)
 
 **Status:** the owner delegated the open decisions on 2026-10-05 and asked that each be
 reversible; they are in section 12 with reasons and how to undo them. **No detector has been run
@@ -15,6 +15,15 @@ sets (`hanging_own_v1`, `missed_free_v1`) failed on both counts, as their README
 piece or ignores a free one, does the detector say so, and does it stay quiet otherwise?). It
 does **not** measure how often these mistakes happen in your games or anyone's: puzzle positions
 are curated tactics, so opportunities are far denser than in normal play.
+
+**Changes in v0.3** (after GPT's first review of PR #21; all three comments were reproduced):
+1. "No opportunity" is now defined by a **material check over every legal capture**, not by the
+   engine's preferred move. An engine can prefer another move (for example because a capture allows mate)
+   while a capture still legally wins material; such a position is not `not_applicable`.
+2. Every real item is now **also confirmed by an independent exchange search** in the builder, not only
+   by Lichess's theme and solution.
+3. The theme exclusions now apply to **every** sampler (the negatives skipped them before).
+4. The hand-check questions were rewritten so the answers map to **all four labels** (section 9).
 
 ---
 
@@ -35,11 +44,13 @@ are curated tactics, so opportunities are far denser than in normal play.
 | Source | Used for | Independence |
 |---|---|---|
 | **Lichess puzzle database** (CC0; file `lichess_db_puzzle.csv.zst`, sha256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d`, downloaded 2026-10-05) | real positives and real safe moves | Puzzle themes and solutions were produced by Lichess's own generator and engine checks, not by our code. |
-| **Stockfish at depth 14** (version recorded) | confirming constructed "ignored it" moves; confirming "no opportunity" positions | Search results, not our static exchange. |
+| **Stockfish at depth 14** (version recorded) | confirming constructed "ignored it" moves only | Search results, not our static exchange. |
+| **Independent exchange search** (in the builder) | confirming every real item; defining "no opportunity"; cross-checking the hand-built labels | A full search over every legal capture and recapture in any order, written separately from the detectors' cheapest-attacker-first code, using only `python-chess`. Agreement with the detectors is then evidence, not an echo. |
 | **Hand-built adversarial positions** | pins, losing captures, several capturers, pinned defenders | Labelled by construction with a written reason for each; every one hand-checked. |
 
 The builder script must import **nothing** from `app/detectors/`. It may use `python-chess`,
-`app/engine/stockfish.py` (to run the engine) and the puzzle file.
+`app/engine/stockfish.py` (to run the engine), one ranking helper from the review module, and the puzzle
+file. A test enforces the import rule.
 
 ## 3. Reading the puzzle format
 
@@ -54,17 +65,17 @@ excluded theme (section 6) are eligible. Deduplicate by `PuzzleId`.
 
 | Label | Item `(position, move played)` | How the label is decided |
 |---|---|---|
-| `taken` | position after `Moves[0]`; move = `Moves[1]` | Eligible if `Moves[1]` captures a non-pawn piece. The puzzle's own solution is the proof that taking it is right. |
-| `missed` (constructed) | a position from a *different* puzzle in the pool (so it is independent of the `taken` items); move = a random legal, non-capturing move | Kept only if Stockfish (depth 14) says that move is worse than the best move by **at least 300 cp** and the engine's best move is the puzzle's capture. Up to 6 random moves are tried per puzzle. Marked `constructed`: it is not real behaviour. |
-| `not_applicable` | engine-derived hard negatives (below) | Kept only if Stockfish's best move is **not** a capture that wins at least 2 pawns along its line (6 plies), although the mover has a capture of a defended non-pawn piece. |
+| `taken` | position after `Moves[0]`; move = `Moves[1]` | Eligible if `Moves[1]` captures a non-pawn piece **and** the independent exchange search confirms that capture itself nets at least 2 pawns after the opponent's best recaptures. The puzzle's own solution is the proof that taking it is right. |
+| `missed` (constructed) | a position from a *different* puzzle in the pool (so it is independent of the `taken` items); move = a random legal, non-capturing move | Kept only if the independent exchange search confirms an opportunity exists, Stockfish (depth 14) says its best move is the puzzle's capture, and that move is worse than the best move by **at least 300 cp**. Up to 6 random moves are tried per puzzle. Marked `constructed`: it is not real behaviour. |
+| `not_applicable` | real positions from puzzles *not* tagged `hangingPiece`, same exclusions | Kept only if **no legal capture of a non-pawn piece nets at least 2 pawns** by the independent exchange search, although the mover has a capture of a defended non-pawn piece (a hard negative). The engine is not used. |
 | any | adversarial positions (section 5) | By construction. |
 
 ### 4b. `hanging_own`
 
 | Label | Item | How the label is decided |
 |---|---|---|
-| `missed` (real) | position = `FEN`; move = `Moves[0]` | Eligible if `Moves[1]` captures a **non-pawn piece belonging to the side that played `Moves[0]`**. Real human blunders that hung a piece. |
-| `taken` (real, safe) | position after `Moves[0]`; move = `Moves[1]` | A solver move Lichess verified as best. Eligible only if the puzzle has none of the sacrifice-type themes (section 6), so a deliberate sacrifice is never labelled a mistake or a safe move by accident. |
+| `missed` (real) | position = `FEN`; move = `Moves[0]` | Eligible if `Moves[1]` captures a **non-pawn piece belonging to the side that played `Moves[0]`** **and** the independent exchange search confirms that, after `Moves[0]`, the opponent can win at least 2 pawns by capturing one of that side's non-pawn pieces. Real human blunders that hung a piece. |
+| `taken` (real, safe) | position after `Moves[0]`; move = `Moves[1]` | A solver move Lichess verified as best. Eligible only if the puzzle has none of the sacrifice-type themes (section 6) **and** the independent exchange search confirms that, after the move, the opponent cannot win 2 pawns by capturing one of the mover's non-pawn pieces. |
 | `not_applicable` | adversarial positions only | Positions where no move can hang a piece, or where every move does. |
 | any | adversarial positions (section 5) | By construction. |
 
@@ -83,7 +94,7 @@ Each carries a one-line written reason, and **all are hand-checked**:
 
 ## 6. Exclusions (decided now, applied before any detector runs)
 
-Puzzles with a **deliberate-sacrifice theme** are excluded, because a move that is meant to give
+Puzzles with a **deliberate-sacrifice theme** are excluded **from every sampler, including the negatives**, because a move that is meant to give
 material makes "hanging" ambiguous: `sacrifice`, `attraction`, `deflection`, `intermezzo`,
 `quietMove`, `clearance`, `zugzwang`. Also excluded: positions where `Moves[1]` is a promotion or
 en passant capture, and any position that is not valid and reachable when replayed with
@@ -155,22 +166,42 @@ written.
 
 ## 9. Hand-check protocol (about 30 labels, plain yes/no questions)
 
-The checker answers simple questions about the board, not "is this label right?". Examples:
-"After this move, can Black capture the queen for free?"; "Could White have won a piece for
-nothing here?"; "Is the capturing pawn pinned to its king?". Each sheet row gives the FEN, the
-move, a Lichess analysis-board link for the position, and the yes/no question, **without
-showing the proposed label**. The label is compared afterwards.
+The checker answers questions about the board, not "is this label right?". Each sheet row gives
+the FEN, the move, a Lichess analysis-board link, and three questions **without the proposed
+label**. The questions are in the sheets (`handcheck_*.md`); their answers map to the labels as
+follows.
 
-- **Two checkers, independently:** the owner (30 items) and a second reviewer such as GPT
-  following `REVIEW.md` (a different 30, plus all adversarial items). A question the owner
-  cannot answer is marked `can't tell`; it is not forced.
-- **Sample (seeded):** about 8 real `taken`, 8 `missed` (4 real, 4 constructed), 4
-  `not_applicable`, and the adversarial items.
-- **Pass rule:** at most 10% of answered items disagree with the proposed label (3 of 30), and
-  no pattern in the disagreements. Otherwise the rule is revised and the set rebuilt as v2
-  (step 4 of section 8). `can't tell` items are replaced, not counted as agreement.
-- Record the counts, the date and who checked in the set README. "Human-reviewed" may be claimed
-  only for the items actually reviewed, and only by whom.
+**`missed_free`** (A: could the side to move win material by a capture worth at least 2 pawns? B: does
+the move shown make such a capture? C: does something matter more than the material, such as mate?)
+
+| A | B | C | Label implied |
+|---|---|---|---|
+| no | any | any | `not_applicable` |
+| yes | yes | any | `taken` |
+| yes | no | no | `missed` |
+| yes | no | yes | `uncertain` |
+
+**`hanging_own`** (A: after the move, can the opponent win at least 2 pawns by capturing a non-pawn
+piece? B, if A is yes: could the mover have avoided it with another legal move? C, if A is no: could any
+legal move have left a piece to be won?)
+
+| A | B | C | Label implied |
+|---|---|---|---|
+| yes | yes | n/a | `missed` |
+| yes | no | n/a | `not_applicable` (every move hangs something) |
+| no | n/a | yes | `taken` |
+| no | n/a | no | `not_applicable` (nothing could hang) |
+
+- **Two checkers, independently:** the owner (30 items) and a second reviewer such as GPT following
+  `REVIEW.md` (a different 30, plus all adversarial items). A question the owner cannot answer is marked
+  `can't tell`; it is not forced.
+- **Sample (seeded):** about 8 real `taken`, 8 `missed` (4 real, 4 constructed), 4 `not_applicable`, and the
+  adversarial items.
+- **Pass rule:** at most 10% of answered items give a different implied label (3 of 30), and no pattern
+  in the disagreements. Otherwise the rule is revised and the set rebuilt as v2 (step 4 of section 8).
+  `can't tell` items are replaced, not counted as agreement.
+- Record the counts, the date and who checked in the set README. "Human-reviewed" may be claimed only for the
+  items actually reviewed, and only by whom.
 
 ## 10. What is reported
 
@@ -211,6 +242,7 @@ described as a rate of mistakes in anyone's play.
 | 3 | **About 90 items per detector**, 10 adversarial each | Enough to see gross failures with honest wide intervals, small enough to hand-check | Add a v2 with a new seed; v1 stays |
 | 4 | **Keep mate themes, tag them**, report with and without; exclude only sacrifice-type themes | Excluding mates left the 400-599 band with 373 puzzles and tilted the set toward harder ones | Filter on `mate_theme` in the analysis |
 | 5 | **Hand-check by yes/no board questions**, owner plus a second reviewer, labels hidden | The owner said they could not judge chess labels directly; concrete yes/no questions about the board are answerable and avoid anchoring on our label | Add or swap reviewers; the sheet is regenerable |
+| 8 | **"No opportunity" is defined by the material search, not the engine's choice** | An engine can prefer another move while a capture still legally wins material (found in review) | Add the engine condition back as an extra filter and rebuild as v2 |
 | 6 | **No real-games sample in v1**; a bounded one is a v2 option | The games files are about 28 GB a month and need a streaming plan and fresh approval | v2 |
 | 7 | Constructed-miss and `taken` items come from **different puzzles** | Keeps items independent | Seeded sampler option |
 

@@ -5,7 +5,7 @@ puzzle positions plus 22 hand-built adversarial positions, following `LABEL_RULE
 
 | File | What it is |
 |---|---|
-| `LABEL_RULE.md` | The written rule and the decisions behind it. Read this first. |
+| `LABEL_RULE.md` | The written rule (v0.3) and the decisions behind it. Read this first. |
 | `positions.jsonl` | The items and their labels (ids carry no information about the label) |
 | `provenance.json` | Seed, engine and depth, thresholds, puzzle-file hash, counts, shortfalls |
 | `handcheck_owner.md` | 30 items for the owner, labels hidden |
@@ -20,7 +20,7 @@ Rebuild: `cd backend && uv run python ../evals/tools/build_real_play_set.py` (ne
 |---|---|---|
 | `missed_free` | `real_taken`: a real puzzle solution that takes a free piece | 40 |
 | `missed_free` | `constructed_miss`: another legal move the engine says loses at least 300 cp (marked constructed) | 40 |
-| `missed_free` | `engine_no_opportunity`: real positions with a defended capture but no winning one per the engine | 20 |
+| `missed_free` | `no_opportunity`: real positions with a defended capture but no capture that wins material (independent exchange search) | 20 |
 | `hanging_own` | `real_blunder`: a real human move that gave up a piece | 40 |
 | `hanging_own` | `real_safe`: a verified solution move | 40 |
 | both | `adversarial`: pins, losing captures, several capturers, check, mate versus a free piece, scope | 22 |
@@ -31,7 +31,7 @@ reported with and without them.
 
 ## Status and what must happen next (LABEL_RULE.md section 8)
 
-1. **Hand-check** (section 9): owner and a second reviewer answer the yes/no questions, labels hidden.
+1. **Hand-check** (section 9 of the rule, which also maps the answers A, B, C to labels): owner and a second reviewer answer the yes/no questions, labels hidden.
    Pass rule: at most 3 of 30 disagreements. If it fails, the rule is revised and this becomes v2.
 2. **Freeze:** record the sha256 of `LABEL_RULE.md` and `positions.jsonl` in `HANDOFF.md`.
 3. **Only then** run the detectors and publish the numbers in `evals/reports/` with each
