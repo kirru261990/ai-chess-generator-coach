@@ -144,6 +144,36 @@ class Engine:
             budget=budget,
         )
 
+    def analyse_multi(
+        self,
+        board: chess.Board,
+        multipv: int,
+        budget: Budget | None = None,
+        perspective: chess.Color | None = None,
+    ) -> list[Analysis]:
+        """Top `multipv` lines, best first. Used to list acceptable alternatives."""
+        if self._engine is None:
+            raise EngineError("engine_not_running", "use Engine as a context manager")
+        budget = budget or self.default_budget
+        perspective = board.turn if perspective is None else perspective
+        with self._lock:
+            self._engine.configure({"Skill Level": 20})
+            infos = self._engine.analyse(board, budget.limit(), multipv=multipv)
+        out = []
+        for info in infos:
+            pv = tuple(m.uci() for m in info.get("pv", []))
+            out.append(
+                Analysis(
+                    best_move=pv[0] if pv else None,
+                    score=normalise(info["score"], perspective),
+                    pv=pv,
+                    depth=info.get("depth", 0),
+                    engine=self.name,
+                    budget=budget,
+                )
+            )
+        return out
+
     def play(self, board: chess.Board, level: int, movetime_ms: int = PLAY_MOVETIME_MS) -> str:
         """Pick an opponent move (UCI) at the given product level."""
         if self._engine is None:
