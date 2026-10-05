@@ -55,7 +55,7 @@ def label_move(engine: Engine, board: chess.Board, move: chess.Move) -> dict | N
         if i % 2 == 0:
             last_even = last
     net = (last_even if last_even is not None else last) - base
-    loss = cp_equiv(best.score.cp, best.score.mate) - cp_equiv(a.score.cp, a.score.mate)
+    loss = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign) - cp_equiv(a.score.cp, a.score.mate, a.score.mate_sign)
     first_is_capture = bool(a.pv) and after.is_capture(chess.Move.from_uci(a.pv[0]))
     if net <= -2 and loss >= 100 and first_is_capture:
         label = "missed"

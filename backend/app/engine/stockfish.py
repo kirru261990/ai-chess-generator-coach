@@ -60,13 +60,16 @@ class Budget:
 class Score:
     """Evaluation from one side's point of view.
 
-    Exactly one of `cp` / `mate` is set. `mate` > 0 means this side mates in that
-    many moves; `mate` < 0 means this side is mated in that many.
+    Exactly one of `cp` / `mate` is set. `mate` is the distance in moves. `mate_sign` says
+    who mates: +1 this side delivers mate, -1 this side is mated. They are separate because
+    a position that is already checkmate has distance 0 for both sides, so the distance alone
+    cannot say who won.
     """
 
     perspective: chess.Color
     cp: int | None = None
     mate: int | None = None
+    mate_sign: int | None = None
 
     @property
     def is_mate(self) -> bool:
@@ -87,7 +90,12 @@ def normalise(pov_score: chess.engine.PovScore, perspective: chess.Color) -> Sco
     """Convert an engine score to `perspective`'s point of view."""
     s = pov_score.pov(perspective)
     if s.is_mate():
-        return Score(perspective, mate=s.mate())
+        distance = s.mate()
+        if distance == 0:  # already checkmate: the library keeps the winner in the ordering
+            sign = 1 if s > chess.engine.Cp(0) else -1
+        else:
+            sign = 1 if distance > 0 else -1
+        return Score(perspective, mate=distance, mate_sign=sign)
     return Score(perspective, cp=s.score())
 
 

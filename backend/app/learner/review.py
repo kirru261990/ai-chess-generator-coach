@@ -23,23 +23,50 @@ MAX_CANDIDATES = 8  # deep-checked at most this many flagged moves per game
 CLAMP = 1000  # centipawn equivalent for mates, used only to rank mistakes
 
 
-def cp_equiv(cp: int | None, mate: int | None) -> int:
+def _sign(mate: int, mate_sign: int | None) -> int:
+    """Who mates. `mate_sign` is authoritative; the distance's sign is only a fallback, and
+    is meaningless for a position that is already checkmate (distance 0)."""
+    if mate_sign is not None:
+        return mate_sign
+    return 1 if mate > 0 else -1
+
+
+def cp_equiv(cp: int | None, mate: int | None, mate_sign: int | None = None) -> int:
     """Single number for ranking. Mates clamp to +/-CLAMP; never shown as centipawns."""
     if mate is not None:
-        return CLAMP if mate > 0 else -CLAMP
+        return CLAMP * _sign(mate, mate_sign)
     return max(-CLAMP, min(CLAMP, cp or 0))
 
 
-def for_mover(cp: int | None, mate: int | None, white_pov: bool) -> tuple[int | None, int | None]:
-    """Convert a White-perspective score to the mover's perspective."""
+def for_mover(
+    cp: int | None, mate: int | None, white_pov: bool, mate_sign: int | None = None
+) -> tuple[int | None, int | None]:
+    """Convert a White-perspective score to the mover's perspective (cp and mate distance).
+
+    The distance of a checkmated position is 0 for both sides, so who won is carried by
+    `mate_sign`; use `rank_for_mover` when the winner matters.
+    """
     if white_pov:
         return cp, mate
     return (None if cp is None else -cp), (None if mate is None else -mate)
 
 
-def fmt_eval(cp: int | None, mate: int | None) -> str:
+def rank_for_mover(position: dict, white_pov: bool) -> int:
+    """Ranking value of a stored (White-perspective) position, from the mover's side."""
+    mate = position.get("mate")
     if mate is not None:
-        return f"mate in {abs(mate)} for you" if mate > 0 else f"mate in {abs(mate)} against you"
+        sign = _sign(mate, position.get("mate_sign"))
+        return CLAMP * (sign if white_pov else -sign)
+    cp = cp_equiv(position.get("cp"), None)
+    return cp if white_pov else -cp
+
+
+def fmt_eval(cp: int | None, mate: int | None, mate_sign: int | None = None) -> str:
+    if mate is not None:
+        sign = _sign(mate, mate_sign)
+        if mate == 0:
+            return "you deliver checkmate" if sign > 0 else "you are checkmated"
+        return f"mate in {abs(mate)} for you" if sign > 0 else f"mate in {abs(mate)} against you"
     return f"{(cp or 0) / 100:+.1f}"
 
 
@@ -53,8 +80,8 @@ def shallow_candidates(analysis: dict, user_color: str) -> list[dict]:
         before, after = analysis["positions"][i], analysis["positions"][i + 1]
         if uci == before["best"]:
             continue
-        b = cp_equiv(*for_mover(before["cp"], before["mate"], white))
-        a = cp_equiv(*for_mover(after["cp"], after["mate"], white))
+        b = rank_for_mover(before, white)
+        a = rank_for_mover(after, white)
         if b <= ALREADY_LOST_CP:
             continue
         loss = b - a
@@ -90,7 +117,8 @@ def confirm_moment(engine: Engine, analysis: dict, ply: int, user_color: str, de
     after_board.push(played)
     after = engine.analyse(after_board, deep, perspective=mover)
 
-    b, a = cp_equiv(best.score.cp, best.score.mate), cp_equiv(after.score.cp, after.score.mate)
+    b = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign)
+    a = cp_equiv(after.score.cp, after.score.mate, after.score.mate_sign)
     loss = b - a
     if loss < MIN_LOSS_CP or b <= ALREADY_LOST_CP:
         return None  # the shallow flag did not survive the deeper search
@@ -99,24 +127,22 @@ def confirm_moment(engine: Engine, analysis: dict, ply: int, user_color: str, de
         board.san(chess.Move.from_uci(line.best_move))
         for line in lines
         if line.best_move
-        and cp_equiv(line.score.cp, line.score.mate) >= b - ACCEPTABLE_WITHIN_CP
+        and cp_equiv(line.score.cp, line.score.mate, line.score.mate_sign) >= b - ACCEPTABLE_WITHIN_CP
     ]
     flags = []
-    if best.score.mate is not None and best.score.mate > 0 and not (
-        after.score.mate is not None and after.score.mate > 0
-    ):
+    if best.score.mate_sign == 1 and after.score.mate_sign != 1:
         flags.append("missed_mate")
-    if after.score.mate is not None and after.score.mate < 0 and not (
-        best.score.mate is not None and best.score.mate < 0
-    ):
+    if after.score.mate_sign == -1 and best.score.mate_sign != -1:
         flags.append("allowed_mate")
 
     played_san = board.san(played)
     best_san = board.san(chess.Move.from_uci(best.best_move))
     takeaway = (
         f"{played_san} cost about {loss / 100:.1f} pawns of evaluation. "
-        f"After {best_san} you stand at {fmt_eval(best.score.cp, best.score.mate)}; "
-        f"after {played_san} it is {fmt_eval(after.score.cp, after.score.mate)}."
+        f"After {best_san} you stand at "
+        f"{fmt_eval(best.score.cp, best.score.mate, best.score.mate_sign)}; "
+        f"after {played_san} it is "
+        f"{fmt_eval(after.score.cp, after.score.mate, after.score.mate_sign)}."
     )
     return {
         "ply": ply,
@@ -125,8 +151,12 @@ def confirm_moment(engine: Engine, analysis: dict, ply: int, user_color: str, de
         "played": {"uci": played.uci(), "san": played_san},
         "best": {"uci": best.best_move, "san": best_san},
         "acceptable_alternatives": acceptable,
-        "eval_best": {"cp": best.score.cp, "mate": best.score.mate},
-        "eval_after_played": {"cp": after.score.cp, "mate": after.score.mate},
+        "eval_best": {
+            "cp": best.score.cp, "mate": best.score.mate, "mate_sign": best.score.mate_sign,
+        },
+        "eval_after_played": {
+            "cp": after.score.cp, "mate": after.score.mate, "mate_sign": after.score.mate_sign,
+        },
         "loss_cp": loss,
         "consequence_line": _san_line(after_board, after.pv),
         "flags": flags,

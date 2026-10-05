@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 
+import chess
 import pytest
 from fastapi.testclient import TestClient
 
@@ -150,3 +151,101 @@ def test_synced_game_api(tmp_path, monkeypatch):
     assert review.status_code == 200 and review.json()["moments"][0]["played"]["san"] == "Nf6"
     assert c.get("/synced-games").json()[0]["analysed"] is True  # the fast pass was stored
     assert c.get("/synced-games/nope/review").status_code == 404
+
+
+# ---- regressions from the full-repository audit ----
+
+from app.engine.batch import SCHEMA
+from app.engine.stockfish import normalise
+from app.learner.review import confirm_moment, rank_for_mover
+
+
+def test_a_checkmated_position_keeps_its_winner_for_either_side():
+    import chess.engine as ce
+
+    for mated_side in (chess.WHITE, chess.BLACK):
+        raw = ce.PovScore(ce.Mate(0), mated_side)  # `mated_side` is to move and checkmated
+        winner = not mated_side
+        assert normalise(raw, winner).mate_sign == 1 and normalise(raw, winner).mate == 0
+        assert normalise(raw, mated_side).mate_sign == -1
+
+
+def test_terminal_mate_ranks_by_who_won_not_by_the_zero_distance():
+    # White-perspective stored positions; the distance is 0 in both.
+    white_won = {"cp": None, "mate": 0, "mate_sign": 1}
+    black_won = {"cp": None, "mate": 0, "mate_sign": -1}
+    assert rank_for_mover(white_won, True) == 1000 and rank_for_mover(white_won, False) == -1000
+    assert rank_for_mover(black_won, True) == -1000 and rank_for_mover(black_won, False) == 1000
+    assert fmt_eval(None, 0, 1) == "you deliver checkmate" and fmt_eval(None, 0, -1) == "you are checkmated"
+
+
+def test_delivering_checkmate_is_never_flagged_as_a_mistake_in_the_fast_pass():
+    # White (user) mates with its only move: the final position is White's win, distance 0.
+    a = {"moves": ["a1a8"], "positions": [
+        {"ply": 0, "cp": None, "mate": 1, "mate_sign": 1, "best": "b1b8"},  # another mate was best
+        {"ply": 1, "cp": None, "mate": 0, "mate_sign": 1, "best": None},
+    ]}
+    assert shallow_candidates(a, "white") == []
+    # Black (user) mates: positions are White-perspective, so the sign is -1.
+    b = {"moves": ["x", "a8a1"], "positions": [
+        {"ply": 0, "cp": 0, "mate": None, "mate_sign": None, "best": "x"},
+        {"ply": 1, "cp": None, "mate": -1, "mate_sign": -1, "best": "a8a1"},
+        {"ply": 2, "cp": None, "mate": 0, "mate_sign": -1, "best": None},
+    ]}
+    assert shallow_candidates(b, "black") == []
+
+
+@needs_engine
+@pytest.mark.parametrize("color", [chess.WHITE, chess.BLACK])
+def test_an_alternative_mating_move_is_not_a_blunder(engine, color):
+    board = chess.Board("6k1/5ppp/8/8/8/8/8/RR2K3 w - - 0 1")  # Ra8# and Rb8# both mate
+    if color == chess.BLACK:
+        board = board.mirror()
+    user_color = "white" if color == chess.WHITE else "black"
+    mates = [m.uci() for m in board.legal_moves if _mates(board, m)]
+    assert len(mates) == 2
+    for uci in mates:
+        a = analyse_game(engine, f'[FEN "{board.fen()}"]\n[SetUp "1"]\n\n1. {board.san(chess.Move.from_uci(uci))} *', FAST)
+        assert confirm_moment(engine, a, 0, user_color, DEEP) is None  # neither mate is a mistake
+        assert a["positions"][-1]["mate_sign"] == (1 if color == chess.WHITE else -1)
+
+
+def _mates(board, move):
+    b = board.copy()
+    b.push(move)
+    return b.is_checkmate()
+
+
+def test_old_records_are_not_reused(tmp_path):
+    store = AnalysisStore(tmp_path / "a.jsonl")
+    legacy = {"source_id": "u/1", "engine": "Stockfish 19", "budget": {"depth": 10, "movetime_ms": None},
+              "moves": [], "sans": [], "positions": []}  # no "schema": written before mate_sign
+    (tmp_path / "a.jsonl").write_text(json.dumps(legacy) + "\n")
+    store = AnalysisStore(tmp_path / "a.jsonl")
+    assert store.has("u/1", "Stockfish 19", Budget(depth=10)) is False
+    assert store.has_current_schema("u/1") is False
+    store.add("u/1", {**legacy, "schema": SCHEMA})
+    assert store.has("u/1", "Stockfish 19", Budget(depth=10)) is True
+
+
+@needs_engine
+def test_review_reanalyses_a_stored_record_from_another_engine_or_budget(tmp_path, monkeypatch):
+    from app.api import synced
+
+    monkeypatch.setattr("app.config.DATA_DIR", tmp_path)
+    monkeypatch.setenv("CHESSCOM_USERNAME", "Tester")
+    (tmp_path / "games").mkdir()
+    (tmp_path / "analysis").mkdir()
+    rec = {"source": "chesscom", "source_id": "https://www.chess.com/game/live/888", "user_color": "black",
+           "opponent": "R", "user_rating": 1, "opponent_rating": 1, "user_result": "checkmated",
+           "time_control": "600", "end_time": 5, "pgn": SCHOLAR}
+    (tmp_path / "games" / "chesscom_tester.jsonl").write_text(json.dumps(rec) + "\n")
+    stale = {"source_id": rec["source_id"], "schema": SCHEMA, "engine": "Stockfish 1",
+             "budget": {"depth": 1, "movetime_ms": None}, "moves": [], "sans": [], "positions": []}
+    (tmp_path / "analysis" / "chesscom_tester.jsonl").write_text(json.dumps(stale) + "\n")
+
+    r = synced.review_synced_game("888")
+    assert r["engine_fast_pass"]["engine"].startswith("Stockfish 19") or "Stockfish" in r["engine_fast_pass"]["engine"]
+    assert r["engine_fast_pass"]["engine"] != "Stockfish 1"
+    assert r["engine_fast_pass"]["budget"] == {"depth": 10, "movetime_ms": None}
+    assert r["moments"] and r["moments"][0]["played"]["san"] == "Nf6"  # not the empty stale record

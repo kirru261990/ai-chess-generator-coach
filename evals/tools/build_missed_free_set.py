@@ -76,7 +76,7 @@ def label_move(engine: Engine, board: chess.Board, move: chess.Move) -> dict:
         if after.is_game_over():
             return {"label": None}
         a = engine.analyse(after, ORACLE, perspective=mover)
-        loss = cp_equiv(best.score.cp, best.score.mate) - cp_equiv(a.score.cp, a.score.mate)
+        loss = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign) - cp_equiv(a.score.cp, a.score.mate, a.score.mate_sign)
     played_capture = captures_nonpawn(board, move)
 
     if opportunity and played_capture and loss < 100:
