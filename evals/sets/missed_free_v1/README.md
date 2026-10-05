@@ -34,9 +34,15 @@ before the move, and the material count is followed along the engine's best line
 2. Positions come from weak-engine play, where free pieces are plentiful and obvious.
    This set is **easy** compared with real games under 1000, so scores on it will look
    better than real-game performance.
-3. Unlike `hanging_own_v1`, the label rule and the detector were **not** changed after
-   viewing results on this set. A first look found 24 of 24 `missed` calls correct and 24
-   of 25 real misses found. Treat that as a smoke test, not a result.
+3. Unlike `hanging_own_v1`, the label rule was **not** changed after viewing results on
+   this set, and the detector was not tuned to it. A first look found 24 of 24 `missed`
+   calls correct and 24 of 25 real misses found; treat that as a smoke test, not a result.
+   The detector was then changed once because of an external review (GPT, PR #12), which
+   found two defects (a losing capture credited as "taken", and a pinned attacker creating a
+   free piece). The same 24/24 and 24/25 came out after the fix. **That means this set has
+   no position that exercises either bug**, so it is too easy to catch this kind of error.
+   The fresh set for T13 must include adversarial cases: pinned capturers, captures that
+   lose material, and several capturers of different values on one target.
 4. Before publishing precision/recall, evaluate on a **fresh set built with a new seed**
    (T13), ideally including positions from real games.
 5. "Free piece" here excludes pawns and requires a legal capture; the detector and the
