@@ -26,6 +26,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Adversarial cases on purpose: pinned capturers, pinned defenders, losing captures, several capturers on one target
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
   - Report each detector's version next to its numbers
+  - Follow `docs/decisions/0001-open-source-reuse.md` §3. Puzzle format: `FEN` is the position **before** the opponent's move and `Moves[0]` is that move (a real blunder), so `hanging_own` uses `(FEN, Moves[0])` and `missed_free` uses the position after `Moves[0]` (ADR amendments A1, A2). The games sample is deferred to v2 (A3)
   - **Status:** rule written and decided (`evals/sets/real_play_v1/LABEL_RULE.md`); set built as a DRAFT (202 items, `build_real_play_set.py`); hand-check sheets generated. Still to do: hand-check, freeze, run detectors, write the precision/recall script and report
 
 ## Day 5 — Blind-spot map + baseline
@@ -35,6 +36,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T14b Peer benchmark: run the same detector versions over one month of Lichess rapid games rated 600–1200; store miss rates by rating band
   - Lichess and Chess.com ratings are on different scales: match bands by percentile or label the comparison "approximate"
   - Only the derived rates go in the repo; raw game files stay in `data/`
+  - ADR 0001 §3: one month, both players rated 600–1200 in bands of 100; same detector versions as the baseline; store aggregates (per band: missed, available, moves, games) in `evals/benchmarks/peer_<yyyy-mm>_<detector>_v<N>.json`; stream-decompress zstd, never load a month into memory; **never show a peer comparison without the rating-scale note**; ask before downloading (a month is about 28 GB)
 - [ ] T15 **Freeze baseline** in `data/baseline/` (hash recorded in `HANDOFF.md`)
 - [ ] T16 Blind-spot map page
 
@@ -51,7 +53,16 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## Housekeeping (any day)
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
 - [ ] T24 Choose and add a LICENSE. The backend depends on python-chess (GPL-3.0-or-later), so the repo should be GPL-3.0-or-later or AGPL-3.0-or-later (AGPL also covers people using a hosted version); MIT is not a safe choice for the combined work. Lichess GPL components (chessground, chessops, berserk) are not used. Decision pending (owner)
+  - Owner confirms **AGPL-3.0** (proposed in ADR 0001) or GPL-3.0-or-later, then add `LICENSE`
+  - Add `THIRD_PARTY.md` (ADR 0001 rule 1): name, version, licence, URL and how used, for every dependency (python-chess, Stockfish, FastAPI, uvicorn, httpx, mcp, pydantic, python-dotenv, zstandard, React and the web libraries, and anything added later). Rule 1 applies to dependencies already added, so this is overdue. CC-BY material needs attribution there and in any report that uses it
+  - Until the licence is confirmed, add no GPL/AGPL code to the web client
 
 ## Week 2 additions
 - [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games
+  - ADR 0001 §3: theme matches the user's active pattern, rating within ±200 of the user's level; mix per session: 2 from own games, 2 curated Lichess puzzles, 1 held-out test (spec D3), and held-out items never appear in practice or coaching context; store puzzle IDs and the dataset snapshot date, not copies of the CSV
 - [ ] T26 Blind-spot map shows my rate next to the peer band from T14b
+
+## Later (from ADR 0001, `docs/decisions/0001-open-source-reuse.md`)
+- [ ] T27 (Month 2) Miss-likelihood model: P(a player at rating R misses a free piece / hangs a piece) in a given position. Data: Lichess games (labels from our detectors) and ChessBench (Stockfish values; code Apache-2.0, data CC0 + CC-BY 4.0, attribute CC-BY); Maia-2 (MIT) as features or baseline. Read the Maia group's published work first and state what is new; evaluate on a held-out month and report calibration, not just accuracy
+- [ ] T28 (V1.1) Maia-2 opponent at the user's rating band, with Stockfish skill levels as the fallback; label strength by Maia band, not as an Elo claim. First check its lowest supported rating band against users under 1000 (spec A2); record the model and weights version
+- [ ] T29 (optional, only after T24) Board and client upgrades: chessground (GPL-3.0) for arrows and mobile, chessops for client-side hints (the backend stays authoritative), stockfish-web for in-browser analysis. Not needed now
