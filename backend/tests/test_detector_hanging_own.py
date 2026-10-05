@@ -116,3 +116,10 @@ def test_hanging_pieces_does_not_depend_on_whose_turn_the_board_says_it_is():
     white_to_move = chess.Board("4k3/8/4p3/3n4/4P3/8/8/3QK3 w - - 0 1")
     black_to_move = chess.Board("4k3/8/4p3/3n4/4P3/8/8/3QK3 b - - 0 1")
     assert hanging_pieces(white_to_move, chess.BLACK) == hanging_pieces(black_to_move, chess.BLACK)
+
+
+def test_a_piece_defended_only_by_a_pinned_pawn_is_hanging():
+    # The white rook on d1 attacks the black knight on d5. Its only defender, the e6 pawn,
+    # is pinned to Ke8 by Re1, so ...exd5 is illegal and the knight is lost (audit finding).
+    board = chess.Board("4k3/8/4p3/3n4/8/8/8/3RR1K1 w - - 0 1")
+    assert [(h.square, h.gain) for h in hanging_pieces(board, chess.BLACK)] == [("d5", 3)]
