@@ -10,7 +10,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Day 2 — Play
 - [x] T05 Engine wrapper (version + budget recorded; scores normalised to player's side; mate handled separately)
-- [ ] T06 Play vs Stockfish: level, colour, resign, game end
+- [x] T06 Play vs Stockfish: level, colour, resign, game end
 - [ ] T07 Play/Practice flag; `assisted` set permanently on switch
 
 ## Day 3 — Sync + analysis
