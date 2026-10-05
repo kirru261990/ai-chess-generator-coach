@@ -1,0 +1,1 @@
+# ai-chess-generator-coach
