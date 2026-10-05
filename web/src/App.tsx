@@ -16,6 +16,8 @@ type GameView = {
   engine_level: number | null
   outcome: { result: string; termination: string } | null
   legal_moves: string[]
+  moves: string[]
+  takebacks_left: number
 }
 
 export default function App() {
@@ -135,6 +137,13 @@ export default function App() {
     if (g) setGame(g)
   }
 
+  async function undo() {
+    if (!game || busy) return
+    setEngineFailed(false)
+    const g = await call(`/games/${game.id}/takeback`, {})
+    if (g) setGame(g)
+  }
+
   async function resign() {
     if (!game || game.outcome) return
     const g = await call(`/games/${game.id}/resign`, {})
@@ -206,6 +215,11 @@ export default function App() {
             >
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
+            {game.mode === 'practice' && (
+              <button onClick={() => void undo()} disabled={busy || game.takebacks_left === 0}>
+                Undo ({game.takebacks_left} left)
+              </button>
+            )}
             <button onClick={() => void resign()} disabled={!!game.outcome}>
               Resign
             </button>
