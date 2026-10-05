@@ -58,6 +58,49 @@ def is_plain_nonpawn_capture(board: chess.Board, move: chess.Move) -> bool:
             and victim is not None and victim.piece_type not in (chess.PAWN, chess.KING))
 
 
+MIN_GAIN = 2  # pawns of net material that count as "winning a piece" (LABEL_RULE section 1)
+
+
+def exchange(board, square):
+    """Best net material the side to move can win by capturing on `square`: a full search over
+    every legal capture and recapture in any order, stopping is always allowed (so >= 0).
+    Written separately from the detectors' exchange code (which takes the cheapest attacker
+    first), so agreement between them is evidence, not an echo."""
+    best = 0
+    for m in list(board.legal_moves):
+        if m.to_square != square or not board.is_capture(m) or board.is_en_passant(m) or m.promotion:
+            continue
+        gain = VAL[board.piece_at(square).piece_type]
+        board.push(m)
+        best = max(best, gain - exchange(board, square))
+        board.pop()
+    return best
+
+
+def capture_net(board, move):
+    """Net material the side to move gets from this one capture of a non-pawn piece, after the
+    opponent's best recaptures; 0 if it is not such a capture."""
+    if not is_plain_nonpawn_capture(board, move):
+        return 0
+    gain = VAL[board.piece_at(move.to_square).piece_type]
+    board.push(move)
+    net = gain - exchange(board, move.to_square)
+    board.pop()
+    return net
+
+
+def best_capture_net(board):
+    """The most the side to move can win by capturing a non-pawn piece (0 if nothing pays)."""
+    return max([0] + [capture_net(board, m) for m in list(board.legal_moves)])
+
+
+def hang_gain_after(board, move):
+    """After `move`, the most the opponent can win by capturing one of the mover's non-pawn pieces."""
+    after = board.copy()
+    after.push(move)
+    return best_capture_net(after)
+
+
 def load_puzzles():
     """Yield dicts for every puzzle in the file with its themes, rating and moves parsed."""
     with PUZZLES.open("rb") as f, zstandard.ZstdDecompressor().stream_reader(f) as r:
@@ -124,22 +167,34 @@ def build_real(rng, engine):
         rng.shuffle(q)
     items, shortfall = [], {}
 
-    def take(b):  # one unused puzzle from band b, never reused across strata
-        return queues[b].pop() if queues[b] else None
+    def take(b, ok=lambda p: True):  # one unused puzzle from band b that passes `ok`, never reused
+        while queues[b]:
+            p = queues[b].pop()
+            if ok(p):
+                return p
+        return None
+
+    # Every real item is confirmed by the independent exchange search, not only by Lichess's theme.
+    taken_ok = lambda p: capture_net(p["after"], p["m1"]) >= MIN_GAIN
+    blunder_ok = lambda p: hang_gain_after(p["before"], p["m0"]) >= MIN_GAIN
+    safe_ok = lambda p: hang_gain_after(p["after"], p["m1"]) < MIN_GAIN
+    opportunity_ok = lambda p: best_capture_net(p["after"]) >= MIN_GAIN
 
     for b in BANDS:
         for _ in range(PER_BAND):  # missed_free taken (real)
-            if (p := take(b)):
+            if (p := take(b, taken_ok)):
                 items.append(item("missed_free", "taken", p["after"], p["m1"], p, "real_taken"))
         for _ in range(PER_BAND):  # hanging_own missed (real blunder)
-            if (p := take(b)):
+            if (p := take(b, blunder_ok)):
                 items.append(item("hanging_own", "missed", p["before"], p["m0"], p, "real_blunder"))
         for _ in range(PER_BAND):  # hanging_own taken (real, safe solution move)
-            if (p := take(b)):
+            if (p := take(b, safe_ok)):
                 items.append(item("hanging_own", "taken", p["after"], p["m1"], p, "real_safe"))
         made, tries = 0, 0
         while made < PER_BAND and tries < 400 and queues[b]:  # missed_free missed (constructed)
-            p, tries = take(b), tries + 1
+            p, tries = take(b, opportunity_ok), tries + 1
+            if p is None:
+                break
             best = engine.analyse(p["after"], ORACLE)
             if best.best_move != p["m1"].uci():
                 continue
@@ -162,32 +217,32 @@ def build_real(rng, engine):
     return items, {"eligible_pool": len(uniq), **{f"left_band_{b}": len(q) for b, q in queues.items()}}, shortfall
 
 
-def build_not_applicable(rng, engine):
-    """missed_free not_applicable: real positions from non-hangingPiece puzzles where the engine
-    sees no winning capture although a defended non-pawn piece could be captured."""
-    rows = [x for x in load_puzzles() if "hangingPiece" not in x["themes"]]
+def build_not_applicable(rng):
+    """missed_free not_applicable: real positions from non-hangingPiece puzzles in which NO legal
+    capture of a non-pawn piece nets MIN_GAIN pawns (by the independent exchange search), although the
+    mover could capture a defended non-pawn piece. The excluded themes apply here too."""
+    rows = [x for x in load_puzzles()
+            if "hangingPiece" not in x["themes"] and not EXCLUDED_THEMES & set(x["themes"])]
     rng.shuffle(rows)
+    per = NA_TARGET // len(BANDS)
     per_band, out = {b: 0 for b in BANDS}, []
     for x in rows:
-        if all(v >= NA_TARGET // len(BANDS) for v in per_band.values()):
+        if all(v >= per for v in per_band.values()):
             break
-        if per_band[x["band"]] >= NA_TARGET // len(BANDS):
+        if per_band[x["band"]] >= per:
             continue
         p = prepare(x)
         if not p:
             continue
         board = p["before"]  # a real position from a real game, side to move = the blunderer
-        defended = any(is_plain_nonpawn_capture(board, m) and board.is_attacked_by(not board.turn, m.to_square)
-                       for m in board.legal_moves)
-        if not defended:
+        if not any(is_plain_nonpawn_capture(board, m) and board.is_attacked_by(not board.turn, m.to_square)
+                   for m in board.legal_moves):
             continue
-        a, net = best_line_net(engine, board)
-        best_is_winning_capture = bool(a.pv) and is_plain_nonpawn_capture(board, chess.Move.from_uci(a.pv[0])) and net >= 2
-        if best_is_winning_capture:
+        if best_capture_net(board) >= MIN_GAIN:  # a legal capture wins material: not "no opportunity"
             continue
-        out.append(item("missed_free", "not_applicable", board, p["m0"], p, "engine_no_opportunity", net_material_best=net))
+        out.append(item("missed_free", "not_applicable", board, p["m0"], p, "no_opportunity", exchange_net=0))
         per_band[x["band"]] += 1
-    return out, {f"missed_free n/a band {b}": NA_TARGET // len(BANDS) - n for b, n in per_band.items() if n < NA_TARGET // len(BANDS)}
+    return out, {f"missed_free n/a band {b}": per - n for b, n in per_band.items() if n < per}
 
 
 # ---- hand-built adversarial positions: (detector, fen, uci, label, reason, facts checked by python-chess)
@@ -239,6 +294,31 @@ ADV = [
 ]
 
 
+def _check_adversarial_label(det, label, board, move, fen, uci):
+    """My hand reasoning is checked by the independent search; a mismatch means my label is wrong."""
+    where = (det, fen, uci, label)
+    if det == "missed_free":
+        opp = best_capture_net(board) >= MIN_GAIN
+        wins = capture_net(board, move) >= MIN_GAIN
+        if label == "not_applicable":
+            assert not opp, where
+        elif label == "taken":
+            assert opp and wins, where
+        elif label == "missed":
+            assert opp and not wins, where
+        elif label == "uncertain":
+            assert opp and not wins and board.gives_check(move), where
+    else:
+        hangs = hang_gain_after(board, move) >= MIN_GAIN
+        flags = [hang_gain_after(board, m) >= MIN_GAIN for m in board.legal_moves]
+        if label == "missed":
+            assert hangs and not all(flags), where
+        elif label == "taken":
+            assert not hangs and any(flags), where
+        elif label == "not_applicable":
+            assert not (any(flags) and not all(flags)), where
+
+
 def build_adversarial():
     out = []
     for i, (det, fen, uci, label, reason, facts) in enumerate(ADV, 1):
@@ -254,10 +334,44 @@ def build_adversarial():
             after.push(chess.Move.from_uci(first))
             legal = chess.Move.from_uci(reply) in after.legal_moves
             assert legal == ("legal_after" in facts), (fen, first, reply)
+        _check_adversarial_label(det, label, board, move, fen, uci)
         out.append({"detector": det, "label": label, "fen": fen, "move_uci": uci, "move_san": board.san(move),
                     "category": "adversarial", "constructed": True, "puzzle_id": f"adv{i:02d}", "rating": None,
                     "band": None, "mate_theme": False, "themes": [], "source_url": None, "reason": reason})
     return out
+
+
+QUESTIONS = {
+    "missed_free": [
+        (
+            "A. Before this move, could the side to move win material by capturing a knight, bishop, rook or "
+            "queen, gaining at least two pawns' worth after the opponent takes back as well as it can? "
+            "(A rook for a bishop counts. A trade of equal pieces does not.)"
+        ),
+        (
+            "B. Does the move shown make such a capture, one that itself wins at least two pawns' worth after "
+            "the opponent's best recapture? (Taking a piece but then losing a bigger one does not count.)"
+        ),
+        (
+            "C. Is there something that matters more than the material here, such as checkmate or a forced win, "
+            "so that skipping the capture would be fine?"
+        ),
+    ],
+    "hanging_own": [
+        (
+            "A. After this move, can the opponent win at least two pawns' worth of material by capturing one of "
+            "the mover's knights, bishops, rooks or queens, counting what the mover can take back?"
+        ),
+        (
+            "B. (Answer if A is yes.) Before the move, could the mover have played some other legal move that "
+            "avoids this?"
+        ),
+        (
+            "C. (Answer if A is no.) Before the move, was there any legal move by the mover that would have left a "
+            "piece (not a pawn) to be won?"
+        ),
+    ],
+}
 
 
 def sheet(rows, title):
@@ -270,13 +384,10 @@ def sheet(rows, title):
         board = chess.Board(r["fen"])
         who = "White" if board.turn else "Black"
         link = "https://lichess.org/analysis/" + board.fen().replace(" ", "_")
-        if r["detector"] == "missed_free":
-            q = ("Q1. Before this move, could the side to move win a piece (knight, bishop, rook or queen) by capturing it "
-                 "without losing material back?  Q2. Does the move shown capture that piece?")
-        else:
-            q = "Q. After this move, can the opponent win a piece (not a pawn) for free by capturing it?"
-        lines += [f"## {r['id']}", f"- {who} to move; move played: **{r['move_san']}**", f"- Board: {link}", f"- {q}",
-                  "- Your answer: ______", ""]
+        qs = QUESTIONS[r["detector"]]
+        q = "\n".join(f"  - {x}" for x in qs)
+        lines += [f"## {r['id']}", f"- {who} to move; move played: **{r['move_san']}**", f"- Board: {link}",
+                  "- Questions (yes / no / can't tell):", q, "- Your answers (A, B, C): ______", ""]
     return "\n".join(lines)
 
 
@@ -284,7 +395,7 @@ def main():
     rng = random.Random(SEED)
     with Engine() as engine:
         real, pool_info, shortfall = build_real(rng, engine)
-        na, na_short = build_not_applicable(rng, engine)
+        na, na_short = build_not_applicable(rng)
         engine_name = engine.name
     shortfall.update(na_short)
     items = real + na + build_adversarial()
