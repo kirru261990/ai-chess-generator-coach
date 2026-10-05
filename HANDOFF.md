@@ -6,8 +6,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 in progress: T11, T12 and the full-repository audit fixes are merged; T13 next
-- **Active branch:** `main` (no open PRs)
+- **Phase:** Week 1, Day 4 in progress: T13 set built as a draft, awaiting hand-check
+- **Active branch:** `feat/t13-build-real-play-set` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Detector versions:** `hanging_own` v2, `missed_free` v2 (both: legal captures and legal recaptures). Analysis record schema: 2. Report these with any number.
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
@@ -32,6 +32,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 13)
+- **Done:** T13 label rule decided and merged (the owner delegated the decisions; each is reversible, see `LABEL_RULE.md` section 12). Built `evals/sets/real_play_v1` as a **draft**: 202 items (180 real from Lichess puzzles, 10 per rating band per stratum from distinct puzzles; 22 hand-built adversarial), Stockfish 19 at depth 14, seed 20261007. **No detector has been run on it** and the builder imports nothing from `app/detectors/` (a test enforces this). Item ids are shuffled so they do not reveal the label. 70% of real items carry a mate theme and are tagged for separate reporting. Hand-check sheets (labels hidden) are in the set folder.
+- **Next, in this order:** (1) hand-check: the owner answers what they can on `handcheck_owner.md` ("can't tell" is allowed), a second reviewer such as GPT does `handcheck_second.md`; pass rule at most 3 of 30 disagreements, else v2. (2) Freeze: record the sha256 of `LABEL_RULE.md` and `positions.jsonl` here. (3) Write the precision/recall script and run both detectors; publish with versions, denominators and 95% Wilson intervals, split by real/constructed and with/without mate themes.
+- **Caveat:** labels are not human-reviewed yet. Do not claim otherwise, and do not run the detectors on this set before step 2.
+- **Branch / PR:** `feat/t13-build-real-play-set`
 
 ### 2026-10-05 · MacBook · Claude Code (session 12)
 - **Done:** read https://lichess.org/source and checked each repo's real license. CC0: puzzle/games/evaluation databases, `chess-openings`. AGPL-3.0: lila, lichess-puzzler, database tools, api docs. GPL-3.0: chessground, chessops, pgn-viewer, stockfish-web, fishnet, berserk. MIT: scalachess (Scala, not useful). We reuse **data only**; for Lichess sync call the HTTP API with `httpx` rather than the GPL `berserk` client.
