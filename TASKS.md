@@ -21,10 +21,19 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## Day 4 — Detectors
 - [x] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
 - [x] T12 `missed_free` v1 detector + 50 labelled positions
-- [ ] T13 Precision/recall script → first numbers in `evals/reports/`
+- [ ] T13 Precision/recall script on a FRESH, FROZEN set → first numbers in `evals/reports/`
+  - Positions from real play, not self-play: Lichess puzzles tagged `hangingPiece` (rating 400–1200) and positions from Lichess rapid games rated 600–1000 (database.lichess.org, CC0)
+  - Adversarial cases on purpose: pinned capturers, pinned defenders, losing captures, several capturers on one target
+  - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
+  - Report each detector's version next to its numbers
 
 ## Day 5 — Blind-spot map + baseline
-- [ ] T14 Run detectors over last 100 case-study games; missed/available + rate per 100 moves
+- [ ] T14 Run detectors over last 100 case-study games
+  - `hanging_own`: report misses **per 100 moves** (its opportunity definition matches almost every position, so missed/available is not meaningful)
+  - `missed_free`: report missed/available and rate per 100 moves
+- [ ] T14b Peer benchmark: run the same detector versions over one month of Lichess rapid games rated 600–1200; store miss rates by rating band
+  - Lichess and Chess.com ratings are on different scales: match bands by percentile or label the comparison "approximate"
+  - Only the derived rates go in the repo; raw game files stay in `data/`
 - [ ] T15 **Freeze baseline** in `data/baseline/` (hash recorded in `HANDOFF.md`)
 - [ ] T16 Blind-spot map page
 
@@ -37,3 +46,11 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T20 Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
 - [ ] T21 E1 state/rules regression suite
 - [ ] T22 README update + short demo clip
+
+## Housekeeping (any day)
+- [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
+- [ ] T24 Choose and add a LICENSE (AGPL-3.0 if adopting Lichess GPL components such as chessground; otherwise decide between MIT and AGPL)
+
+## Week 2 additions
+- [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games
+- [ ] T26 Blind-spot map shows my rate next to the peer band from T14b

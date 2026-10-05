@@ -15,8 +15,9 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Next up
 
-1. Day 4: T13 precision/recall script, evaluated on FRESH seeded sets with frozen label rules (see the two set READMEs for why the current drafts are optimistic). Include some real-game positions if possible.
-2. Day 5: T14 run detectors over the baseline window; T15 freeze baseline; T16 blind-spot map page.
+1. Day 4: T13 (rewritten): fresh, frozen set from real play (Lichess puzzles + Lichess rapid games), adversarial cases, label rule frozen first, ~30 labels hand-checked.
+2. Day 5: T14 (hanging_own per 100 moves; missed_free as missed/available), T14b peer benchmark, T15 freeze baseline, T16 blind-spot map page.
+3. Housekeeping: T23 CI with Stockfish, T24 LICENSE (before sharing the repo widely).
 
 ## Blockers / open questions
 
@@ -36,8 +37,18 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Done:** a GPT full-repository audit (`~/Documents/full-code-review.md`) gave 7 findings; all 7 reproduced, fixed and merged (#14 to #17), each answered on its original PR. (1) null move skipped a turn: moves must be in `legal_moves`. (2) concurrent moves both applied: per-game lock; the engine search runs outside it and is applied against the revision captured before thinking. (3) draw declared on a prospective claim: automatic rules plus actual repetition/fifty-move. (4) a checkmated position lost its winner (correct mating move shown as a blunder): `Score.mate_sign`, stored in positions. (5) stale analysis reused: records carry `schema` and are reused only when schema, engine and budget match. (6) resignation undone by a late engine snapshot: `acceptGame()` in the web app; a mode change now bumps the server revision. (7) pinned defenders could recapture: `see()` plays legal moves; both detectors reflect it.
 - **Data:** the local analysis cache was refreshed for all 450 games (schema 2). 189 of them end in checkmate, so the mate bug was on a common path. Anyone with an older cache must re-run `cd backend && uv run python -m app.engine.batch`.
 - **Process note:** deleting the base branch of a stacked PR closes the stacked PR automatically (happened to #10). Rebase the stacked branch onto `main` and open a new PR instead.
-- **Next:** T13 on fresh seeded sets with frozen label rules and adversarial positions (pins, losing captures, several capturers). Then Day 5.
+- **Next:** T13 **as rewritten in `TASKS.md`** (real-play positions, frozen label rule, adversarial cases; see the external review entry below). Then Day 5.
 - **Branch / PR:** `docs/handoff-after-audit`
+
+### 2026-10-05 · Cowork review · Claude (external review, no code changes)
+- **Reviewed:** whole repo at `5ccaf90`. 98 tests pass and ruff is clean without Stockfish (21 engine tests skipped, so CI with Stockfish is needed).
+- **Findings:**
+  1. `hanging_own` opportunity ("some move hangs, some move does not") holds in almost every position, so missed/available ≈ missed per move. Report per 100 moves, or tighten (e.g. a piece is already attacked).
+  2. Draft eval sets are weak-engine self-play; T13 should use real positions (Lichess puzzles `hangingPiece` 400–1200, Lichess rapid 600–1000) with adversarial cases.
+  3. No LICENSE file: a public repo without one is "all rights reserved".
+  4. Engine tests only run where Stockfish is installed; add CI.
+- **Lichess reuse decided:** CC0 puzzle, games and evaluation databases (eval sets, peer benchmark, practice bank). Main Lichess codebase (lila) not reused.
+- **Tasks changed:** T13 rewritten; T14 split by detector; added T14b, T23, T24, T25, T26.
 
 ### 2026-10-05 · MacBook · Claude Code (session 10)
 - **Done:** merged T12 (missed_free, with the two GPT-review fixes). `hanging_own` v2 (legal captures only, version bumped). On the draft set the `hanging_own` smoke numbers moved from 20/22 and 20/25 to 21/23 and 21/25; the set has no pin-focused positions, so this says little.
