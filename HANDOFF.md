@@ -21,6 +21,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Blockers / open questions
 
+- **Licence not chosen (T24):** python-chess is GPL-3.0-or-later, so the repo should be AGPL-3.0 or GPL-3.0, not MIT. ADR 0001 proposes AGPL-3.0; the owner decides. No `LICENSE` or `THIRD_PARTY.md` yet.
 - ~~Baseline game count~~ resolved: 450 case-study games available (253 at 10|0, 197 at 15|10), 4 Jul – 5 Oct 2026. Enough for a 100-game baseline; the window still needs choosing before Day 5 freeze.
 - Fast-pass evaluations are not yet flagged as uncertain when unstable (spec B2); needs a second-depth comparison.
 - Reviews are not cached; each call re-runs the deep check (a few seconds).
@@ -32,6 +33,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 14)
+- **Done:** added **ADR 0001** (`docs/decisions/0001-open-source-reuse.md`, from the owner's file): what to reuse and under what rules (Lichess CC0 data, Maia-2, ChessBench; read Chesskit/others, do not fork). Checked it against the repo and licences, and corrected it in place with marked amendments (section 6): (A1/A2) the puzzle `FEN` is the position **before** the opponent's move, so `hanging_own` already has its position and `missed_free`'s opportunity is after `Moves[0]`; (A3) the games sample is deferred to v2 (a month is about 28 GB); (A4/A6) set and data locations; (A5) berserk is GPL-3.0, freechess has no stated licence (copy nothing), Lucas Chess is archived; (A7) the licence is still undecided.
+- **Tasks:** T13, T14b, T24, T25 now reference the ADR; added T27 (miss-likelihood model), T28 (Maia-2 opponent), T29 (optional board upgrades after T24). T24 now includes `LICENSE` and `THIRD_PARTY.md` (ADR rule 1 is already overdue for the dependencies added so far).
+- **Next:** unchanged: the owner's hand-check of `handcheck_owner.md` and GPT's of `handcheck_second.md`, then freeze, then the detector run.
+- **Branch / PR:** `docs/adr-0001-open-source-reuse` (stacked on `feat/t13-build-real-play-set`; merge #21 first)
 
 ### 2026-10-05 · MacBook · Claude Code (session 13)
 - **Done:** T13 label rule decided and merged (the owner delegated the decisions; each is reversible, see `LABEL_RULE.md` section 12). Built `evals/sets/real_play_v1` as a **draft**: 202 items (180 real from Lichess puzzles, 10 per rating band per stratum from distinct puzzles; 22 hand-built adversarial), Stockfish 19 at depth 14, seed 20261007. **No detector has been run on it** and the builder imports nothing from `app/detectors/` (a test enforces this). Item ids are shuffled so they do not reveal the label. 70% of real items carry a mate theme and are tagged for separate reporting. Hand-check sheets (labels hidden) are in the set folder.
