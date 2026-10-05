@@ -6,9 +6,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 in progress — T11 done, T13 next
-- **Active branch:** `feat/hanging-own-detector` (PR into `main`)
+- **Phase:** Week 1, Day 4 in progress: T11, T12 and the full-repository audit fixes are merged; T13 next
+- **Active branch:** `main` (no open PRs)
 - **Machine/agent last used:** MacBook / Claude Code
+- **Detector versions:** `hanging_own` v2, `missed_free` v2 (both: legal captures and legal recaptures). Analysis record schema: 2. Report these with any number.
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
 - **Frozen eval sets:** none yet
 
@@ -22,10 +23,21 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - ~~Baseline game count~~ resolved: 450 case-study games available (253 at 10|0, 197 at 15|10), 4 Jul – 5 Oct 2026. Enough for a 100-game baseline; the window still needs choosing before Day 5 freeze.
 - Fast-pass evaluations are not yet flagged as uncertain when unstable (spec B2); needs a second-depth comparison.
 - Reviews are not cached; each call re-runs the deep check (a few seconds).
+- The per-game lock is in-process only. Several backend workers would need a database-level guard (plan it with Postgres).
+- Web has unit tests for the response-ordering rule (`pnpm test`) but no component or browser integration tests.
+- Draws end only when reached (actual threefold repetition, fifty-move clock, automatic rules). Players cannot claim a draw yet.
+- Both draft eval sets are easy, engine-labelled and unreviewed. A human spot-check of labels is still owed before anything is frozen.
 
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 11)
+- **Done:** a GPT full-repository audit (`~/Documents/full-code-review.md`) gave 7 findings; all 7 reproduced, fixed and merged (#14 to #17), each answered on its original PR. (1) null move skipped a turn: moves must be in `legal_moves`. (2) concurrent moves both applied: per-game lock; the engine search runs outside it and is applied against the revision captured before thinking. (3) draw declared on a prospective claim: automatic rules plus actual repetition/fifty-move. (4) a checkmated position lost its winner (correct mating move shown as a blunder): `Score.mate_sign`, stored in positions. (5) stale analysis reused: records carry `schema` and are reused only when schema, engine and budget match. (6) resignation undone by a late engine snapshot: `acceptGame()` in the web app; a mode change now bumps the server revision. (7) pinned defenders could recapture: `see()` plays legal moves; both detectors reflect it.
+- **Data:** the local analysis cache was refreshed for all 450 games (schema 2). 189 of them end in checkmate, so the mate bug was on a common path. Anyone with an older cache must re-run `cd backend && uv run python -m app.engine.batch`.
+- **Process note:** deleting the base branch of a stacked PR closes the stacked PR automatically (happened to #10). Rebase the stacked branch onto `main` and open a new PR instead.
+- **Next:** T13 on fresh seeded sets with frozen label rules and adversarial positions (pins, losing captures, several capturers). Then Day 5.
+- **Branch / PR:** `docs/handoff-after-audit`
 
 ### 2026-10-05 · MacBook · Claude Code (session 10)
 - **Done:** merged T12 (missed_free, with the two GPT-review fixes). `hanging_own` v2 (legal captures only, version bumped). On the draft set the `hanging_own` smoke numbers moved from 20/22 and 20/25 to 21/23 and 21/25; the set has no pin-focused positions, so this says little.
