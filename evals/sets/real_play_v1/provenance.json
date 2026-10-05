@@ -1,0 +1,38 @@
+{
+  "set": "real_play_v1",
+  "rule": "LABEL_RULE.md v0.2",
+  "seed": 20261007,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "miss_loss_cp": 300,
+  "puzzle_file_sha256": "76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d",
+  "counts": {
+    "missed_free": {
+      "engine_no_opportunity:not_applicable": 20,
+      "adversarial:not_applicable": 5,
+      "constructed_miss:missed": 40,
+      "real_taken:taken": 40,
+      "adversarial:missed": 3,
+      "adversarial:taken": 4,
+      "adversarial:uncertain": 1
+    },
+    "hanging_own": {
+      "real_blunder:missed": 40,
+      "real_safe:taken": 40,
+      "adversarial:taken": 3,
+      "adversarial:missed": 4,
+      "adversarial:not_applicable": 2
+    }
+  },
+  "pool": {
+    "eligible_pool": 89214,
+    "left_band_400": 15055,
+    "left_band_600": 19545,
+    "left_band_800": 27878,
+    "left_band_1000": 26576
+  },
+  "shortfall": {},
+  "items": 202,
+  "detectors_run": false,
+  "frozen": false
+}
