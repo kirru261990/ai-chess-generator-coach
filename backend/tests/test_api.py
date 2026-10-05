@@ -114,3 +114,15 @@ def test_mode_switch_does_not_change_revision_and_rejects_bad_input():
     assert client.post(f"/games/{gid}/mode", json={"mode": "practice"}).json()["revision"] == 0
     assert client.post(f"/games/{gid}/mode", json={"mode": "x"}).json()["error"] == "invalid_mode"
     assert client.post("/games/nope/mode", json={"mode": "play"}).status_code == 404
+
+
+def test_cors_allows_any_local_dev_port_but_not_other_sites():
+    def preflight(origin):
+        return client.options(
+            "/games", headers={"Origin": origin, "Access-Control-Request-Method": "POST"}
+        )
+
+    for ok in ("http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5199"):
+        assert preflight(ok).headers.get("access-control-allow-origin") == ok
+    for bad in ("https://evil.example", "http://localhost.evil.example", "http://example.com:5173"):
+        assert "access-control-allow-origin" not in preflight(bad).headers

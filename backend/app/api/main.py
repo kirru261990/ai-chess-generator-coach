@@ -20,7 +20,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="AI Chess Coach", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    # Local development only: Vite moves to 5174, 5175... when a port is busy.
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
