@@ -108,11 +108,18 @@ def new_game(
 
 
 def set_mode(game: Game, mode: Mode) -> None:
-    """Switching to Practice mid-game marks the game assisted permanently."""
+    """Switching to Practice mid-game marks the game assisted permanently.
+
+    A change of mode or of the assisted flag is a state change, so it bumps the revision:
+    a client can then tell a delayed older snapshot from the current state.
+    """
     with game.lock:
+        before = (game.mode, game.assisted)
         game.mode = mode
         if mode is Mode.PRACTICE:
             game.assisted = True
+        if (game.mode, game.assisted) != before:
+            game.revision += 1
 
 
 def make_move(game: Game, uci: str, expected_revision: int) -> Game:
