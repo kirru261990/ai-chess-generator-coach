@@ -35,7 +35,7 @@ QUEEN_VS_PAWN = "4k3/8/8/3p4/8/3Q4/8/4K3 w - - 0 1"
 def test_moving_into_a_pawn_capture_is_missed():
     r = detect(chess.Board(QUEEN_VS_PAWN), chess.Move.from_uci("d3e4"))
     assert r.outcome == "missed" and r.hanging[0].square == "e4" and r.hanging[0].gain == 9
-    assert r.engine_confirmed is None and r.version == "1"
+    assert r.engine_confirmed is None and r.version == "2"
 
 
 def test_a_safe_move_is_taken():
@@ -73,3 +73,46 @@ def test_input_board_is_not_mutated_and_illegal_moves_rejected():
     assert board.fen() == fen and len(board.move_stack) == 0
     with pytest.raises(ValueError):
         detect(board, chess.Move.from_uci("d3d8"))  # blocked by the pawn on d5
+
+
+# ---- v2: only legal captures make a piece hanging (found by the GPT review of PR #12) ----
+
+def test_version_is_2():
+    assert detect(chess.Board(QUEEN_VS_PAWN), chess.Move.from_uci("d3d2")).version == "2"
+
+
+def test_a_piece_attacked_only_by_a_pinned_pawn_is_not_hanging():
+    # Black pawn c4 attacks Nd3 but is pinned to Kc8 by Rc1, so cxd3 is illegal.
+    board = chess.Board("2k5/8/8/8/2p5/3N4/8/2R1K3 b - - 0 1")
+    assert not [m for m in board.legal_moves if board.is_capture(m)]
+    assert hanging_pieces(board, chess.WHITE) == ()
+
+
+def test_moving_next_to_a_pinned_pawn_is_safe_but_next_to_a_free_pawn_hangs_the_piece():
+    pinned = chess.Board("2k5/8/8/8/2p5/8/3N4/2R1K3 w - - 0 1")  # pawn c4 is pinned by Rc1
+    free = chess.Board("6k1/8/8/8/2p5/8/3N4/2R1K3 w - - 0 1")  # same, but the king is elsewhere
+    nb3 = chess.Move.from_uci("d2b3")
+    assert detect(pinned, nb3).outcome == "not_applicable"  # nothing on the board can hang
+    assert detect(free, nb3).outcome == "missed"  # cxb3 wins the knight
+
+
+def test_a_losing_capture_and_a_pinned_cheap_attacker_on_one_target():
+    # Mirror of the missed_free review case: the cheap attacker (pawn e7) is pinned and the
+    # only legal capture of Nd6 is Qxd6, which loses the queen to cxd6.
+    board = chess.Board("4rk2/8/8/8/2p5/3n4/4P3/3QK3 w - - 0 1").mirror()
+    assert board.turn == chess.BLACK
+    assert hanging_pieces(board, chess.WHITE) == ()
+
+
+def test_the_best_legal_capturer_sets_the_gain():
+    # Black Nd5 is defended by pawn e6. exd5 wins the knight (the queen backs up the pawn, so
+    # ...exd5 Qxd5 is an even trade): net 3. Qxd5 would lose the queen (net -5). The best
+    # legal capture sets the gain.
+    board = chess.Board("4k3/8/4p3/3n4/4P3/8/8/3QK3 w - - 0 1")
+    assert [(h.square, h.gain) for h in hanging_pieces(board, chess.BLACK)] == [("d5", 3)]
+
+
+def test_hanging_pieces_does_not_depend_on_whose_turn_the_board_says_it_is():
+    white_to_move = chess.Board("4k3/8/4p3/3n4/4P3/8/8/3QK3 w - - 0 1")
+    black_to_move = chess.Board("4k3/8/4p3/3n4/4P3/8/8/3QK3 b - - 0 1")
+    assert hanging_pieces(white_to_move, chess.BLACK) == hanging_pieces(black_to_move, chess.BLACK)
