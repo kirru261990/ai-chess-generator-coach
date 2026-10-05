@@ -1,27 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import './App.css'
+import { acceptGame, type GameView } from './gameState'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 // The engine answers in ~0.2 s, which is too fast for the player to follow what happened.
 // Show its reply no sooner than this after the player's move.
 const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
-
-type GameView = {
-  id: string
-  fen: string
-  revision: number
-  turn: 'white' | 'black'
-  user_color: 'white' | 'black'
-  mode: string
-  assisted: boolean
-  engine_level: number | null
-  outcome: { result: string; termination: string } | null
-  legal_moves: string[]
-  moves: string[]
-  takebacks_left: number
-}
 
 export default function App() {
   const [game, setGame] = useState<GameView | null>(null)
@@ -33,6 +19,10 @@ export default function App() {
   const [mode, setMode] = useState<'play' | 'practice'>('play')
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
+
+  // Responses can arrive out of order (the engine's reply is shown after a delay), so an
+  // older snapshot must never replace a newer one or one for a game that was left behind.
+  const applyGame = useCallback((g: GameView) => setGame((current) => acceptGame(current, g)), [])
 
   const call = useCallback(async (path: string, body?: object): Promise<GameView | null> => {
     try {
@@ -59,7 +49,7 @@ export default function App() {
     setEngineFailed(false)
     const g = await call('/games', { color, mode, level })
     setBusy(false)
-    if (g) setGame(g)
+    if (g) setGame((current) => acceptGame(current, g, true)) // a new game takes over the screen
   }
 
   useEffect(() => {
@@ -85,10 +75,10 @@ export default function App() {
       if (g && wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
       engineInFlight.current = false
       setBusy(false)
-      if (g) setGame(g)
+      if (g) applyGame(g)
       else setEngineFailed(true)
     })
-  }, [game, engineToMove, busy, engineFailed, call])
+  }, [game, engineToMove, busy, engineFailed, call, applyGame])
 
   // Click a piece, then click where it should go. The board only ever shows the
   // server-confirmed position; legal targets come from the server's list.
@@ -114,7 +104,7 @@ export default function App() {
       engine_reply: false, // show my move now; the engine's reply follows
     }).then((g) => {
       setBusy(false)
-      if (g) setGame(g)
+      if (g) applyGame(g)
     })
   }
 
@@ -140,20 +130,20 @@ export default function App() {
     )
       return
     const g = await call(`/games/${game.id}/mode`, { mode: next })
-    if (g) setGame(g)
+    if (g) applyGame(g)
   }
 
   async function undo() {
     if (!game || busy) return
     setEngineFailed(false)
     const g = await call(`/games/${game.id}/takeback`, {})
-    if (g) setGame(g)
+    if (g) applyGame(g)
   }
 
   async function resign() {
     if (!game || game.outcome) return
     const g = await call(`/games/${game.id}/resign`, {})
-    if (g) setGame(g)
+    if (g) applyGame(g)
   }
 
   const status = !game
