@@ -6,7 +6,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 in progress — T11 done, T12/T13 next
+- **Phase:** Week 1, Day 4 in progress — T11 done, T13 next
 - **Active branch:** `feat/hanging-own-detector` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
@@ -14,7 +14,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Next up
 
-1. Day 4: T12 `missed_free` v1 detector + 50 labelled positions (reuse `detectors/see.py`); T13 precision/recall script, evaluated on a FRESH seeded set (see `evals/sets/hanging_own_v1/README.md`).
+1. Day 4: T13 precision/recall script, evaluated on FRESH seeded sets with frozen label rules (see the two set READMEs for why the current drafts are optimistic). Include some real-game positions if possible.
 2. Day 5: T14 run detectors over the baseline window; T15 freeze baseline; T16 blind-spot map page.
 
 ## Blockers / open questions
@@ -26,6 +26,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 9)
+- **Done:** T12. `detectors/missed_free.py` (v1) and a 50-position draft set (`evals/sets/missed_free_v1/`, builder `evals/tools/build_missed_free_set.py`). Also web: engine reply is shown 1 s after the player's move (`ENGINE_MIN_REPLY_MS`). Takeback rule confirmed by the user: 2 undos per move (a new move resets the allowance), which is what is implemented.
+- **Smoke check only:** 24/24 `missed` calls correct, 24/25 misses found on the draft set. The set is easy; do not quote.
+- **Next:** T13.
+- **Blockers:** none. Both draft sets need a human spot-check of labels.
+- **Branch / PR:** `feat/missed-free-detector`
 
 ### 2026-10-05 · MacBook · Claude Code (session 8)
 - **Done:** user feedback. (1) Click-to-move replaces drag and drop (PR on `feat/click-to-move`; the API now returns `legal_moves` for highlighting). (2) Practice-mode Undo, at most 2 in a row, via `POST /games/{id}/takeback`; `Game.revision` is now a monotonic counter; stacked on the click-to-move branch, so merge that PR first.
