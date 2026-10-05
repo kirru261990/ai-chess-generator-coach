@@ -19,7 +19,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T10 Batch shallow engine pass over synced games; review of one game (up to 3 key moments)
 
 ## Day 4 — Detectors
-- [ ] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
+- [x] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
 - [ ] T12 `missed_free` v1 detector + 50 labelled positions
 - [ ] T13 Precision/recall script → first numbers in `evals/reports/`
 
