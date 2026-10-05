@@ -41,6 +41,15 @@ capture) and 10 ordinary moves.
 4. A `missed` label means "the engine says material is lost to a capture", not "a
    piece was left on an undefended square". The two overlap but are not identical.
 
+## Detector change since this set was built
+
+`hanging_own` went from v1 to v2 (legal captures only; an external review of
+`missed_free` exposed a pinned-attacker defect that v1 shared). On this set, `missed`
+calls were 20 of 22 correct with 20 of 25 real misses found under v1, and 21 of 23 and
+21 of 25 under v2: one position changed. The set has no position built to test pins, so
+it cannot tell whether v2 is right in general. The regression tests do that. These are
+smoke checks on a set whose labels were refined once after viewing results; do not quote them.
+
 ## Status
 
 Draft. Not frozen. `HANDOFF.md` lists no frozen sets; update it when this changes.
