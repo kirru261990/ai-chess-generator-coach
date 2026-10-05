@@ -33,6 +33,15 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-05 · MacBook · Claude Code (session 12)
+- **Done:** read https://lichess.org/source and checked each repo's real license. CC0: puzzle/games/evaluation databases, `chess-openings`. AGPL-3.0: lila, lichess-puzzler, database tools, api docs. GPL-3.0: chessground, chessops, pgn-viewer, stockfish-web, fishnet, berserk. MIT: scalachess (Scala, not useful). We reuse **data only**; for Lichess sync call the HTTP API with `httpx` rather than the GPL `berserk` client.
+- **Licensing finding:** the backend depends on `python-chess` (GPL-3.0-or-later), so the repo should be GPL-3.0+ or AGPL-3.0+, not MIT (T24 reworded; owner to decide).
+- **Downloaded (owner-approved, git-ignored):** `data/lichess/lichess_db_puzzle.csv.zst`, 293 MB. 6,157,341 puzzles; 224,023 tagged `hangingPiece`; **91,638 rated 400-1200** (400-599: 15,097; 600-799: 19,638; 800-999: 28,312; 1000-1199: 28,464; a few at 1200). Added `zstandard` as a dev dependency to read it. Games files were **not** downloaded: one standard month is ~28 GB compressed.
+- **Format notes for T13:** columns `PuzzleId, FEN, Moves, Rating, RatingDeviation, Popularity, NbPlays, Themes, GameUrl, OpeningTags, DailyDate`. `FEN` is the position *before* the opponent's last move; `Moves[0]` is that move (a real human blunder), then the solver's moves follow. So `(FEN, Moves[0])` is a real-game positive for hanging_own, and the position after `Moves[0]` with solution `Moves[1]` is a real opportunity for missed_free. Puzzles only give correct solutions, so negatives (a player who missed the capture, a safe move) need other sources.
+- **Next:** agree T13's label rule with the owner before writing any code, then freeze it before running the detectors; owner hand-checks about 30 labels.
+- **Branch / PR:** `docs/lichess-data-and-license-notes`
+
+
 ### 2026-10-05 · MacBook · Claude Code (session 11)
 - **Done:** a GPT full-repository audit (`~/Documents/full-code-review.md`) gave 7 findings; all 7 reproduced, fixed and merged (#14 to #17), each answered on its original PR. (1) null move skipped a turn: moves must be in `legal_moves`. (2) concurrent moves both applied: per-game lock; the engine search runs outside it and is applied against the revision captured before thinking. (3) draw declared on a prospective claim: automatic rules plus actual repetition/fifty-move. (4) a checkmated position lost its winner (correct mating move shown as a blunder): `Score.mate_sign`, stored in positions. (5) stale analysis reused: records carry `schema` and are reused only when schema, engine and budget match. (6) resignation undone by a late engine snapshot: `acceptGame()` in the web app; a mode change now bumps the server revision. (7) pinned defenders could recapture: `see()` plays legal moves; both detectors reflect it.
 - **Data:** the local analysis cache was refreshed for all 450 games (schema 2). 189 of them end in checkmate, so the mate bug was on a common path. Anyone with an older cache must re-run `cd backend && uv run python -m app.engine.batch`.

@@ -22,7 +22,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
 - [x] T12 `missed_free` v1 detector + 50 labelled positions
 - [ ] T13 Precision/recall script on a FRESH, FROZEN set → first numbers in `evals/reports/`
-  - Positions from real play, not self-play: Lichess puzzles tagged `hangingPiece` (rating 400–1200) and positions from Lichess rapid games rated 600–1000 (database.lichess.org, CC0)
+  - Positions from real play, not self-play: Lichess puzzles tagged `hangingPiece` (rating 400–1200) and positions from Lichess rapid games rated 600–1000 (database.lichess.org, CC0). The puzzle file is downloaded (293 MB, `data/lichess/`, git-ignored). A month of standard rated games is about 28 GB compressed: never download it whole; stream it and stop early, keeping only rapid games with both players rated 600–1000, and ask before downloading
   - Adversarial cases on purpose: pinned capturers, pinned defenders, losing captures, several capturers on one target
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
   - Report each detector's version next to its numbers
@@ -49,7 +49,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Housekeeping (any day)
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
-- [ ] T24 Choose and add a LICENSE (AGPL-3.0 if adopting Lichess GPL components such as chessground; otherwise decide between MIT and AGPL)
+- [ ] T24 Choose and add a LICENSE. The backend depends on python-chess (GPL-3.0-or-later), so the repo should be GPL-3.0-or-later or AGPL-3.0-or-later (AGPL also covers people using a hosted version); MIT is not a safe choice for the combined work. Lichess GPL components (chessground, chessops, berserk) are not used. Decision pending (owner)
 
 ## Week 2 additions
 - [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games
