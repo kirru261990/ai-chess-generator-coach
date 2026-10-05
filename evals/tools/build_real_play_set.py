@@ -29,7 +29,8 @@ SEED = 20261007
 PUZZLES = ROOT / "data" / "lichess" / "lichess_db_puzzle.csv.zst"
 OUT = ROOT / "evals" / "sets" / "real_play_v1"
 ORACLE = Budget(depth=14)  # LABEL_RULE decision 2
-MISS_LOSS_CP = 300  # LABEL_RULE decision 2
+MISS_LOSS_CP = 300  # LABEL_RULE decision 2: engine loss that confirms a miss
+UNCERTAIN_LOSS_CP = 100  # below this the engine does not confirm a loss: the right outcome is `uncertain`
 BANDS = (400, 600, 800, 1000)
 PER_BAND = 10
 NA_TARGET = 20
@@ -94,6 +95,23 @@ def best_capture_net(board):
     return max([0] + [capture_net(board, m) for m in list(board.legal_moves)])
 
 
+def choice_flags(board):
+    """For each legal move: does it leave a non-pawn piece to be won (net >= MIN_GAIN)?"""
+    return {m: hang_gain_after(board, m) >= MIN_GAIN for m in list(board.legal_moves)}
+
+
+def engine_loss(engine, board, move):
+    """(best_cp, after_cp, loss) from the mover's side at the oracle depth; mates are clamped."""
+    mover = board.turn
+    best = engine.analyse(board, ORACLE, perspective=mover)
+    after = board.copy()
+    after.push(move)
+    a = engine.analyse(after, ORACLE, perspective=mover)
+    b = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign)
+    c = cp_equiv(a.score.cp, a.score.mate, a.score.mate_sign)
+    return b, c, b - c
+
+
 def hang_gain_after(board, move):
     """After `move`, the most the opponent can win by capturing one of the mover's non-pawn pieces."""
     after = board.copy()
@@ -132,8 +150,12 @@ def prepare(p):
             "mate_theme": any(t.startswith("mate") or t.endswith("Mate") for t in p["themes"])}
 
 
-def item(det, label, board, move, p, category, **extra):
-    return {"detector": det, "label": label, "fen": board.fen(), "move_uci": move.uci(),
+def item(det, label, board, move, p, category, material_label=None, **extra):
+    """`label` is the outcome a correct detector gives WITH engine evidence. `material_label` is what a
+    person can verify from the board alone (the hand-check answers map to it); they differ only when
+    the engine overrides the material picture."""
+    return {"detector": det, "label": label, "material_label": material_label or label,
+            "fen": board.fen(), "move_uci": move.uci(),
             "move_san": board.san(move), "category": category, "constructed": category.startswith("constructed"),
             "puzzle_id": p["id"], "rating": p["rating"], "band": p["band"], "mate_theme": p["mate_theme"],
             "themes": p["themes"], "source_url": f"https://lichess.org/training/{p['id']}", **extra}
@@ -176,17 +198,37 @@ def build_real(rng, engine):
 
     # Every real item is confirmed by the independent exchange search, not only by Lichess's theme.
     taken_ok = lambda p: capture_net(p["after"], p["m1"]) >= MIN_GAIN
-    blunder_ok = lambda p: hang_gain_after(p["before"], p["m0"]) >= MIN_GAIN
-    safe_ok = lambda p: hang_gain_after(p["after"], p["m1"]) < MIN_GAIN
+    def blunder_ok(p):  # it hangs a piece AND a safe alternative existed (else the outcome is n/a)
+        flags = choice_flags(p["before"])
+        return flags[p["m0"]] and any(not v for m, v in flags.items() if m != p["m0"])
+
+    def safe_ok(p):  # it leaves nothing to win AND some other move would have (else the outcome is n/a)
+        flags = choice_flags(p["after"])
+        return not flags[p["m1"]] and any(flags.values())
+
     opportunity_ok = lambda p: best_capture_net(p["after"]) >= MIN_GAIN
 
     for b in BANDS:
         for _ in range(PER_BAND):  # missed_free taken (real)
             if (p := take(b, taken_ok)):
                 items.append(item("missed_free", "taken", p["after"], p["m1"], p, "real_taken"))
-        for _ in range(PER_BAND):  # hanging_own missed (real blunder)
-            if (p := take(b, blunder_ok)):
-                items.append(item("hanging_own", "missed", p["before"], p["m0"], p, "real_blunder"))
+        got = 0
+        while got < PER_BAND and queues[b]:  # hanging_own: a real move that hung a piece
+            p = take(b, blunder_ok)
+            if p is None:
+                break
+            best_cp, after_cp, loss = engine_loss(engine, p["before"], p["m0"])
+            ev = {"engine_best_cp": best_cp, "engine_after_cp": after_cp, "loss_cp": loss}
+            if loss >= MISS_LOSS_CP:  # the engine confirms a real loss: the outcome is `missed`
+                items.append(item("hanging_own", "missed", p["before"], p["m0"], p, "real_blunder", **ev))
+            elif loss < UNCERTAIN_LOSS_CP:  # it hangs a piece but the engine does not confirm: `uncertain`
+                items.append(item("hanging_own", "uncertain", p["before"], p["m0"], p, "real_blunder",
+                                  material_label="missed", **ev))
+            else:  # 100-299 cp: neither clearly an error nor clearly not; excluded as ambiguous
+                continue
+            got += 1
+        if got < PER_BAND:
+            shortfall[f"hanging_own real_blunder band {b}"] = PER_BAND - got
         for _ in range(PER_BAND):  # hanging_own taken (real, safe solution move)
             if (p := take(b, safe_ok)):
                 items.append(item("hanging_own", "taken", p["after"], p["m1"], p, "real_safe"))
@@ -319,7 +361,7 @@ def _check_adversarial_label(det, label, board, move, fen, uci):
             assert not (any(flags) and not all(flags)), where
 
 
-def build_adversarial():
+def build_adversarial(engine):
     out = []
     for i, (det, fen, uci, label, reason, facts) in enumerate(ADV, 1):
         board = chess.Board(fen)
@@ -335,7 +377,14 @@ def build_adversarial():
             legal = chess.Move.from_uci(reply) in after.legal_moves
             assert legal == ("legal_after" in facts), (fen, first, reply)
         _check_adversarial_label(det, label, board, move, fen, uci)
-        out.append({"detector": det, "label": label, "fen": fen, "move_uci": uci, "move_san": board.san(move),
+        best_cp, after_cp, loss = engine_loss(engine, board, move)
+        if label == "missed":  # an outcome WITH evidence: the engine must confirm the loss
+            assert loss >= UNCERTAIN_LOSS_CP, ("engine does not confirm", fen, uci, loss)
+        if label == "taken" and det == "hanging_own":
+            assert loss < MISS_LOSS_CP, ("engine says this safe move loses", fen, uci, loss)
+        out.append({"detector": det, "label": label, "material_label": label, "fen": fen, "move_uci": uci,
+                    "engine_best_cp": best_cp, "engine_after_cp": after_cp, "loss_cp": loss,
+                    "move_san": board.san(move),
                     "category": "adversarial", "constructed": True, "puzzle_id": f"adv{i:02d}", "rating": None,
                     "band": None, "mate_theme": False, "themes": [], "source_url": None, "reason": reason})
     return out
@@ -396,9 +445,10 @@ def main():
     with Engine() as engine:
         real, pool_info, shortfall = build_real(rng, engine)
         na, na_short = build_not_applicable(rng)
+        adv = build_adversarial(engine)
         engine_name = engine.name
     shortfall.update(na_short)
-    items = real + na + build_adversarial()
+    items = real + na + adv
     items.sort(key=lambda r: (r["detector"], r["category"], r["puzzle_id"]))
     random.Random(SEED + 2).shuffle(items)  # ids must carry no information about the category or label
     for i, r in enumerate(items, 1):
