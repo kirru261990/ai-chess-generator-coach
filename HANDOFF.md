@@ -6,16 +6,15 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 2 — T05, T06 done; T07 next
-- **Active branch:** `feat/play-vs-stockfish` (PR into `main`)
+- **Phase:** Week 1, Day 2 done — Day 3 (sync + analysis) next
+- **Active branch:** `feat/play-practice-flag` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
 - **Frozen eval sets:** none yet
 
 ## Next up
 
-1. Day 2: T07 Play/Practice flag in the UI (core already sets `assisted` permanently on switch; add a mode switch + API route).
-2. Day 3: Chess.com sync (10|0 and 15|10 rapid); batch engine pass; one-game review.
+1. Day 3: Chess.com sync (10|0 and 15|10 rapid); batch engine pass; one-game review.
 
 ## Blockers / open questions
 
@@ -24,6 +23,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-05 · MacBook · Claude Code (session 4)
+- **Done:** T07. `POST /games/{id}/mode`; web mode selector, switch button with confirmation, assisted badge. Hints, scan prompts and takebacks do not exist yet; the flag is in place for when they do.
+- **Next:** T08 Chess.com sync.
+- **Blockers:** need `CHESSCOM_USERNAME` and a contact email for the User-Agent in `.env`.
+- **Branch / PR:** `feat/play-practice-flag`
 
 ### 2026-10-05 · MacBook · Claude Code (session 3)
 - **Done:** T06. Play vs Stockfish: levels 1-10 (Skill Level 0-18), colour choice, resign, checkmate/draw end, PGN download. New `POST /games/{id}/engine-move` is idempotent. Fixed two web bugs found while testing in the browser (effect cancelled its own request; missing POST body sent a GET).
