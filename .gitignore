@@ -1,0 +1,46 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Personal / game data — never commit
+data/
+*.pgn
+!evals/sets/**/*.pgn
+
+# Eval run outputs (reports are committed)
+evals/runs/
+
+# Engine binaries and model weights
+stockfish*
+!backend/app/engine/stockfish*.py
+*.nnue
+*.pt
+*.onnx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
