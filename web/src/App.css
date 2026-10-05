@@ -2,3 +2,4 @@
 .board { width: 100%; max-width: 520px; margin: 0 auto; }
 .error { color: #c0392b; }
 .controls { display: flex; gap: 12px; justify-content: center; align-items: center; margin: 12px 0; }
+.badge { background: #f5e6b8; border-radius: 4px; padding: 1px 6px; }
