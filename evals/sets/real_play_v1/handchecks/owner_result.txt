@@ -1,0 +1,18 @@
+items answered: 30 | decided: 30 | can't tell: 0
+agree: 25 of 30 | disagree: 5
+  hanging_own  real_blunder           5/5
+  hanging_own  real_safe              6/6
+  missed_free  constructed_miss       1/6
+  missed_free  no_opportunity         4/4
+  missed_free  real_taken             9/9
+DISAGREE rp1-154 (missed_free, constructed_miss): label missed, answers imply not_applicable
+   independent check says missed (Rxd1# takes the rook (net +5)) -> label SUPPORTED
+DISAGREE rp1-046 (missed_free, constructed_miss): label missed, answers imply not_applicable
+   independent check says missed (Qxf8# takes the rook (net +5)) -> label SUPPORTED
+DISAGREE rp1-140 (missed_free, constructed_miss): label missed, answers imply not_applicable
+   independent check says missed (Qxh1# takes the rook (net +5); Qxc3 takes the knight (net -6)) -> label SUPPORTED
+DISAGREE rp1-104 (missed_free, constructed_miss): label missed, answers imply not_applicable
+   independent check says missed (Kxd3 takes the knight (net +3)) -> label SUPPORTED
+DISAGREE rp1-147 (missed_free, constructed_miss): label missed, answers imply not_applicable
+   independent check says missed (Qxf1# takes the rook (net +5)) -> label SUPPORTED
+adjudication: label supported in 5 of 5 disagreements

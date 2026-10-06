@@ -1,0 +1,30 @@
+rp1-201: A yes, B yes
+rp1-199: A yes, B no
+rp1-156: A no
+rp1-099: A yes
+rp1-130: A no
+rp1-029: A yes, B yes
+rp1-154: A no, B -
+rp1-071: A no, B -
+rp1-148: A yes, B yes
+rp1-046: A no, B -
+rp1-060: A yes, B yes
+rp1-140: A no, B -
+rp1-196: A yes
+rp1-054: A yes
+rp1-008: A no
+rp1-184: A yes, B yes
+rp1-149: A yes, B yes
+rp1-104: A no, B -
+rp1-031: A no
+rp1-121: A no, B -
+rp1-107: A yes
+rp1-064: A yes
+rp1-168: A no, B -
+rp1-147: A no, B -
+rp1-109: A no
+rp1-067: A yes, B yes
+rp1-088: A yes, B yes
+rp1-132: A no
+rp1-039: A yes, B yes
+rp1-164: A no, B -
