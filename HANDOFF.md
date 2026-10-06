@@ -34,6 +34,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-06 · MacBook · Claude Code (session 15)
+- **Done:** the owner found the hand-check sheet too hard to read and answer (notation, links, abstract questions). Replaced it for the owner with `evals/sets/real_play_v1/handcheck_owner.html`: a self-contained page with the board, the move as an arrow, the move in plain words, and at most two yes / no / can't tell questions per item (B appears only when A is yes). Same 30 items, labels hidden, answers saved in the browser, a Copy button that produces lines like `rp1-201: A yes, B no`. For `hanging_own` items it shows the board after the move. The second reviewer keeps the full three-question sheet.
+- **Next:** owner opens the page and answers (can't tell is fine), pastes the copied text; compare against `material_label` using the mapping in `LABEL_RULE.md` section 9; then the second reviewer; then freeze and run the detectors. A comparison script is not written yet.
+- **Branch / PR:** `feat/handcheck-page`
+
 ### 2026-10-05 · MacBook · Claude Code (session 14)
 - **Done:** added **ADR 0001** (`docs/decisions/0001-open-source-reuse.md`, from the owner's file): what to reuse and under what rules (Lichess CC0 data, Maia-2, ChessBench; read Chesskit/others, do not fork). Checked it against the repo and licences, and corrected it in place with marked amendments (section 6): (A1/A2) the puzzle `FEN` is the position **before** the opponent's move, so `hanging_own` already has its position and `missed_free`'s opportunity is after `Moves[0]`; (A3) the games sample is deferred to v2 (a month is about 28 GB); (A4/A6) set and data locations; (A5) berserk is GPL-3.0, freechess has no stated licence (copy nothing), Lucas Chess is archived; (A7) the licence is still undecided.
 - **Tasks:** T13, T14b, T24, T25 now reference the ADR; added T27 (miss-likelihood model), T28 (Maia-2 opponent), T29 (optional board upgrades after T24). T24 now includes `LICENSE` and `THIRD_PARTY.md` (ADR rule 1 is already overdue for the dependencies added so far).
