@@ -1,10 +1,8 @@
-# real_play_v1: label rule (v0.4, decisions made, set not yet frozen)
+# real_play_v1: label rule (v0.4, FROZEN on 2026-10-06; see FROZEN.md)
 
-**Status:** the owner delegated the open decisions on 2026-10-05 and asked that each be
-reversible; they are in section 12 with reasons and how to undo them. **No detector has been run
-on any position of this set, and no position has been chosen yet.** This file freezes at the
-freeze step (section 8): it is hashed and never edited afterwards. A flaw found later means a new
-set version, never an edit.
+**Status:** **frozen on 2026-10-06** (hashes in `FROZEN.md`). This file and `positions.jsonl` are never edited again; a
+flaw found later means a new set version. The decisions below were made by Claude under the owner's delegation
+(2026-10-05), each reversible. As of the freeze **no detector had been run on any position of this set**.
 
 **Purpose:** measure how accurately `hanging_own` and `missed_free` classify moves on
 positions from real play, including cases built to break them, without the labels depending on
@@ -227,6 +225,21 @@ legal move have left a piece to be won?)
   `can't tell` items are replaced, not counted as agreement.
 - Record the counts, the date and who checked in the set README. "Human-reviewed" may be claimed only for the
   items actually reviewed, and only by whom.
+
+### Second reviewer's result and the freeze decision (2026-10-06)
+
+**GPT, full three-question sheet, 52 items (22 adversarial plus 30 others the owner did not see):** 51 of 51 decided items
+agree with `material_label`, 0 disagree, 1 undecided (rp1-022: the mate/forced-win question answered "can't tell"). It used
+python-chess on all 52 and Stockfish 19 at depth 18 on 29 of them; agreement is 22 of 22 without the engine and 29 of 29 with
+it. Because the engine is the same family as the one behind part of the labels, agreement on the engine-dependent parts is
+expected and is weaker evidence than the python-chess-only half. The comparison script was checked by corrupting three answers,
+which produced exactly three disagreements.
+
+**Decision to freeze (judgment call, stated openly).** The owner's raw result does **not** meet the pass rule as written (5
+disagreements, one kind). It was frozen anyway because every one of the 5 was adjudicated by the independent search and the
+label was supported in all 5, and the second reviewer found no disagreement. In total 82 of 202 items had some review and no
+label error was found. This leaves the labels reviewed by a checker under 1000 and by a model, **not by a strong human
+player**. If a later check finds a label error, build `real_play_v2`; do not edit v1.
 
 ### Protocol amendment and the owner's result (2026-10-06)
 

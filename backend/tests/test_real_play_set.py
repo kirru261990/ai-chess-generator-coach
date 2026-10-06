@@ -4,6 +4,7 @@ independence the label rule depends on."""
 import ast
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import chess
@@ -69,11 +70,23 @@ def test_ids_do_not_reveal_the_category():
     assert max(means) - min(means) < 60  # contiguous blocks per category would be a leak
 
 
-def test_provenance_says_no_detector_has_run_and_the_set_is_not_frozen():
+def test_provenance_records_the_freeze_and_that_no_detector_had_run():
     prov = json.loads((SET / "provenance.json").read_text())
-    assert prov["detectors_run"] is False and prov["frozen"] is False
+    assert prov["frozen"] is True and prov["detectors_run_at_freeze"] is False
     assert prov["engine"].startswith("Stockfish") and prov["oracle_depth"] == 14 and prov["miss_loss_cp"] == 300
     assert len(prov["puzzle_file_sha256"]) == 64 and prov["shortfall"] == {}
+
+
+def test_frozen_files_still_match_the_recorded_hashes():
+    import hashlib
+
+    frozen = (SET / "FROZEN.md").read_text()
+    for name in ("positions.jsonl", "LABEL_RULE.md", "provenance.json"):
+        recorded = re.search(rf"`{re.escape(name)}`\s*\|\s*`([0-9a-f]{{64}})`", frozen)
+        assert recorded, name
+        assert hashlib.sha256((SET / name).read_bytes()).hexdigest() == recorded.group(1), (
+            f"{name} was edited after the freeze: build a new version instead"
+        )
 
 
 def test_the_hand_check_sheets_do_not_show_labels():
