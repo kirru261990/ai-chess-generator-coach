@@ -6,7 +6,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 in progress: T13 set frozen; scoring the detectors on it is next
+- **Phase:** Week 1, Day 4 done: T13 complete (set frozen, detectors scored); Day 5 (T14: run the detectors on the owner's games) is next
 - **Active branch:** `feat/t13-build-real-play-set` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Detector versions:** `hanging_own` v2, `missed_free` v2 (both: legal captures and legal recaptures). Analysis record schema: 2. Report these with any number.
@@ -33,6 +33,14 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-06 · MacBook · Claude Code (session 18)
+- **T13 done.** `evals/tools/score_detectors.py` scored `hanging_own` v2 and `missed_free` v2 on the frozen `real_play_v1`, static and with engine evidence (Stockfish 19, depth 10 = the production fast-pass budget; the labels' own runs used depth 14). Report: `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, + `_notes.md`). Nothing was tuned; the detectors and set were unchanged after the first run, and the numbers reproduce exactly on a second run.
+- **Headline (point estimates, 95% Wilson intervals in the report):** `hanging_own` v2 precision 42/44 static, 41/42 with evidence; recall 42/42, 41/42. `missed_free` v2 precision 43/44 static, 43/43 with evidence; recall 43/43 both. The spec's E3 targets (precision >= 90%, recall >= 80%) are met by the point estimates; the lower end of the interval for `hanging_own` static precision is 0.85. Uncertain rate: `hanging_own` 2/89, `missed_free` 1/113 (with evidence).
+- **Do not quote those as real-play performance.** They measure detection accuracy on curated puzzle positions and hand-built positions, against labels that share the detectors' material definition. `missed_free` has **no real missed examples** in the set (puzzles only show correct solutions), so its recall on real ignored free pieces is unmeasured. Reviewed labels: 82 of 202 items, no strong human player.
+- **The 4 disagreements are 3 items; none is a detector logic error:** rp1-080 (static cannot know the engine disagrees: intended), rp1-095 (the label sits on the 100 cp threshold: loss 98 at depth 14, 237 at depth 10), rp1-128 (already-winning position: at depth 10 the engine reports no loss from hanging a knight, so the pipeline abstains). **Product implication: real misses made in already-lopsided positions will be counted as `uncertain`, not `missed`.** Expect it in T14.
+- **Next:** T14: run both detectors over the owner's last 100 case-study games (`hanging_own` per 100 moves; `missed_free` as missed/available plus per 100 moves), using the stored fast-pass analysis (schema 2, depth 10) as evidence. The baseline must be frozen (T15) before the coach is used on the owner's games; running the detectors for T14 is the baseline measurement itself, so freeze the game window first.
+- **Branch / PR:** `feat/t13-score-detectors`
 
 ### 2026-10-06 · MacBook · Claude Code (session 17)
 - **Second reviewer (GPT) result:** 52 items, 51 agree, 0 disagree, 1 undecided (rp1-022, mate question "can't tell"). python-chess on all 52; Stockfish 19 depth 18 on 29 (22/22 and 29/29 agree). The comparison script was sanity-checked by corrupting answers (it found exactly the corrupted ones).

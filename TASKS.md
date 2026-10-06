@@ -21,7 +21,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## Day 4 — Detectors
 - [x] T11 `hanging_own` v1 detector + 50 labelled positions in `evals/sets/hanging_own_v1/`
 - [x] T12 `missed_free` v1 detector + 50 labelled positions
-- [ ] T13 Precision/recall script on a FRESH, FROZEN set → first numbers in `evals/reports/`
+- [x] T13 Precision/recall script on a FRESH, FROZEN set → first numbers in `evals/reports/` (done 2026-10-06: `evals/reports/real_play_v1_2026-10-06.md`)
   - Positions from real play, not self-play: Lichess puzzles tagged `hangingPiece` (rating 400–1200) and positions from Lichess rapid games rated 600–1000 (database.lichess.org, CC0). The puzzle file is downloaded (293 MB, `data/lichess/`, git-ignored). A month of standard rated games is about 28 GB compressed: never download it whole; stream it and stop early, keeping only rapid games with both players rated 600–1000, and ask before downloading
   - Adversarial cases on purpose: pinned capturers, pinned defenders, losing captures, several capturers on one target
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
