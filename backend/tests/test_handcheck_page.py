@@ -44,7 +44,7 @@ def test_plain_move_wording_needs_no_notation():
 def test_every_owner_item_can_be_checked_with_the_simple_questions():
     # The owner page omits the mate/forced-win question, so no owner item may depend on it, and the
     # answers must map to the item's material_label (see LABEL_RULE.md section 9).
-    ids = re.findall(r"^## (rp1-\d+)", (SET / "handcheck_owner.md").read_text(), re.M)
+    ids = re.findall(r"^## (rp1-\d+)", (SET / "handcheck_owner.md").read_text(), re.MULTILINE)
     rows = {r["id"]: r for r in map(json.loads, (SET / "positions.jsonl").read_text().splitlines())}
     for i in ids:
         r = rows[i]
