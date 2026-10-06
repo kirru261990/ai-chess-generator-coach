@@ -48,3 +48,13 @@ cd ../web && pnpm install && pnpm dev
 - Product spec: [`docs/spec.md`](docs/spec.md)
 - Agent instructions: [`AGENTS.md`](AGENTS.md)
 - Decisions: [`docs/decisions/`](docs/decisions/)
+
+## Licence
+
+Copyright 2026 Karthik Raman. Licensed under the **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`); see
+[`LICENSE`](LICENSE). In short: you may use, study, modify and share this code, and if you run a modified version as a service
+for other people you must offer them its source. The backend uses python-chess (GPL-3.0-or-later), which is why the project is
+copyleft. Third-party components and their licences: [`THIRD_PARTY.md`](THIRD_PARTY.md).
+
+Outside contributions are not being accepted yet. If that changes, contributors will be asked to sign a contributor
+agreement first, so the project keeps the freedom to relicense or dual-license its own code.

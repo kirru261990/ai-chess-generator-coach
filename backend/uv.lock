@@ -153,6 +153,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "chess" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "mcp" },
     { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
@@ -160,7 +161,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "zstandard" },
@@ -170,6 +170,7 @@ dev = [
 requires-dist = [
     { name = "chess", specifier = ">=1.11.2" },
     { name = "fastapi", specifier = ">=0.142.2" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
@@ -177,7 +178,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.10" },
     { name = "zstandard", specifier = ">=0.25.0" },

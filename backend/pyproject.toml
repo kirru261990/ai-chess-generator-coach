@@ -2,10 +2,12 @@
 name = "chess-coach-backend"
 version = "0.1.0"
 description = "AI Chess Coach backend"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
     "chess>=1.11.2",
     "fastapi>=0.142.2",
+    "httpx>=0.28.1",
     "mcp>=2.3.0",
     "python-dotenv>=1.2.4",
     "uvicorn[standard]>=0.54.0",
@@ -13,7 +15,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
     "zstandard>=0.25.0",
