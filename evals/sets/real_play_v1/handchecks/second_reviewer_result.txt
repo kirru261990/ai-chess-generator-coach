@@ -1,0 +1,12 @@
+engine-assisted: 29 of 29 agree
+python-chess only: 22 of 22 agree
+items answered: 52 | decided: 51 | can't tell: 1
+agree: 51 of 51 | disagree: 0
+  hanging_own  adversarial            9/9
+  hanging_own  real_blunder           6/6
+  hanging_own  real_safe              7/7
+  missed_free  adversarial            12/12
+  missed_free  constructed_miss       9/9
+  missed_free  no_opportunity         2/2
+  missed_free  real_taken             6/6
+  undecided rp1-022 (missed_free, adversarial): answers {'A': 'yes', 'B': 'no', 'C': "can't tell"}, label missed

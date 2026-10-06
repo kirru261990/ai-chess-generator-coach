@@ -42,3 +42,31 @@ def test_the_recorded_owner_result_is_reproducible_from_the_saved_answers():
     results = m.compare(m.parse((TOOL.parents[1] / "sets" / "real_play_v1" / "handchecks" / "owner_answers.txt").read_text()), rows)
     assert len(results) == 30 and sum(r["agree"] for r in results) == 25
     assert {r["category"] for r in results if not r["agree"]} == {"constructed_miss"}
+
+
+def test_full_sheet_answers_map_to_all_four_labels():
+    f = mod().implied_full
+    assert f("missed_free", {"A": "no", "B": "-", "C": "yes"}) == "not_applicable"
+    assert f("missed_free", {"A": "yes", "B": "yes", "C": "-"}) == "taken"
+    assert f("missed_free", {"A": "yes", "B": "no", "C": "no"}) == "missed"
+    assert f("missed_free", {"A": "yes", "B": "no", "C": "yes"}) == "uncertain"
+    assert f("missed_free", {"A": "yes", "B": "no", "C": "can't tell"}) is None
+    assert f("hanging_own", {"A": "yes", "B": "yes", "C": "-"}) == "missed"
+    assert f("hanging_own", {"A": "yes", "B": "no", "C": "-"}) == "not_applicable"  # every move hangs something
+    assert f("hanging_own", {"A": "no", "B": "-", "C": "yes"}) == "taken"
+    assert f("hanging_own", {"A": "no", "B": "-", "C": "no"}) == "not_applicable"  # nothing could hang
+
+
+def test_a_wrong_answer_is_detected_and_the_recorded_second_review_reproduces():
+    import json
+
+    m = mod()
+    base = TOOL.parents[1] / "sets" / "real_play_v1"
+    rows = {r["id"]: r for r in map(json.loads, (base / "positions.jsonl").read_text().splitlines())}
+    answers = m.parse((base / "handchecks" / "second_reviewer_answers.txt").read_text())
+    results = m.compare(answers, rows, full=True)
+    assert len(results) == 52 and sum(r["agree"] is True for r in results) == 51
+    assert [r["id"] for r in results if r["agree"] is None] == ["rp1-022"]  # C marked can't tell
+    answers["rp1-180"] = {"A": "no", "B": "-", "C": "no"}  # was a miss; now claims nothing was available
+    changed = {r["id"]: r for r in m.compare(answers, rows, full=True)}
+    assert changed["rp1-180"]["agree"] is False
