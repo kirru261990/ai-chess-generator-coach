@@ -44,6 +44,9 @@ are curated tactics, so opportunities are far denser than in normal play.
 
 ## 1. Definitions
 
+- **Only immediate captures count.** Everywhere below, "can win" means a capture available on the very next
+  move. A check, fork or skewer that wins material a move later is a different tactic and is out of scope. (This
+  is how the builder's exchange search already works; the hand-check wording was clarified to say so.)
 - A **free piece** is a non-pawn, non-king piece that the side to move can win by a *legal*
   capture that gains at least 2 pawns of material after best recaptures, with every capture and
   recapture legal (pins and checks respected). Pawns, kings, en passant and promotion gains are

@@ -57,9 +57,11 @@ def card(n, total, r):
                               arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
         show = f"The board BEFORE the move. The red arrow is the move: {sentence}"
         questions = [
-            ("A", (f"Could {side(mover)} win a piece here (a knight, bishop, rook or queen) for free, or win more "
-                   "than it loses back? (A rook for a bishop counts. An even trade does not.)")),
-            ("B", "Does the move shown (the red arrow) do that?"),
+            ("A", (f"Could {side(mover)} capture a piece of {side(other)}'s right now (a knight, bishop, rook or queen) "
+                   "and come out ahead: the piece is unprotected, or taking it wins more than it loses back? "
+                   "(A rook for a bishop counts. An even trade does not. Only a capture on this very move counts, "
+                   "not a check or a threat that wins something later.)")),
+            ("B", "Is the move shown (the red arrow) that capture?"),
         ]
     else:
         after = board.copy()
@@ -67,8 +69,9 @@ def card(n, total, r):
         svg = chess.svg.board(after, orientation=mover, size=380, lastmove=move)
         show = f"The board AFTER the move. {sentence} The yellow squares show the move."
         questions = [
-            ("A", (f"Can {side(other)} now win a piece (a knight, bishop, rook or queen) of {side(mover)}'s for "
-                   "free, or win more than it loses back? (Pawns do not count.)")),
+            ("A", (f"On its very next move, can {side(other)} capture a piece of {side(mover)}'s (a knight, bishop, "
+                   "rook or queen) and come out ahead: the piece is unprotected, or taking it wins more than it "
+                   "loses back? (Pawns do not count. A check or a threat that wins something later does not count.)")),
         ]
     qhtml = "".join(
         f'<div class="q" data-qid="{k}"><p><b>{k}.</b> {html.escape(t)}</p><div class="btns" data-item="{r["id"]}" data-q="{k}">'
