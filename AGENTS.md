@@ -84,6 +84,7 @@ uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a han
 - **Tests are the contract.** Any change to `core/`, `detectors/`, `learner/` or `coach/verifier` needs tests. Do not weaken or delete a failing test to make it pass — report it in `HANDOFF.md`.
 - **Never edit** `evals/sets/` after a set is frozen, or the frozen baseline in `data/baseline/`.
 - **Never commit** `.env`, API keys, `data/`, Stockfish binaries, or personal game files.
+- **Dependencies and licences:** the repo is `AGPL-3.0-or-later`. Before adding any dependency, check its licence and add a row to `THIRD_PARTY.md`; a test fails if a direct dependency is missing there or if a new copyleft (GPL/AGPL) package appears. Runtime imports must be runtime dependencies.
 - **External APIs:** Chess.com public API calls must be serial (one at a time) with a `User-Agent` containing contact info (`CHESSCOM_USER_AGENT`). Respect Lichess rate limits.
 - **Commits:** `type(scope): summary`, e.g. `feat(detectors): add hanging_own v1`. Keep the agent's co-author trailer if it adds one.
 - **End of session (required):** update `HANDOFF.md` (done / next / blockers / branch), run tests, commit and push — even if work is unfinished.

@@ -1,6 +1,6 @@
 # ADR 0001 — Reusing open-source chess projects and data
 
-**Status:** Accepted (licence choice pending owner confirmation in T24) · **Date:** 2026-10-05
+**Status:** Accepted. **Licence decided 2026-10-07: AGPL-3.0-or-later** (see `LICENSE` and `THIRD_PARTY.md`) · **Date:** 2026-10-05
 **Location in repo:** `docs/decisions/0001-open-source-reuse.md`
 
 Agents: read this before any task that touches engines, eval sets, practice positions, peer benchmarks, the board UI, or the LICENSE. It says **what to reuse, for which task, and under what rules.** If something here conflicts with `AGENTS.md`, `AGENTS.md` wins; raise it in `HANDOFF.md`.
@@ -14,7 +14,7 @@ Agents: read this before any task that touches engines, eval sets, practice posi
 3. Use **Maia-2 (MIT)** for the human-like opponent and as the base for the miss-likelihood model.
 4. Use **ChessBench (Google DeepMind)** for model training data that already carries engine evaluations.
 5. Study **Chesskit** (and WintrChess) as UI references; read the code, do not copy large parts of it.
-6. Licence this repo **AGPL-3.0** (proposed; confirm in T24). Reason: we already depend on python-chess (GPL-3.0), and most useful chess projects are GPL/AGPL.
+6. Licence this repo **AGPL-3.0-or-later** (**decided 2026-10-07**, applied in T24). Reason: we already depend on python-chess (GPL-3.0), and most useful chess projects are GPL/AGPL.
 
 ---
 
@@ -43,7 +43,7 @@ Agents: read this before any task that touches engines, eval sets, practice posi
 |---|---|---|
 | python-chess (already used) | GPL-3.0 | Rules, PGN/FEN, engine IO |
 | berserk (Lichess API client, Python) | **GPL-3.0** (checked 2026-10-05) | Lichess game sync. Compatible with an AGPL-3.0 repo, but prefer calling the Lichess HTTP API directly with `httpx` and avoid the extra dependency. |
-| chessground (Lichess board) — https://github.com/lichess-org/chessground | GPL-3.0 | Optional board upgrade (arrows, shapes, mobile). Only after T24 confirms a GPL-compatible licence. |
+| chessground (Lichess board) — https://github.com/lichess-org/chessground | GPL-3.0 | Optional board upgrade (arrows, shapes, mobile). GPL-3.0 is compatible with this repo's AGPL-3.0-or-later licence (decided 2026-10-07); add a `THIRD_PARTY.md` row first. |
 | chessops (TypeScript rules) — https://github.com/niklasf/chessops | GPL-3.0 | Optional client-side move hints. The backend stays authoritative. |
 | stockfish-web (Stockfish in the browser) — https://github.com/lichess-org/stockfish-web | GPL-3.0 | Optional: in-browser play/quick analysis to cut server cost. Not needed now. |
 
@@ -96,7 +96,7 @@ Agents: read this before any task that touches engines, eval sets, practice posi
 
 ## 4. Rules for agents
 
-1. **Licences:** before adding any dependency, check its licence and add a row to `THIRD_PARTY.md` (name, version, licence, URL, how used). Do not add GPL/AGPL code to the web client until T24 confirms a compatible repo licence.
+1. **Licences:** before adding any dependency, check its licence and add a row to `THIRD_PARTY.md` (name, version, licence, URL, how used). The repo is AGPL-3.0-or-later (decided 2026-10-07), so GPL-3.0 and AGPL-3.0 dependencies are compatible; MIT, BSD and Apache-2.0 are too. Do not add code under any other licence without a decision.
 2. **Attribution:** CC-BY data (parts of ChessBench) requires attribution in `THIRD_PARTY.md` and in any published report that uses it. CC0 needs none, but cite Lichess anyway.
 3. **Versioning:** record dataset name + snapshot date (e.g. `lichess_db_puzzle 2026-10`) wherever results depend on it, alongside detector and engine versions.
 4. **Data hygiene:** raw downloads go in a git-ignored folder under `data/` (**[Amended 2026-10-05]** currently `data/lichess/`; `data/` is ignored as a whole, so `data/external/` is equivalent). Commit only small derived artefacts (eval sets ≤ a few hundred rows, aggregate benchmark JSON).
@@ -108,7 +108,7 @@ Agents: read this before any task that touches engines, eval sets, practice posi
 
 ## 5. Follow-up actions
 
-- [ ] T24: confirm AGPL-3.0, add `LICENSE`, add `THIRD_PARTY.md` (python-chess, Stockfish, FastAPI, react libs, and anything above once used).
+- [x] T24: AGPL-3.0-or-later confirmed, `LICENSE` and `THIRD_PARTY.md` added (2026-10-07). Add a row for anything above once it is first used.
 - [x] `data/` is already git-ignored, so `data/external/` and `data/lichess/` need no `.gitignore` change (confirmed 2026-10-05).
 - [x] Update `TASKS.md` T13/T14b/T25 to reference this ADR (done 2026-10-05; also added the Month 2 and V1.1 items).
 - [x] Note in `HANDOFF.md` that ADR 0001 exists (done 2026-10-05).
@@ -127,6 +127,6 @@ Each item below changed the text above. The original wording is in the file you 
 | A4 | Set location and naming follow `evals/sets/real_play_v1/` (`LABEL_RULE.md`, `README.md`, `provenance.json`) | Already built and in review; one set covers both detectors. |
 | A5 | berserk is GPL-3.0; WintrChess/freechess has no stated licence; Lucas Chess is archived | Checked on GitHub, 2026-10-05. No code may be copied from freechess. |
 | A6 | Raw data lives in `data/lichess/` (git-ignored), not `data/external/` | The puzzle file is already there; `data/` is ignored as a whole. |
-| A7 | The licence is **not** yet decided | T24 stays open for the owner. python-chess (GPL-3.0-or-later) rules out MIT for this repo. |
+| A7 | The licence was undecided when this ADR was amended | **Decided 2026-10-07: AGPL-3.0-or-later.** python-chess (GPL-3.0-or-later) rules out MIT; AGPL is compatible with it and also covers hosted use. |
 
 Verified unchanged: Maia-2 MIT, Chesskit AGPL-3.0, En Croissant GPL-3.0, lc0 GPL-3.0, chessground GPL-3.0, ChessBench code Apache-2.0 with data CC0 (Lichess portions) and CC-BY 4.0 (the rest) and model weights CC-BY 4.0 (the ADR does not mention the weights; attribution applies if they are ever used).
