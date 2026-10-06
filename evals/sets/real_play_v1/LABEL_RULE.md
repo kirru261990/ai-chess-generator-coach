@@ -208,6 +208,12 @@ legal move have left a piece to be won?)
 | no | n/a | no | `not_applicable` (nothing could hang) |
 
 - **What the answers are compared with:** each item's `material_label`, not its `label`. A few real blunders are `uncertain` in `label` because the engine does not confirm a loss; the checkers answer only about material, and their answers map to `missed` for those.
+- **The owner uses a simpler page** (`handcheck_owner.html`, built by `evals/tools/make_handcheck_page.py`): the board with the
+  move drawn as an arrow, the move in plain words, and at most two yes / no / can't tell questions per item. Its
+  answers map to labels like this (the checkmate question is left out because none of the owner's items depends on it):
+  `missed_free`: A no is `not_applicable`; A yes and B yes is `taken`; A yes and B no is `missed`. `hanging_own`: A yes is
+  `missed`; A no is `taken` (every `real_safe` item has an alternative that would have hung something, by construction).
+  The full three-question sheet (`handcheck_second.md`) is for the second reviewer.
 - **Two checkers, independently:** the owner (30 items) and a second reviewer such as GPT following
   `REVIEW.md` (a different 30, plus all adversarial items). A question the owner cannot answer is marked
   `can't tell`; it is not forced.

@@ -8,7 +8,8 @@ puzzle positions plus 22 hand-built adversarial positions, following `LABEL_RULE
 | `LABEL_RULE.md` | The written rule (v0.4) and the decisions behind it. Read this first. |
 | `positions.jsonl` | The items and their labels (ids carry no information about the label). `label` is the outcome with engine evidence; `material_label` is what the board alone shows and what the hand-check validates |
 | `provenance.json` | Seed, engine and depth, thresholds, puzzle-file hash, counts, shortfalls |
-| `handcheck_owner.md` | 30 items for the owner, labels hidden |
+| `handcheck_owner.html` | **The owner's page: open it in a browser.** Same 30 items as `handcheck_owner.md`, boards with arrows, plain-English questions, buttons, answers saved in the browser, a Copy button. Labels hidden |
+| `handcheck_owner.md` | The same 30 items as a text sheet (kept for reference) |
 | `handcheck_second.md` | A different 30 plus all adversarial items, for a second reviewer, labels hidden |
 
 Rebuild: `cd backend && uv run python ../evals/tools/build_real_play_set.py` (needs the puzzle file in
