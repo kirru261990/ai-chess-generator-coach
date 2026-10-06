@@ -34,8 +34,8 @@ reported with and without them.
 
 | Reviewer | Date | Items | Result |
 |---|---|---|---|
-| Owner (simple page) | 2026-10-06 | 30 of 202 | 25 agree, 5 disagree (all constructed misses). Independent check supports the label in 5 of 5. Raw result **does not meet** the pass rule as written (see `LABEL_RULE.md` section 9). Answers: `handchecks/owner_answers.txt`; output: `handchecks/owner_result.txt` |
-| Second reviewer (full sheet) | pending | 52 | pending |
+| Owner (simple page; engine **not** used, confirmed by the owner) | 2026-10-06 | 30 of 202 | 25 agree, 5 disagree (all constructed misses). Independent check supports the label in 5 of 5. Raw result **does not meet** the pass rule as written (see `LABEL_RULE.md` section 9). Answers: `handchecks/owner_answers.txt`; output: `handchecks/owner_result.txt` |
+| Second reviewer (full sheet; use `handchecks/second_reviewer_prompt.md`) | pending | 52 | pending |
 
 ## Status and what must happen next (LABEL_RULE.md section 8)
 

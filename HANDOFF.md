@@ -37,8 +37,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ### 2026-10-06 · MacBook · Claude Code (session 16)
 - **Owner's hand-check result:** 30 items, 25 agree, 5 disagree, 0 "can't tell". Strata: real_taken 9/9, no_opportunity 4/4, real_safe 6/6, real_blunder 5/5, constructed_miss 1/6. All 5 disagreements are constructed misses where the owner said no free piece. **Pass rule as written (at most 3, no pattern) is NOT met; recorded as a fail.** Adjudicated with the independent exchange search (not a detector): the label is supported in 5 of 5 (four captures that also mate, net +5; one king capture of an undefended knight, net +3), so the checker missed easy-to-overlook captures, not a label error. The adjudication step was added after seeing the results, and is stated as such in `LABEL_RULE.md` section 9; both numbers are reported from now on. `evals/tools/compare_handcheck.py` does the comparison; answers are in `handchecks/owner_answers.txt`.
 - **Not frozen yet.** Still needed: the second reviewer (full three-question sheet `handcheck_second.md`, plus all 22 adversarial items), then the freeze decision. Only 30 of 202 items have human review, by a checker rated under 1000.
-- **Open question for the owner:** did you use Lichess's engine while answering (the page asked to say so)?
-- **Next:** send `handcheck_second.md` to GPT (with `REVIEW.md`), compare with a script extension for the A/B/C format, then freeze, then run the detectors.
+- **Owner's answers were given without the engine** (confirmed by the owner), so no tool-assisted split is needed for them.
+- **Next:** send `handcheck_second.md` to GPT with `evals/sets/real_play_v1/handchecks/second_reviewer_prompt.md` (the answers file `positions.jsonl` is in the same repo, so GPT must be told not to read it, and any tools it uses must be reported); compare with a script extension for the A/B/C format, then freeze, then run the detectors.
 - **Branch / PR:** `feat/handcheck-page` (PR #24)
 
 ### 2026-10-06 · MacBook · Claude Code (session 15)
