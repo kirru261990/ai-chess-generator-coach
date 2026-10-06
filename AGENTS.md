@@ -44,6 +44,7 @@ backend/
   tests/
 web/             # React app (board, chat, dashboards)
 evals/
+  tools/         # builders and scorers for the eval sets (the builder must not import detectors)
   sets/          # FROZEN eval sets — do not edit once frozen
   runs/          # outputs (git-ignored except reports/)
   reports/       # published eval reports
@@ -66,8 +67,14 @@ cd web && pnpm install
 pnpm dev
 pnpm test
 
-# database
+# database (Docker is not installed on the owner's Mac yet; games are in memory today)
 docker compose up -d db
+
+# data and evals (run from backend/; needs .env and Stockfish)
+uv run python -m app.sync                                      # sync Chess.com games into data/ (serial, with a contact User-Agent)
+uv run python -m app.engine.batch                              # fast engine pass over the synced games (resumable)
+uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
+uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a hand-check's answers with the labels
 ```
 
 ## How to work

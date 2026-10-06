@@ -30,7 +30,11 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - **Status:** set `real_play_v1` **frozen 2026-10-06** (rule v0.4; owner and GPT hand-checks done, see `evals/sets/real_play_v1/FROZEN.md`). Still to do: the precision/recall script and report (run both detectors, publish numbers with versions, denominators, intervals)
 
 ## Day 5 — Blind-spot map + baseline
-- [ ] T14 Run detectors over last 100 case-study games
+- [ ] T14a Choose and **record the baseline window**: the last 100 Chess.com rapid games (10|0 and 15|10) before training starts; game ids in `data/baseline/` (git-ignored), hash in `HANDOFF.md`; report the mix per time control. Propose to the owner first. Freeze before any coaching on these games (see T15)
+- [ ] T14 Run detectors over the baseline window (new `backend/app/learner/` pattern layer, with tests)
+  - Evidence comes from the stored fast pass (`data/analysis/`, schema 2, depth 10); uncertain results are excluded from numerator and denominator and reported separately
+  - Report per time control and combined, with detector versions, denominators, intervals and the tentative/established labels (spec C3)
+  - Expect misses in already-lopsided positions to show as `uncertain` (T13 finding)
   - `hanging_own`: report misses **per 100 moves** (its opportunity definition matches almost every position, so missed/available is not meaningful)
   - `missed_free`: report missed/available and rate per 100 moves
 - [ ] T14b Peer benchmark: run the same detector versions over one month of Lichess rapid games rated 600–1200; store miss rates by rating band
@@ -56,6 +60,10 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Owner confirms **AGPL-3.0** (proposed in ADR 0001) or GPL-3.0-or-later, then add `LICENSE`
   - Add `THIRD_PARTY.md` (ADR 0001 rule 1): name, version, licence, URL and how used, for every dependency (python-chess, Stockfish, FastAPI, uvicorn, httpx, mcp, pydantic, python-dotenv, zstandard, React and the web libraries, and anything added later). Rule 1 applies to dependencies already added, so this is overdue. CC-BY material needs attribution there and in any report that uses it
   - Until the licence is confirmed, add no GPL/AGPL code to the web client
+
+- [ ] T30 Persist games in Postgres (they are in memory today and vanish on restart); needs Docker installed and a database-level guard instead of the in-process lock
+- [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
+- [ ] T32 Cache reviews (each call re-runs the deep check)
 
 ## Week 2 additions
 - [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games

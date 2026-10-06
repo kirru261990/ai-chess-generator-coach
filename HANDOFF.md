@@ -1,34 +1,68 @@
 # HANDOFF.md
 
-Update this at the end of every session (any agent, any machine). Newest entry on top. Keep each entry short.
+Update this at the end of every session (any agent, any machine). Newest entry on top of the Log. Keep each entry short.
 
 ---
 
+## Start here (new session)
+
+1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
+2. **PR #25 is open and not merged** (T13 scoring + these documents): `gh pr view 25`. The owner says "merge" explicitly each time, so ask, or `gh pr checkout 25` to work on top of it. After it merges: `git checkout main && git pull`.
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should give **149 passed** and clean lint. `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
+4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
+
 ## Current state
 
-- **Phase:** Week 1, Day 4 done: T13 complete (set frozen, detectors scored); Day 5 (T14: run the detectors on the owner's games) is next
-- **Active branch:** `feat/t13-build-real-play-set` (PR into `main`)
-- **Machine/agent last used:** MacBook / Claude Code
-- **Detector versions:** `hanging_own` v2, `missed_free` v2 (both: legal captures and legal recaptures). Analysis record schema: 2. Report these with any number.
-- **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
-- **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06). sha256: positions.jsonl `d3b44968...33bf`, LABEL_RULE.md `2f454c57...2ec6`, provenance.json `aefade53...87b3`; full hashes in `evals/sets/real_play_v1/FROZEN.md`. A test fails if they change.
+- **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
+- **Branches:** `main` is current except PR #25 (`feat/t13-score-detectors`). No other open PRs.
+- **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
+- **Baseline frozen?** **No.** Do not coach on the owner's own games until the baseline window is frozen (T14a/T15).
+- **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
+- **First scores:** `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, `_notes.md`). Read the notes before quoting anything.
+- **What exists:** play vs Stockfish in the web app (click to move, Level 1-10, resign, PGN, Play/Practice with Undo, 1 s reply pause); FastAPI + shared tool layer; MCP `get_game` skeleton; Chess.com sync; batch fast pass + post-game review (`GET /synced-games/{id}/review`); detectors `hanging_own` and `missed_free`; eval tooling (`evals/tools/`).
+- **What does not exist yet:** the pattern layer that applies the detectors to real games (T14), blind-spot map page (T16), coach agent and verifier (T17-T19), training sessions, Postgres persistence (games live in memory and vanish on restart), sign-in, Lichess sync, Maia-2.
+- **Machine facts (this MacBook):** repo at `~/Projects/ai-chess-generator-coach`. Installed via Homebrew: `uv`, `pnpm`, `stockfish` (`/opt/homebrew/bin/stockfish`). **Docker is not installed.** `.env` (git-ignored) holds the Chess.com username (`karry261990`), the contact email for the User-Agent, `STOCKFISH_PATH`, case-study time controls `600,900+10`.
+- **Local data (git-ignored, never commit):** `data/games/chesscom_karry261990.jsonl` (450 case-study games: 253 at 10|0, 197 at 15|10, 4 Jul to 5 Oct 2026); `data/analysis/chesscom_karry261990.jsonl` (fast pass for all 450, schema 2, depth 10); `data/lichess/lichess_db_puzzle.csv.zst` (293 MB, CC0). No Lichess games file has been downloaded (one month is about 28 GB; stream and cut off; ask first).
+- **Run the app:** `cd backend && uv run uvicorn app.api.main:app --port 8000` (no `--reload`, restart after code changes) and `cd web && pnpm dev`.
 
 ## Next up
 
-1. Day 4: T13 (rewritten): fresh, frozen set from real play (Lichess puzzles + Lichess rapid games), adversarial cases, label rule frozen first, ~30 labels hand-checked.
-2. Day 5: T14 (hanging_own per 100 moves; missed_free as missed/available), T14b peer benchmark, T15 freeze baseline, T16 blind-spot map page.
-3. Housekeeping: T23 CI with Stockfish, T24 LICENSE (before sharing the repo widely).
+**T14a. Choose and record the baseline window** (propose, then the owner confirms or delegates). The spec says the last 100 Chess.com rapid games (10|0 and 15|10) before training starts. List the game ids in `data/baseline/` (git-ignored), record the file's hash here, and report the game mix per time control (15|10 usually has fewer misses, so a shift in mix alone can move the combined rate). **Freeze before any coaching on these games.**
+
+**T14. The pattern layer** (`backend/app/learner/`, not written; needs tests, AGENTS rule). For each user move in each game: board before the move, the move, `Evidence(best_cp, after_cp)` built from the stored fast-pass positions (White's view; use `learner.review.rank_for_mover` for the mover's side), then `detectors.hanging_own.detect` and `detectors.missed_free.detect`. Record opportunity -> taken / missed / uncertain / not_applicable per move. Metrics:
+- `hanging_own`: misses **per 100 moves** (its opportunity held in about 81% of 445 weak-engine self-play positions, so missed/available is not meaningful; re-measure on real games)
+- `missed_free`: missed / available, and per 100 moves
+- uncertain results are excluded from numerator and denominator (AGENTS rule 5) and reported separately
+- per time control and combined; show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
+- **Expect** misses made in already-lopsided positions to appear as `uncertain` (T13 finding: the engine under-reports a hung piece when a position is already won or lost)
+
+Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T24 licence and `THIRD_PARTY.md`, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
+
+## Decisions waiting on the owner
+
+- **Merge PR #25.**
+- **Licence (T24):** AGPL-3.0 (ADR 0001 proposes it) or GPL-3.0-or-later. **Not MIT**: python-chess is GPL-3.0-or-later. No `LICENSE` or `THIRD_PARTY.md` exists yet.
+- **Baseline window (T14a)**, as above.
+- Whether to download a Lichess games sample for T14b (ask first; about 28 GB a month).
+
+## Working agreement with the owner (observed; follow it)
+
+- **Decisions:** the owner delegated chess and eval decisions ("you decide, keep it reversible"). Decide, write the reason and how to reverse it in the repo, and say so plainly.
+- **Merging:** the owner says "merge" explicitly each time. Open PRs, wait, merge in order. Deleting the base branch of a stacked PR auto-closes the stacked PR (happened to #10): rebase it onto `main` and open a new PR instead. Check `git branch --show-current` before committing; two commits once landed on the wrong branch.
+- **Communication:** the owner is rated under 1000 and finds chess notation and abstract wording hard. Use plain words, short steps, concrete examples, no jargon. For anything the owner must judge, give a visual page with Yes / No / Can't tell (the hand-check page is the model).
+- **Honesty:** never quote the eval numbers as real-play performance; state what a number does not show; report failures and your own mistakes openly; do not move goalposts after seeing results (if a step is added late, say so in the record).
+- **Reviews:** GPT reviews PRs following `REVIEW.md` and leaves inline comments. Reproduce each finding first, fix it, reply in the thread, then resolve the thread. Update the PR's "Reviewed by" section.
+- **Privacy:** the repo is public. Nothing from `.env`, `data/`, the owner's games, or the contact email goes into a commit.
 
 ## Blockers / open questions
 
-- **Licence not chosen (T24):** python-chess is GPL-3.0-or-later, so the repo should be AGPL-3.0 or GPL-3.0, not MIT. ADR 0001 proposes AGPL-3.0; the owner decides. No `LICENSE` or `THIRD_PARTY.md` yet.
-- ~~Baseline game count~~ resolved: 450 case-study games available (253 at 10|0, 197 at 15|10), 4 Jul – 5 Oct 2026. Enough for a 100-game baseline; the window still needs choosing before Day 5 freeze.
-- Fast-pass evaluations are not yet flagged as uncertain when unstable (spec B2); needs a second-depth comparison.
+- No `LICENSE` / `THIRD_PARTY.md` (see above).
+- Fast-pass evaluations are not flagged uncertain when unstable (spec B2); needs a second-depth comparison.
 - Reviews are not cached; each call re-runs the deep check (a few seconds).
-- The per-game lock is in-process only. Several backend workers would need a database-level guard (plan it with Postgres).
-- Web has unit tests for the response-ordering rule (`pnpm test`) but no component or browser integration tests.
-- Draws end only when reached (actual threefold repetition, fifty-move clock, automatic rules). Players cannot claim a draw yet.
-- Both draft eval sets are easy, engine-labelled and unreviewed. A human spot-check of labels is still owed before anything is frozen.
+- Games are held in memory only; the per-game lock is in-process only (several workers would need a database guard). Docker/Postgres are not set up.
+- Web has unit tests for the response-ordering rule but no component or browser tests.
+- Draws end only when reached; players cannot claim a draw yet.
+- `real_play_v1` labels have had limited review (82 of 202 items; a checker under 1000 and GPT; no strong human player). `missed_free` has no real missed examples in it, so its recall on real ignored free pieces is unmeasured.
 
 ---
 
