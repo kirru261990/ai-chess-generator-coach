@@ -228,6 +228,28 @@ legal move have left a piece to be won?)
 - Record the counts, the date and who checked in the set README. "Human-reviewed" may be claimed only for the
   items actually reviewed, and only by whom.
 
+### Protocol amendment and the owner's result (2026-10-06)
+
+**Result of the owner's check (30 items):** 25 agree, 5 disagree, none "can't tell". Per stratum: `real_taken` 9/9,
+`no_opportunity` 4/4, `real_safe` 6/6, `real_blunder` 5/5, `constructed_miss` **1/6**. All 5 disagreements are
+constructed misses where the answers said "no free piece" and the label says one existed.
+
+**Against the pass rule as written (at most 3 of 30, no pattern): not met.** 5 is more than 3, and all five share a kind.
+That is recorded as a fail, not softened.
+
+**Adjudication (added after seeing these results; the order matters, so it is stated here).** Each disagreement was checked
+by the builder's independent exchange search, which uses no detector code (`evals/tools/compare_handcheck.py`). In all 5
+the label is **supported**: four are a capture that also gives checkmate (Rxd1#, Qxf8#, Qxh1#, Qxf1#, each winning a rook, net
++5) and one is a king capturing an undefended knight (Kxd3, net +3). They are captures that are easy to overlook, so the
+disagreement is the checker missing a capture, not a label error. Going forward, **every disagreement is adjudicated this way
+and both numbers are reported**: the raw agreement (25 of 30) and the adjudicated count of label errors (0 of 5 disagreements).
+A disagreement counts against a label only if the independent check does not support the label.
+
+**What this does and does not establish.** It is evidence that the labels in `real_taken`, `no_opportunity`, `real_safe` and
+`real_blunder` match a human's reading of the board (24 of 24 in those strata), and that the five constructed misses
+checked are correctly labelled. It is **not** a check by a strong player: the owner is rated under 1000, which is why
+the second reviewer, who sees the full three-question sheet, still matters. Only 30 of the 202 items have had any human review.
+
 ## 10. What is reported
 
 For each detector version, static-only and with engine evidence:

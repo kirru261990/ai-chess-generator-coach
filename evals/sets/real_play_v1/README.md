@@ -30,6 +30,13 @@ Real items: 10 per rating band (400-599, 600-799, 800-999, 1000-1199) per stratu
 different puzzle. 70% of real items carry a mate theme; each item is tagged `mate_theme`, and results are
 reported with and without them.
 
+## Human review so far
+
+| Reviewer | Date | Items | Result |
+|---|---|---|---|
+| Owner (simple page) | 2026-10-06 | 30 of 202 | 25 agree, 5 disagree (all constructed misses). Independent check supports the label in 5 of 5. Raw result **does not meet** the pass rule as written (see `LABEL_RULE.md` section 9). Answers: `handchecks/owner_answers.txt`; output: `handchecks/owner_result.txt` |
+| Second reviewer (full sheet) | pending | 52 | pending |
+
 ## Status and what must happen next (LABEL_RULE.md section 8)
 
 1. **Hand-check** (section 9 of the rule, which also maps the answers A, B, C to labels): owner and a second reviewer answer the yes/no questions, labels hidden.
