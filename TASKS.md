@@ -56,10 +56,8 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Housekeeping (any day)
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
-- [ ] T24 Choose and add a LICENSE. The backend depends on python-chess (GPL-3.0-or-later), so the repo should be GPL-3.0-or-later or AGPL-3.0-or-later (AGPL also covers people using a hosted version); MIT is not a safe choice for the combined work. Lichess GPL components (chessground, chessops, berserk) are not used. Decision pending (owner)
-  - Owner confirms **AGPL-3.0** (proposed in ADR 0001) or GPL-3.0-or-later, then add `LICENSE`
-  - Add `THIRD_PARTY.md` (ADR 0001 rule 1): name, version, licence, URL and how used, for every dependency (python-chess, Stockfish, FastAPI, uvicorn, httpx, mcp, pydantic, python-dotenv, zstandard, React and the web libraries, and anything added later). Rule 1 applies to dependencies already added, so this is overdue. CC-BY material needs attribution there and in any report that uses it
-  - Until the licence is confirmed, add no GPL/AGPL code to the web client
+- [x] T24 Licence chosen and added: **AGPL-3.0-or-later** (decided 2026-10-07 because python-chess is GPL-3.0-or-later; AGPL also covers hosted use). `LICENSE`, `THIRD_PARTY.md`, licence fields in `pyproject.toml` and `package.json`, README section. Rule: every new dependency gets a `THIRD_PARTY.md` row first (a test enforces it and fails on any new copyleft package)
+  - Follow-ups: if outside contributions are ever accepted, add a contributor agreement first; before publishing a built web bundle, include the bundled packages' licence notices
 
 - [ ] T30 Persist games in Postgres (they are in memory today and vanish on restart); needs Docker installed and a database-level guard instead of the in-process lock
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
@@ -73,4 +71,4 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## Later (from ADR 0001, `docs/decisions/0001-open-source-reuse.md`)
 - [ ] T27 (Month 2) Miss-likelihood model: P(a player at rating R misses a free piece / hangs a piece) in a given position. Data: Lichess games (labels from our detectors) and ChessBench (Stockfish values; code Apache-2.0, data CC0 + CC-BY 4.0, attribute CC-BY); Maia-2 (MIT) as features or baseline. Read the Maia group's published work first and state what is new; evaluate on a held-out month and report calibration, not just accuracy
 - [ ] T28 (V1.1) Maia-2 opponent at the user's rating band, with Stockfish skill levels as the fallback; label strength by Maia band, not as an Elo claim. First check its lowest supported rating band against users under 1000 (spec A2); record the model and weights version
-- [ ] T29 (optional, only after T24) Board and client upgrades: chessground (GPL-3.0) for arrows and mobile, chessops for client-side hints (the backend stays authoritative), stockfish-web for in-browser analysis. Not needed now
+- [ ] T29 (optional; the licence is now decided) Board and client upgrades: chessground (GPL-3.0) for arrows and mobile, chessops for client-side hints (the backend stays authoritative), stockfish-web for in-browser analysis. Not needed now

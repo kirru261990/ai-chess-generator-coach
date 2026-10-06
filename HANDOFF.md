@@ -36,11 +36,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - per time control and combined; show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
 - **Expect** misses made in already-lopsided positions to appear as `uncertain` (T13 finding: the engine under-reports a hung piece when a position is already won or lost)
 
-Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T24 licence and `THIRD_PARTY.md`, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
+Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
 
 ## Decisions waiting on the owner
 
-- **Licence (T24):** AGPL-3.0 (ADR 0001 proposes it) or GPL-3.0-or-later. **Not MIT**: python-chess is GPL-3.0-or-later. No `LICENSE` or `THIRD_PARTY.md` exists yet.
 - **Baseline window (T14a)**, as above.
 - Whether to download a Lichess games sample for T14b (ask first; about 28 GB a month).
 
@@ -55,7 +54,6 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 
 ## Blockers / open questions
 
-- No `LICENSE` / `THIRD_PARTY.md` (see above).
 - Fast-pass evaluations are not flagged uncertain when unstable (spec B2); needs a second-depth comparison.
 - Reviews are not cached; each call re-runs the deep check (a few seconds).
 - Games are held in memory only; the per-game lock is in-process only (several workers would need a database guard). Docker/Postgres are not set up.
@@ -66,6 +64,13 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 ---
 
 ## Log
+
+### 2026-10-07 · MacBook · Claude Code (session 19)
+- **Licence decided and applied: AGPL-3.0-or-later** (owner: "apply AGPL", on Claude's recommendation: python-chess is GPL-3.0-or-later so MIT is out; AGPL is compatible and covers hosted use; every other dependency is permissive). Added `LICENSE` (official AGPL-3.0 text), `THIRD_PARTY.md` (every direct dependency with version, licence, URL and use; plus Stockfish, the Lichess puzzle data and the Chess.com API), licence fields in `backend/pyproject.toml` and `web/package.json`, and a README section. A scan of all 47 installed Python packages found python-chess is the only copyleft one.
+- **Found and fixed:** `httpx` is imported at runtime by the Chess.com sync but was declared only as a dev dependency (it would have broken a production install). Moved to runtime dependencies.
+- **Guards (tests):** the LICENSE is the full AGPL-3 text and both project files declare it; every direct dependency has a `THIRD_PARTY.md` row; no copyleft package other than python-chess is installed; runtime imports are runtime dependencies. 153 backend tests.
+- **Still open for later:** a contributor agreement before accepting outside contributions; licence notices when a built web bundle is published; a lawyer's check before any commercial launch (nothing here is legal advice).
+- **Branch / PR:** `chore/license-agpl`
 
 ### 2026-10-06 · MacBook · Claude Code (session 18)
 - **T13 done.** `evals/tools/score_detectors.py` scored `hanging_own` v2 and `missed_free` v2 on the frozen `real_play_v1`, static and with engine evidence (Stockfish 19, depth 10 = the production fast-pass budget; the labels' own runs used depth 14). Report: `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, + `_notes.md`). Nothing was tuned; the detectors and set were unchanged after the first run, and the numbers reproduce exactly on a second run.
