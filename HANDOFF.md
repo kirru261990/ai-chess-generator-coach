@@ -7,14 +7,14 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ## Start here (new session)
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
-2. **PR #25 is open and not merged** (T13 scoring + these documents): `gh pr view 25`. The owner says "merge" explicitly each time, so ask, or `gh pr checkout 25` to work on top of it. After it merges: `git checkout main && git pull`.
+2. **No PRs are open** (PR #25, the T13 scoring and the documents, is merged). Work from `main`: `git checkout main && git pull`.
 3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should give **149 passed** and clean lint. `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
 4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
 
 ## Current state
 
 - **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
-- **Branches:** `main` is current except PR #25 (`feat/t13-score-detectors`). No other open PRs.
+- **Branches:** everything is on `main`; no open PRs.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
 - **Baseline frozen?** **No.** Do not coach on the owner's own games until the baseline window is frozen (T14a/T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
@@ -40,7 +40,6 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 
 ## Decisions waiting on the owner
 
-- **Merge PR #25.**
 - **Licence (T24):** AGPL-3.0 (ADR 0001 proposes it) or GPL-3.0-or-later. **Not MIT**: python-chess is GPL-3.0-or-later. No `LICENSE` or `THIRD_PARTY.md` exists yet.
 - **Baseline window (T14a)**, as above.
 - Whether to download a Lichess games sample for T14b (ask first; about 28 GB a month).
