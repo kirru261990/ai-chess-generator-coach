@@ -27,7 +27,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
   - Report each detector's version next to its numbers
   - Follow `docs/decisions/0001-open-source-reuse.md` §3. Puzzle format: `FEN` is the position **before** the opponent's move and `Moves[0]` is that move (a real blunder), so `hanging_own` uses `(FEN, Moves[0])` and `missed_free` uses the position after `Moves[0]` (ADR amendments A1, A2). The games sample is deferred to v2 (A3)
-  - **Status:** rule written and decided (`evals/sets/real_play_v1/LABEL_RULE.md`); set built as a DRAFT (202 items, `build_real_play_set.py`); hand-check sheets generated. Still to do: hand-check, freeze, run detectors, write the precision/recall script and report
+  - **Status:** set `real_play_v1` **frozen 2026-10-06** (rule v0.4; owner and GPT hand-checks done, see `evals/sets/real_play_v1/FROZEN.md`). Still to do: the precision/recall script and report (run both detectors, publish numbers with versions, denominators, intervals)
 
 ## Day 5 — Blind-spot map + baseline
 - [ ] T14 Run detectors over last 100 case-study games

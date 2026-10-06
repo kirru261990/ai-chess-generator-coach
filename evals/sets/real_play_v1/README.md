@@ -1,4 +1,4 @@
-# real_play_v1 (DRAFT, not frozen; no detector has been run on it)
+# real_play_v1 (FROZEN on 2026-10-06; see FROZEN.md)
 
 202 labelled `(position, move)` items for `hanging_own` and `missed_free`, built from real Lichess
 puzzle positions plus 22 hand-built adversarial positions, following `LABEL_RULE.md` (v0.2).
@@ -35,15 +35,15 @@ reported with and without them.
 | Reviewer | Date | Items | Result |
 |---|---|---|---|
 | Owner (simple page; engine **not** used, confirmed by the owner) | 2026-10-06 | 30 of 202 | 25 agree, 5 disagree (all constructed misses). Independent check supports the label in 5 of 5. Raw result **does not meet** the pass rule as written (see `LABEL_RULE.md` section 9). Answers: `handchecks/owner_answers.txt`; output: `handchecks/owner_result.txt` |
-| Second reviewer (full sheet; use `handchecks/second_reviewer_prompt.md`) | pending | 52 | pending |
+| Second reviewer, GPT (full sheet; `handchecks/second_reviewer_prompt.md`) | 2026-10-06 | 52 | 51 agree, 0 disagree, 1 undecided. python-chess on all 52; Stockfish 19 depth 18 on 29 (22 of 22 and 29 of 29 agree). Notes and answers in `handchecks/` |
 
-## Status and what must happen next (LABEL_RULE.md section 8)
+## Status
 
-1. **Hand-check** (section 9 of the rule, which also maps the answers A, B, C to labels): owner and a second reviewer answer the yes/no questions, labels hidden.
-   Pass rule: at most 3 of 30 disagreements. If it fails, the rule is revised and this becomes v2.
-2. **Freeze:** record the sha256 of `LABEL_RULE.md` and `positions.jsonl` in `HANDOFF.md`.
-3. **Only then** run the detectors and publish the numbers in `evals/reports/` with each
-   detector's version and every denominator.
+**Frozen on 2026-10-06.** `positions.jsonl`, `LABEL_RULE.md` and `provenance.json` are never edited again (their hashes are in
+`FROZEN.md`, and a test enforces it). Any change means a new version, `real_play_v2`. The freeze went ahead although the owner's
+raw check did not meet the pass rule as written; `LABEL_RULE.md` section 9 gives the reasons. No detector had been run on the set
+at the freeze. Next: run both detectors on it and publish the numbers in `evals/reports/` with each detector's version, every
+denominator, and 95% intervals, split by real and constructed items and with and without mate themes.
 
 ## Known weaknesses
 

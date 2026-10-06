@@ -441,6 +441,8 @@ def sheet(rows, title):
 
 
 def main():
+    if (OUT / "FROZEN.md").exists():  # a frozen set is never rebuilt in place; any change is a new version
+        sys.exit("real_play_v1 is frozen (see FROZEN.md). Build a new version instead of overwriting it.")
     rng = random.Random(SEED)
     with Engine() as engine:
         real, pool_info, shortfall = build_real(rng, engine)

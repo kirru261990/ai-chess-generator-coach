@@ -6,12 +6,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 in progress: T13 set built as a draft, awaiting hand-check
+- **Phase:** Week 1, Day 4 in progress: T13 set frozen; scoring the detectors on it is next
 - **Active branch:** `feat/t13-build-real-play-set` (PR into `main`)
 - **Machine/agent last used:** MacBook / Claude Code
 - **Detector versions:** `hanging_own` v2, `missed_free` v2 (both: legal captures and legal recaptures). Analysis record schema: 2. Report these with any number.
 - **Baseline frozen?** No (planned Day 5 — do not use the coach on own games before this)
-- **Frozen eval sets:** none yet
+- **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06). sha256: positions.jsonl `d3b44968...33bf`, LABEL_RULE.md `2f454c57...2ec6`, provenance.json `aefade53...87b3`; full hashes in `evals/sets/real_play_v1/FROZEN.md`. A test fails if they change.
 
 ## Next up
 
@@ -33,6 +33,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-06 · MacBook · Claude Code (session 17)
+- **Second reviewer (GPT) result:** 52 items, 51 agree, 0 disagree, 1 undecided (rp1-022, mate question "can't tell"). python-chess on all 52; Stockfish 19 depth 18 on 29 (22/22 and 29/29 agree). The comparison script was sanity-checked by corrupting answers (it found exactly the corrupted ones).
+- **real_play_v1 FROZEN** (decision made by Claude under the owner's delegation, reversible via v2). **Deviation, stated in the frozen files:** the owner's raw result did not meet the pass rule as written (5 > 3, one kind); frozen because each of the 5 was adjudicated by the independent search (label supported 5/5) and GPT found no disagreement. 82 of 202 items had some review, no label error found, but no strong human player has reviewed it. FROZEN.md has the hashes; the builder refuses to overwrite a frozen set.
+- **Owner's check without the engine** (confirmed by the owner).
+- **Next:** write the precision/recall script and run `hanging_own` v2 and `missed_free` v2 on the frozen set (static-only and with engine evidence), publish in `evals/reports/` with versions, denominators, 95% Wilson intervals, split real/constructed and with/without mate themes. Do not change the detectors or the set to improve the numbers; report what comes out.
+- **Branch / PR:** `feat/handcheck-page` (PR #24)
 
 ### 2026-10-06 · MacBook · Claude Code (session 16)
 - **Owner's hand-check result:** 30 items, 25 agree, 5 disagree, 0 "can't tell". Strata: real_taken 9/9, no_opportunity 4/4, real_safe 6/6, real_blunder 5/5, constructed_miss 1/6. All 5 disagreements are constructed misses where the owner said no free piece. **Pass rule as written (at most 3, no pattern) is NOT met; recorded as a fail.** Adjudicated with the independent exchange search (not a detector): the label is supported in 5 of 5 (four captures that also mate, net +5; one king capture of an undefended knight, net +3), so the checker missed easy-to-overlook captures, not a label error. The adjudication step was added after seeing the results, and is stated as such in `LABEL_RULE.md` section 9; both numbers are reported from now on. `evals/tools/compare_handcheck.py` does the comparison; answers are in `handchecks/owner_answers.txt`.
