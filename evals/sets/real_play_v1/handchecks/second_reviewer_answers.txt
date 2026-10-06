@@ -1,0 +1,52 @@
+rp1-180: A yes, B no, C no
+rp1-044: A yes, B yes, C -
+rp1-122: A yes, B yes, C -
+rp1-093: A yes, B yes, C no
+rp1-139: A yes, B no, C no
+rp1-113: A yes, B no, C no
+rp1-043: A no, B -, C yes
+rp1-137: A yes, B yes, C -
+rp1-175: A yes, B no, C no
+rp1-190: A no, B -, C yes
+rp1-167: A yes, B no, C no
+rp1-194: A yes, B yes, C no
+rp1-120: A yes, B no, C no
+rp1-022: A yes, B no, C can't tell
+rp1-176: A no, B -, C no
+rp1-096: A yes, B yes, C no
+rp1-061: A no, B no, C no
+rp1-013: A no, B no, C no
+rp1-005: A no, B no, C can't tell
+rp1-192: A yes, B no, C no
+rp1-086: A yes, B no, C no
+rp1-097: A yes, B yes, C -
+rp1-055: A no, B no, C no
+rp1-185: A no, B -, C yes
+rp1-102: A yes, B yes, C can't tell
+rp1-129: A yes, B yes, C -
+rp1-165: A no, B -, C yes
+rp1-146: A yes, B yes, C -
+rp1-150: A yes, B no, C no
+rp1-085: A no, B -, C yes
+rp1-143: A no, B -, C yes
+rp1-072: A yes, B yes, C no
+rp1-134: A yes, B no, C no
+rp1-079: A no, B -, C yes
+rp1-151: A yes, B yes, C no
+rp1-152: A yes, B yes, C can't tell
+rp1-128: A yes, B yes, C -
+rp1-056: A no, B -, C yes
+rp1-162: A no, B no, C no
+rp1-100: A no, B no, C no
+rp1-058: A no, B -, C yes
+rp1-118: A yes, B no, C yes
+rp1-105: A yes, B yes, C -
+rp1-171: A yes, B no, C no
+rp1-065: A no, B -, C no
+rp1-200: A no, B -, C yes
+rp1-049: A yes, B yes, C can't tell
+rp1-138: A yes, B yes, C no
+rp1-153: A no, B no, C no
+rp1-036: A yes, B yes, C -
+rp1-114: A yes, B yes, C -
+rp1-030: A yes, B yes, C no
