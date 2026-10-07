@@ -275,3 +275,55 @@ def test_coach_why_returns_checked_facts_when_the_model_is_unavailable(monkeypat
     move(gid, "f2f3", 0, engine_reply=False)
     r = client.post(f"/games/{gid}/coach/why", json={"ply": 0}).json()
     assert r["status"] == "unavailable" and r["ply"] == 0 and r["played_uci"] == "f2f3" and r["text"]
+
+
+def _fake_synced(monkeypatch, tmp_path, user_color="white"):
+    from app import config
+    from app.api import synced
+    from app.engine.batch import SCHEMA
+
+    FREE_KNIGHT = "4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1"
+    game = {"source_id": "https://www.chess.com/game/live/777", "user_color": user_color}
+    analysis = {"schema": SCHEMA, "moves": ["e1f1"], "positions": [{"fen": FREE_KNIGHT}, {"fen": "x"}]}
+
+    class Games:
+        def all(self):
+            return [game]
+
+    class Analyses:
+        def get(self, sid):
+            return analysis
+
+    monkeypatch.setattr(synced, "_stores", lambda: (Games(), Analyses()))
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+
+
+def test_intent_endpoint_stores_the_answer_as_self_reported_and_builds_gaps_from_facts(monkeypatch, tmp_path):
+    import json
+
+    from app.api import tools
+    from app.coach.llm import Draft
+
+    class Model:
+        model = "fake"
+
+        def draft(self, system, messages):
+            return Draft('{"mentioned": []}', "fake")
+
+    _fake_synced(monkeypatch, tmp_path)
+    monkeypatch.setattr(tools, "get_drafter", lambda: Model())
+    r = client.post("/synced-games/777/moments/0/intent", json={"text": "I wanted to castle"}).json()
+    assert r["status"] == "compared" and r["self_reported"] is True
+    assert r["gaps"] == ["A free knight on d5 was there to take."]
+    saved = [json.loads(x) for x in (tmp_path / "intents" / "intents_v1.jsonl").read_text().splitlines()]
+    assert saved[0]["answer"] == "I wanted to castle" and saved[0]["self_reported"] is True
+    # skipping stores nothing
+    r = client.post("/synced-games/777/moments/0/intent", json={}).json()
+    assert r["status"] == "skipped" and len((tmp_path / "intents" / "intents_v1.jsonl").read_text().splitlines()) == 1
+
+
+def test_intent_endpoint_rejects_moves_that_are_not_the_players(monkeypatch, tmp_path):
+    _fake_synced(monkeypatch, tmp_path, user_color="black")
+    r = client.post("/synced-games/777/moments/0/intent", json={"text": "x"})
+    assert r.status_code == 400 and r.json()["error"] == "invalid_ply"
+    assert client.post("/synced-games/nope/moments/0/intent", json={}).status_code == 404
