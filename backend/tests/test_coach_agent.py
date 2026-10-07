@@ -132,3 +132,20 @@ def test_statements_the_engine_evidence_already_makes_need_no_extra_claim():
     # statement is supported; the moves and amounts are still checked.
     ok = reply("You left a free piece. Rxd5 was available.", [{"type": "move_legal", "move": "Rxd5"}])
     assert run(Script(ok))["status"] == "verified"
+
+
+def test_a_nonconforming_first_draft_is_preserved_for_evals_but_never_shown():
+    bad = json.dumps({"explanation": "Qh5 is checkmate.", "claims": "none"})  # wrong claims field
+    r = agent.explain_move(engine(), Script(bad, GOOD), FREE_KNIGHT, chess.WHITE, PLAYED, keep_drafts=True)
+    first = r["attempts"][0]
+    assert first["draft_status"] == "unparseable" and first["draft"] == "Qh5 is checkmate." and first["raw_reply"] == bad
+    assert r["status"] == "repaired" and "Qh5" not in r["text"]
+    gibberish = agent.explain_move(engine(), Script("no json here", GOOD), FREE_KNIGHT, chess.WHITE, PLAYED,
+                                   keep_drafts=True)
+    a = gibberish["attempts"][0]
+    assert a["draft"] == "" and a["raw_reply"] == "no json here" and a["draft_status"] == "unparseable"
+
+
+def test_drafts_are_not_returned_unless_asked_for():
+    r = run(Script(GOOD))
+    assert all("draft" not in a and "raw_reply" not in a for a in r["attempts"])

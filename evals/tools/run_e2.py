@@ -125,7 +125,11 @@ def run_item(engine, drafter, item, tally):
             tally.tokens["input"] += a["tokens"]["input"]
             tally.tokens["output"] += a["tokens"]["output"]
     first = out["attempts"][0] if out["attempts"] else {}
-    res["texts"]["grounded"] = first.get("draft", "")
+    grounded = first.get("draft", "")
+    if not grounded and first.get("raw_reply"):  # an unreadable first draft is still what the model wrote: score it
+        grounded = first["raw_reply"].strip()
+    res["texts"]["grounded"] = grounded
+    res["notes"]["grounded_draft_status"] = first.get("draft_status", "no draft")
     res["texts"]["verified"] = out["text"]
     res["notes"]["verified_status"] = out["status"]
     res["notes"]["grounded_first_draft_ok"] = first.get("ok")
@@ -133,6 +137,7 @@ def run_item(engine, drafter, item, tally):
         claims, unv, err = extract_claims(drafter, item, res["texts"][cfg], tally)
         res["claims"][cfg] = score_claims(engine, item, claims)
         res["unverifiable"][cfg] = unv
+        res["scored"] = {**res.get("scored", {}), cfg: bool(res["texts"][cfg]) and not err}
         if err:
             res["notes"][f"{cfg}_extraction"] = err
     return res
@@ -141,11 +146,12 @@ def run_item(engine, drafter, item, tally):
 def summarise(results):
     summary = {}
     for cfg in CONFIGS:
-        total = correct = unv = texts = texts_bad = empty = 0
+        total = correct = unv = texts = texts_bad = empty = unscored = 0
         for r in results:
             cl = r["claims"][cfg]
             texts += 1
             empty += not r["texts"][cfg]
+            unscored += bool(r["texts"][cfg]) and not r.get("scored", {}).get(cfg, True)  # extraction failed
             total += len(cl)
             good = sum(c["correct"] for c in cl)
             correct += good
@@ -155,7 +161,8 @@ def summarise(results):
         summary[cfg] = {"texts": texts, "empty_texts": empty, "claims_checked": total, "claims_correct": correct,
                         "correct_rate": correct / total if total else None,
                         "ci95": list(lo_hi) if lo_hi else None, "unverifiable_statements": unv,
-                        "texts_with_an_incorrect_claim": texts_bad}
+                        "texts_with_an_incorrect_claim": texts_bad,
+                        "texts_not_scored_extraction_failed": unscored}
     statuses = {}
     for r in results:
         s = r["notes"]["verified_status"]

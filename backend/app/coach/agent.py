@@ -102,6 +102,18 @@ def parse_draft(text: str) -> tuple[str, list]:
     return explanation.strip(), claims
 
 
+def loose_explanation(text: str) -> str | None:
+    """Best-effort 'explanation' from a reply that did not meet the schema (evals only), else None."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        value = json.loads(text[start : end + 1]).get("explanation")
+    except (ValueError, AttributeError):
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def facts_text(evidence: dict) -> str:
     """The deterministic explanation: only what the engine and detectors confirmed."""
     parts = [evidence["headline"], f"You played {evidence['played']['text']}."]
@@ -161,7 +173,10 @@ def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Co
         record = {"ok": not problems, "problems": problems,
                   "tokens": {"input": draft.input_tokens, "output": draft.output_tokens}}
         if keep_drafts:
-            record["draft"] = explanation
+            parsed = report is not None
+            record["draft"] = explanation if parsed else (loose_explanation(draft.text) or "")
+            record["draft_status"] = "parsed" if parsed else "unparseable"
+            record["raw_reply"] = draft.text  # the original reply, so a nonconforming draft is never lost
         result["attempts"].append(record)
         if not problems:
             status = "verified" if attempt == 0 else "repaired"

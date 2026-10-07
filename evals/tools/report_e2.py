@@ -43,14 +43,19 @@ def main(path):
          f"({meta['tokens']['input']} input and {meta['tokens']['output']} output tokens). "
          "Design and limits: `docs/decisions/0003-e2-eval-design.md`."), "",
         "## Results", "",
-        "| Config | Checkable claims | Correct | Correct rate (95% interval) | Texts with a wrong claim | Unverifiable statements | Empty texts |",
-        "|---|---|---|---|---|---|---|",
+        "| Config | Checkable claims | Correct | Correct rate (95% interval) | Texts with a wrong claim | Unverifiable statements | Empty texts | Not scored (extraction failed) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for cfg, name in CONFIGS:
         s = summary[cfg]
         lines.append(f"| {name} | {s['claims_checked']} | {s['claims_correct']} | {pct(s['correct_rate'])} ({interval(s)}) | "
-                     f"{s['texts_with_an_incorrect_claim']} of {s['texts']} | {s['unverifiable_statements']} | {s['empty_texts']} |")
+                     f"{s['texts_with_an_incorrect_claim']} of {s['texts']} | {s['unverifiable_statements']} | {s['empty_texts']} | "
+                     f"{s.get('texts_not_scored_extraction_failed', 0)} |")
     st = summary["verified_statuses"]
+    failed = sum(summary[c].get("texts_not_scored_extraction_failed", 0) for c, _ in CONFIGS)
+    if failed:
+        lines += ["", (f"**Scoring coverage: {failed} text(s) could not be scored because claim extraction failed twice. "
+                       "They are NOT counted as correct; the rates above are over the texts that were scored.**")]
     mix = ", ".join(f"{k} {v}" for k, v in sorted(st.items()))
     lines += ["", (f"What the `verified` config returned: {mix} (out of {n}). "
                    "`fallback` and `unavailable` mean the text is the plain checked-facts text, not a model explanation."), "",
