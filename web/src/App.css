@@ -20,3 +20,12 @@
 .chip.tentative { background: #f5e6b8; color: #6b4e00; }
 .note { font-size: 0.9em; }
 .note.small { font-size: 0.8em; }
+.feedback { text-align: left; border: 1px solid var(--border); border-left-width: 6px; border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: 0.9em; }
+.feedback p { margin: 4px 0; }
+.feedback.good { border-left-color: #3caa5a; }
+.feedback.slip { border-left-color: #e0b030; }
+.feedback.mistake { border-left-color: #e07b30; }
+.feedback.blunder { border-left-color: #c0392b; }
+.fb-right { color: #2a7a40; }
+.fb-wrong { color: #b03a2e; }
+.fb-wait, .fb-cost, .fb-move { color: var(--text); }

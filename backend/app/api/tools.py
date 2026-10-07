@@ -16,6 +16,7 @@ from app.core.game import (
 )
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL
+from app.learner.feedback import FEEDBACK_BUDGET, judge
 
 
 def _color(c: chess.Color) -> str:
@@ -136,3 +137,31 @@ def export_pgn(game_id: str) -> str:
     you, opp = "You", f"Stockfish Level {game.engine_level}"
     white, black = (you, opp) if game.user_color == chess.WHITE else (opp, you)
     return to_pgn(game, white=white, black=black)
+
+
+def move_feedback(game_id: str, ply: int) -> dict:
+    """What was right or wrong about the user's move at `ply` (0-based index into the game's moves).
+
+    Practice only: feedback is assistance, so Play games are refused (Practice is never assessment, rule 4).
+    The search runs outside the lock; the move and position are copied first and returned with the answer, so a
+    client can discard feedback for a move that has since been taken back.
+    """
+    game = _get(game_id)
+    with game.lock:
+        if game.mode is not Mode.PRACTICE:
+            raise GameError("feedback_not_allowed", "move feedback is only available in Practice mode")
+        if not 0 <= ply < len(game.moves):
+            raise GameError("invalid_ply", f"no move {ply} in this game")
+        board = chess.Board(game.start_fen)
+        for uci in game.moves[:ply]:
+            board.push_uci(uci)
+        if board.turn != game.user_color:
+            raise GameError("invalid_ply", "that was the opponent's move")
+        move = chess.Move.from_uci(game.moves[ply])
+        user = game.user_color
+    engine = get_engine()
+    best = engine.analyse(board, FEEDBACK_BUDGET, perspective=user)
+    played_board = board.copy()
+    played_board.push(move)
+    after = engine.analyse(played_board, FEEDBACK_BUDGET, perspective=user)
+    return {"ply": ply, **judge(board, move, best, after)}

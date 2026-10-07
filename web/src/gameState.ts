@@ -33,3 +33,44 @@ export function acceptGame(
   if (incoming.id !== current.id) return current // a response for a game that was left behind
   return incoming.revision >= current.revision ? incoming : current
 }
+
+export type Feedback = {
+  ply: number
+  verdict: 'good' | 'slip' | 'mistake' | 'blunder'
+  headline: string
+  cost_pawns: number | null
+  right: string[]
+  wrong: string[]
+  better_move: { uci: string; from: string; to: string; text: string } | null
+  played: { uci: string; text: string }
+}
+
+/** Index of the user's most recent move in a normal game (White moves on even plies), or null. */
+export function latestUserPly(moves: string[], userColor: 'white' | 'black'): number | null {
+  for (let i = moves.length - 1; i >= 0; i--) {
+    if ((i % 2 === 0) === (userColor === 'white')) return i
+  }
+  return null
+}
+
+/** Feedback as the page stores it: tied to the game and the exact moves it judged. */
+export type StoredFeedback = Feedback & { gameId: string; prefix: string[] }
+
+export function storeFeedback(fb: Feedback, gameId: string, moves: string[]): StoredFeedback {
+  return { ...fb, gameId, prefix: moves.slice(0, fb.ply + 1) }
+}
+
+/**
+ * Feedback is shown only for the game on screen, only while every move up to the one it judged is unchanged
+ * (a takeback or a different line removes it), and only while that is still the user's latest move.
+ */
+export function feedbackIsCurrent(
+  fb: StoredFeedback | null,
+  gameId: string,
+  moves: string[],
+  userColor: 'white' | 'black',
+): fb is StoredFeedback {
+  if (fb === null || fb.gameId !== gameId) return false
+  if (latestUserPly(moves, userColor) !== fb.ply) return false
+  return fb.prefix.length === fb.ply + 1 && fb.prefix.every((m, i) => moves[i] === m)
+}

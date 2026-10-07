@@ -216,3 +216,25 @@ def test_blind_spots_endpoint_serves_frozen_results_and_refuses_a_foreign_window
     assert r.status_code == 200 and len(r.json()["results_sha256"]) == 64
     f.write_text(json.dumps({"window_sha256": "other", "by_time_control": {}}))
     assert client.get("/blind-spots/baseline").status_code == 500
+def test_feedback_is_refused_in_play_mode_and_for_bad_plies():
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    move(gid, "e2e4", 0, engine_reply=False)
+    r = client.get(f"/games/{gid}/feedback/0")
+    assert r.status_code == 403 and r.json()["error"] == "feedback_not_allowed"
+    client.post(f"/games/{gid}/mode", json={"mode": "practice"})
+    assert client.get(f"/games/{gid}/feedback/5").json()["error"] == "invalid_ply"
+    assert client.get("/games/nope/feedback/0").status_code == 404
+
+
+@needs_engine
+def test_feedback_for_a_practice_move():
+    gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
+    r = move(gid, "f2f3", 0, engine_reply=False).json()
+    fb = client.get(f"/games/{gid}/feedback/0")
+    assert fb.status_code == 200
+    body = fb.json()
+    assert body["ply"] == 0 and body["played"]["uci"] == "f2f3"
+    assert body["verdict"] in {"good", "slip", "mistake", "blunder"} and body["better_move"]["uci"]
+    # the opponent's reply is not judged
+    move(gid, "e2e4", r["revision"], engine_reply=False)
+    assert client.get(f"/games/{gid}/feedback/1").json()["error"] == "invalid_ply"
