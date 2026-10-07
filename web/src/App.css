@@ -29,3 +29,5 @@
 .fb-right { color: #2a7a40; }
 .fb-wrong { color: #b03a2e; }
 .fb-wait, .fb-cost, .fb-move { color: var(--text); }
+.threats { text-align: left; border: 1px solid #d9534f; background: rgba(220, 60, 50, 0.08); border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: 0.9em; }
+.threats p { margin: 4px 0; }

@@ -6,6 +6,8 @@ import {
   feedbackIsCurrent,
   latestUserPly,
   storeFeedback,
+  threatsAreCurrent,
+  type Threats,
   type Feedback,
   type StoredFeedback,
   type GameView,
@@ -30,6 +32,8 @@ export default function App() {
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
   const [showBetter, setShowBetter] = useState(false)
   const asked = useRef('')
+  const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
+  const askedThreats = useRef('')
 
   // Responses can arrive out of order (the engine's reply is shown after a delay), so an
   // older snapshot must never replace a newer one or one for a game that was left behind.
@@ -91,6 +95,20 @@ export default function App() {
       .catch(() => {})
   }, [game])
 
+  // Practice only: when it is my turn, warn about what the opponent threatens right now.
+  useEffect(() => {
+    if (!game || game.mode !== 'practice' || game.outcome || game.turn !== game.user_color) return
+    const key = `${game.id}:${game.revision}`
+    if (askedThreats.current === key) return
+    askedThreats.current = key
+    fetch(`${API}/games/${game.id}/threats`)
+      .then(async (res) => (res.ok ? ((await res.json()) as Threats) : null))
+      .then((t) => {
+        if (t && askedThreats.current === key) setThreats({ ...t, gameId: game.id })
+      })
+      .catch(() => {})
+  }, [game])
+
   const engineToMove =
     !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
 
@@ -141,6 +159,12 @@ export default function App() {
 
   const highlights: Record<string, React.CSSProperties> = {}
   const fb = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedback : null
+  const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
+  if (warn) {
+    for (const t of warn.threats) {
+      if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
+    }
+  }
   if (fb && showBetter && fb.better_move) {
     highlights[fb.better_move.from] = { background: 'rgba(60, 170, 90, 0.55)' }
     highlights[fb.better_move.to] = { background: 'rgba(60, 170, 90, 0.55)' }
@@ -262,6 +286,15 @@ export default function App() {
               ) : (
                 <p className="fb-wait">Make a move and I will tell you what was right or wrong with it.</p>
               )}
+            </section>
+          )}
+          {game.mode === 'practice' && warn && (warn.in_check || warn.threats.length > 0) && (
+            <section className="threats" aria-live="polite">
+              <strong>Watch out</strong>
+              {warn.in_check && <p>You are in check.</p>}
+              {warn.threats.map((t) => (
+                <p key={t.text}>⚠ {t.text}</p>
+              ))}
             </section>
           )}
           <p>

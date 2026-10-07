@@ -92,3 +92,18 @@ describe('practice feedback helpers', () => {
     expect(feedbackIsCurrent(null, 'g1', [], 'white')).toBe(false)
   })
 })
+
+import { threatsAreCurrent, type Threats } from './gameState'
+
+describe('threat warnings', () => {
+  const t = { gameId: 'g1', revision: 4, in_check: false, threats: [] } as Threats & { gameId: string }
+  const g = (over: Partial<GameView>) => game({ id: 'g1', revision: 4, turn: 'white', user_color: 'white', ...over })
+
+  it('are shown only for the position they were computed for', () => {
+    expect(threatsAreCurrent(t, g({}))).toBe(true)
+    expect(threatsAreCurrent(t, g({ revision: 5 }))).toBe(false)
+    expect(threatsAreCurrent(t, g({ id: 'g2' }))).toBe(false)
+    expect(threatsAreCurrent(t, g({ turn: 'black' }))).toBe(false)
+    expect(threatsAreCurrent(null, g({}))).toBe(false)
+  })
+})

@@ -95,6 +95,11 @@ def move_feedback(game_id: str, ply: int):
     return tools.move_feedback(game_id, ply)
 
 
+@app.get("/games/{game_id}/threats")
+def current_threats(game_id: str):
+    return tools.current_threats(game_id)
+
+
 class ModeIn(BaseModel):
     mode: str
 

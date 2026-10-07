@@ -64,6 +64,11 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-07 · MacBook · Claude Code (session 21, part 5)
+- **Threat warning (T34), Practice only.** On your turn a "Watch out" box lists pieces you can lose to a legal capture (the `hanging_own` v2 definition, so an even trade is not a threat but a knight for a pawn is), checkmate the opponent would have if you passed, and check; threatened squares are shaded red. Rules and detector only. Bound to the game and revision it was computed for. Tests: 5 backend, 1 web.
+- **Next (owner asked for T17-T19):** T18 verifier, then T17 coach harness, then T19 intent question. **Blocker for live runs: `ANTHROPIC_API_KEY` is empty in `.env` and the `anthropic` SDK is not a dependency.** Plan: the LLM sits behind a small `Drafter` interface so everything is testable without a key; add the SDK (MIT) with a `THIRD_PARTY.md` row; the owner puts the key in `.env` (never in chat or the repo).
+- **Branch / PR:** `feat/threat-warning`
+
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 4)
 - **T33 done (owner asked for it to move up the list): Practice feedback.** After each of your moves in a Practice game the board page shows a verdict (good / small slip / mistake / blunder; bands in `learner/feedback.py`: within 0.5 pawn good, under 1.5 slip, under 3 mistake, 3+ blunder; not scolded for small drops when already winning by 7+), what was right (best move, took a free piece, left nothing hanging) and wrong (free piece ignored, piece left to be taken, missed or allowed mate), the cost in pawns, and a "Show the better move" button that highlights it in green. All facts come from the engine (depth 12) and detectors `hanging_own` v2 / `missed_free` v2; detector claims need engine confirmation; no LLM. `GET /games/{id}/feedback/{ply}` refuses Play games (403 `feedback_not_allowed`, rule 4). The page hides feedback once its move is taken back. 11 new tests.
 - **Not yet:** explanation of *why* with a verified line, warnings about what the opponent threatens, feedback on the opponent's replies, feedback for older moves, and feedback is not saved with the game. The depth-12 check can miss things; the verdict is a guide, not a ruling.

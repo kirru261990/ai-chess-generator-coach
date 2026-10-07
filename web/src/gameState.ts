@@ -74,3 +74,14 @@ export function feedbackIsCurrent(
   if (latestUserPly(moves, userColor) !== fb.ply) return false
   return fb.prefix.length === fb.ply + 1 && fb.prefix.every((m, i) => moves[i] === m)
 }
+
+export type Threats = {
+  revision: number
+  in_check: boolean
+  threats: { kind: 'piece_can_be_taken' | 'mate_threat'; square?: string; text: string }[]
+}
+
+/** Threat warnings belong to one position: show them only for the revision they were computed for. */
+export function threatsAreCurrent(t: (Threats & { gameId: string }) | null, game: GameView): boolean {
+  return t !== null && t.gameId === game.id && t.revision === game.revision && game.turn === game.user_color
+}
