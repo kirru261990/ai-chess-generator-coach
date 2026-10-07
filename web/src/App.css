@@ -32,3 +32,7 @@
 .threats { text-align: left; border: 1px solid #d9534f; background: rgba(220, 60, 50, 0.08); border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: 0.9em; }
 .threats p { margin: 4px 0; }
 .why { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 6px; }
+.game-list { list-style: none; padding: 0; display: grid; gap: 6px; }
+.game-list button { width: 100%; text-align: left; }
+.moment-board { max-width: 360px; margin: 8px auto; }
+.moment textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; }

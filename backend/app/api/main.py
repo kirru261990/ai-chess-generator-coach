@@ -109,6 +109,15 @@ def current_threats(game_id: str):
     return tools.current_threats(game_id)
 
 
+class IntentIn(BaseModel):
+    text: str | None = None  # the player's own words; empty or missing means they skipped the question
+
+
+@app.post("/synced-games/{gid}/moments/{ply}/intent")
+def moment_intent(gid: str, ply: int, body: IntentIn):
+    return synced.moment_intent(gid, ply, body.text, tools.get_drafter())
+
+
 class ModeIn(BaseModel):
     mode: str
 

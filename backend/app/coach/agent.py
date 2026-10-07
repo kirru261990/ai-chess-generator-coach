@@ -24,7 +24,8 @@ from app.coach.llm import CoachUnavailable, Draft, Drafter
 from app.learner.feedback import analyse_move, judge
 
 PROMPT_VERSION = "why_v1"
-PROMPT = (Path(__file__).parent / "prompts" / f"{PROMPT_VERSION}.md").read_text()
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+PROMPT = (PROMPTS_DIR / f"{PROMPT_VERSION}.md").read_text()
 LINE_PLIES = 6
 INTENTS = ("why_move",)
 NOTE_FALLBACK = (

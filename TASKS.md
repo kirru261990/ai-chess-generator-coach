@@ -49,7 +49,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T33 **Practice feedback (moved up by the owner, 2026-10-07):** after each move in Practice, a plain-words verdict (good / small slip / mistake / blunder) from the engine's evaluation drop, what was right or wrong from the detectors and mate scores, and the better move on request. No LLM. `GET /games/{id}/feedback/{ply}` (Practice only, 403 in Play), `learner/feedback.py`. Next: explain *why* with a verified line (T17/T18), threat warnings, fork detector
 - [x] T17 (v1: one intent, `why_move`; see HANDOFF) Coach agent harness (one coaching focus per time control for now, ADR 0002): intent → tools → draft → verify → respond (one repair attempt)
 - [x] T18 (v1; claim types in `coach/verifier.py`) Verifier: legality, line consistency, claim checks against engine/detectors
-- [ ] T19 "What were you considering?" on review moments
+- [x] T19 (v1: facts + gaps; Review tab) "What were you considering?" on review moments
 
 ## Day 7 — Evals + write-up
 - [ ] T20 Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
