@@ -8,7 +8,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
 2. **No PRs are open** (PR #25, the T13 scoring and the documents, is merged). Work from `main`: `git checkout main && git pull`.
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**166 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**176 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
 4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
 
 ## Current state
@@ -16,7 +16,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
 - **Branches:** everything is on `main`; no open PRs.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
-- **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results not computed yet (T14).** Do not use the coach on these 100 games until the results are frozen (T15).
+- **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results computed (T14) but not frozen (T15).** Do not use the coach on these 100 games until the results are frozen (T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
 - **First scores:** `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, `_notes.md`). Read the notes before quoting anything.
 - **What exists:** play vs Stockfish in the web app (click to move, Level 1-10, resign, PGN, Play/Practice with Undo, 1 s reply pause); FastAPI + shared tool layer; MCP `get_game` skeleton; Chess.com sync; batch fast pass + post-game review (`GET /synced-games/{id}/review`); detectors `hanging_own` and `missed_free`; eval tooling (`evals/tools/`).
@@ -29,7 +29,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 **T14a. Baseline window: DONE** (frozen 2026-10-07, ADR 0002). Verify with `cd backend && uv run python -m app.learner.baseline verify`.
 
-**T14. The pattern layer** (`backend/app/learner/`, not written; needs tests, AGENTS rule). For each user move in each game: board before the move, the move, `Evidence(best_cp, after_cp)` built from the stored fast-pass positions (White's view; use `learner.review.rank_for_mover` for the mover's side), then `detectors.hanging_own.detect` and `detectors.missed_free.detect`. Record opportunity -> taken / missed / uncertain / not_applicable per move. Metrics:
+**T14. The pattern layer: DONE** (`backend/app/learner/patterns.py`, 10 tests; run `cd backend && uv run python -m app.learner.patterns baseline`; output `data/patterns/baseline_patterns_v1.json`, git-ignored, not frozen). Original spec kept below for reference. For each user move in each game: board before the move, the move, `Evidence(best_cp, after_cp)` built from the stored fast-pass positions (White's view; use `learner.review.rank_for_mover` for the mover's side), then `detectors.hanging_own.detect` and `detectors.missed_free.detect`. Record opportunity -> taken / missed / uncertain / not_applicable per move. Metrics:
 - `hanging_own`: misses **per 100 moves** (its opportunity held in about 81% of 445 weak-engine self-play positions, so missed/available is not meaningful; re-measure on real games)
 - `missed_free`: missed / available, and per 100 moves
 - uncertain results are excluded from numerator and denominator (AGENTS rule 5) and reported separately
@@ -63,6 +63,13 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 ---
 
 ## Log
+
+### 2026-10-07 · MacBook · Claude Code (session 21)
+- **T14 done: pattern layer** `backend/app/learner/patterns.py`. Verifies the baseline window against its manifest first, then for each user move builds `Evidence` from the stored depth-10 fast pass (mover's side via `rank_for_mover`) and runs both detectors. Per time control only; uncertain moves leave every numerator and denominator (also the per-100-moves denominator) and are reported separately; labels per spec C3 (`insufficient` / `tentative` at >=3 misses in >=2 games / `established` with >=8 opportunities too); 95% Wilson intervals (optimistic: moves within a game are not independent). `hanging_own` is per 100 moves only. Fails closed if a window game or its analysis is missing or the analysis schema is old. 10 new tests, 176 total, lint clean.
+- **Results are in `data/patterns/baseline_patterns_v1.json` and were shown to the owner in chat; the numbers are deliberately not in the repo** (owner's games, public repo). Detector versions: `hanging_own` v2, `missed_free` v2; Stockfish 19, depth 10.
+- **Caveat to keep with any figure:** evidence is the depth-10 fast pass, and `uncertain` is 4-5% (hanging_own) and 13-15% (missed_free) of opportunities-or-moves, so rates are lower bounds on confirmed misses, not a measure of all misses. Detectors were scored on `real_play_v1` (see its report); `missed_free` recall on real ignored free pieces is still unmeasured.
+- **Next:** T15 (freeze these results in `data/baseline/`, record the hash here), then T16 (blind-spot map page, two time controls side by side).
+- **Branch / PR:** `feat/pattern-layer`
 
 ### 2026-10-07 · MacBook · Claude Code (session 20)
 - **Baseline window frozen** (owner: "freeze it but keep 10/10 and 15/10 coaching ideas separately for now"; "10/10" read as 10|0). Rule: the 100 most recent case-study games by end time; 50 at 10|0 and 50 at 15|10; 30 Aug to 5 Oct 2026. New `backend/app/learner/baseline.py` (`freeze`, `verify`; refuses to overwrite; file is read-only; 7 tests with synthetic games). Written to `data/baseline/baseline_window_v1.json` (git-ignored; **ids never go in the repo**). Fingerprints and the decision are in `docs/decisions/0002-baseline-window.md`; the independent copy that `verify` checks against is `docs/decisions/0002-baseline-window.manifest.json` (hashes and counts only).
