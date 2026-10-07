@@ -65,9 +65,10 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 ## Log
 
 ### 2026-10-07 · MacBook · Claude Code (session 20)
-- **Baseline window frozen** (owner: "freeze it but keep 10/10 and 15/10 coaching ideas separately for now"; "10/10" read as 10|0). Rule: the 100 most recent case-study games by end time; 50 at 10|0 and 50 at 15|10; 30 Aug to 5 Oct 2026. New `backend/app/learner/baseline.py` (`freeze`, `verify`; refuses to overwrite; file is read-only; 7 tests with synthetic games). Written to `data/baseline/baseline_window_v1.json` (git-ignored; **ids never go in the repo**). Fingerprints and the decision are in `docs/decisions/0002-baseline-window.md`.
+- **Baseline window frozen** (owner: "freeze it but keep 10/10 and 15/10 coaching ideas separately for now"; "10/10" read as 10|0). Rule: the 100 most recent case-study games by end time; 50 at 10|0 and 50 at 15|10; 30 Aug to 5 Oct 2026. New `backend/app/learner/baseline.py` (`freeze`, `verify`; refuses to overwrite; file is read-only; 7 tests with synthetic games). Written to `data/baseline/baseline_window_v1.json` (git-ignored; **ids never go in the repo**). Fingerprints and the decision are in `docs/decisions/0002-baseline-window.md`; the independent copy that `verify` checks against is `docs/decisions/0002-baseline-window.manifest.json` (hashes and counts only).
 - **Time controls kept apart for now:** two separate lists with their own fingerprints; results reported per time control only (no pooled figure); one coaching focus per time control; the map page shows them separately. Reversible: both lists and the whole are frozen, so a pooled figure can be added later.
 - **No detector has been run on the baseline games yet.** Next is T14, with results per time control, then T15 (freeze the results).
+- **Review (GPT, 2 P2 findings, reproduced, fixed):** `verify` trusted the hashes stored in the file, so a different window or swapped time-control lists passed; it now checks against the committed manifest and fails closed. `freeze` had a check-then-write race (two concurrent freezes both succeeded); creation is now exclusive (`O_EXCL`). 7 tests fail on the old code.
 - **Branch / PR:** `feat/baseline-window`
 
 ### 2026-10-07 · MacBook · Claude Code (session 19)

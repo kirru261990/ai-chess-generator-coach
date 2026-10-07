@@ -3,7 +3,9 @@
 The window is the N most recent case-study games (10|0 and 15|10) by end time. Its game ids are written to
 `data/baseline/` (git-ignored: it holds the owner's games) together with a fingerprint (sha256) of the id list,
 overall and per time control. The repository records only the fingerprints and counts, never the ids.
-Once written the file is read-only and is never edited (AGENTS.md); `verify` recomputes the fingerprints.
+Once written the file is read-only and is never edited (AGENTS.md). `verify` recomputes the fingerprints from the stored ids and
+compares them with the independent record committed in `docs/decisions/0002-baseline-window.manifest.json`, so a replaced or
+reshuffled window cannot vouch for itself, and it fails closed if that manifest is missing.
 
   uv run python -m app.learner.baseline freeze    # write data/baseline/baseline_window_v1.json (refuses to overwrite)
   uv run python -m app.learner.baseline verify    # check the file against its own fingerprints
@@ -26,6 +28,7 @@ TIME_CONTROLS = {"600": "10|0", "900+10": "15|10"}  # Chess.com time_control -> 
 WINDOW_SIZE = 100
 RULE = "the 100 most recent case-study games (10|0 and 15|10) by end time"
 FILE_NAME = "baseline_window_v1.json"
+MANIFEST_PATH = config.REPO_ROOT / "docs" / "decisions" / "0002-baseline-window.manifest.json"
 
 
 class BaselineError(Exception):
@@ -73,32 +76,72 @@ def build_record(games: list[dict], n: int = WINDOW_SIZE, now: datetime | None =
     }
 
 
-def freeze(games: list[dict], path: Path | None = None, n: int = WINDOW_SIZE) -> dict:
+def freeze(games: list[dict], path: Path | None = None, n: int = WINDOW_SIZE, manifest_path: Path | None = None) -> dict:
+    """Write the window. Created exclusively (O_EXCL) and read-only, so a concurrent or repeated call can never overwrite it.
+
+    If `manifest_path` exists, the new window must match it: a different window is a new version, not a replacement.
+    """
     path = path or baseline_path()
-    if path.exists():
-        raise BaselineError(f"{path} already exists: a frozen baseline is never overwritten")
     record = build_record(games, n)
+    if manifest_path is not None and manifest_path.exists():
+        _check_against_manifest(record, json.loads(manifest_path.read_text()))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=1) + "\n")
-    os.chmod(path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)  # read-only
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    except FileExistsError as e:
+        raise BaselineError(f"{path} already exists: a frozen baseline is never overwritten") from e
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(record, indent=1) + "\n")
+    except BaseException:
+        path.unlink(missing_ok=True)  # never leave a half-written frozen file behind
+        raise
     return record
 
 
-def verify(path: Path | None = None) -> dict:
-    """Recompute every fingerprint from the stored ids; raise if anything differs."""
+def _check_against_manifest(record: dict, manifest: dict) -> None:
+    """Compare freshly recomputed fingerprints (from the ids) with the independently recorded ones."""
+    problems = []
+    if record["n"] != manifest["n"]:
+        problems.append(f"window size {record['n']} differs from the recorded {manifest['n']}")
+    if ids_hash(record["ids"]) != manifest["sha256"]:
+        problems.append("the window differs from the independently recorded one (overall fingerprint)")
+    if set(record["by_time_control"]) != set(manifest["by_time_control"]):
+        problems.append("the time-control lists differ from the recorded ones")
+    for label, expected in manifest["by_time_control"].items():
+        part = record["by_time_control"].get(label)
+        if part is None:
+            continue
+        if ids_hash(part["ids"]) != expected["sha256"] or len(part["ids"]) != expected["count"]:
+            problems.append(f"the {label} list differs from the independently recorded one")
+    if problems:
+        raise BaselineError("; ".join(problems))
+
+
+def verify(path: Path | None = None, manifest_path: Path | None = None) -> dict:
+    """Check the frozen file against the independently recorded manifest. Raises on any difference.
+
+    The fingerprints stored inside the file are not trusted: they are recomputed from the ids, and the result is compared
+    with the committed manifest. A missing manifest is an error (fail closed).
+    """
     path = path or baseline_path()
+    manifest_path = manifest_path or MANIFEST_PATH
+    if not manifest_path.exists():
+        raise BaselineError(f"no independent record to verify against: {manifest_path} is missing")
     record = json.loads(path.read_text())
     problems = []
     if ids_hash(record["ids"]) != record["sha256"]:
-        problems.append("overall fingerprint does not match the stored ids")
+        problems.append("the stored overall fingerprint does not match the stored ids")
     for label, part in record["by_time_control"].items():
-        if ids_hash(part["ids"]) != part["sha256"]:
-            problems.append(f"{label} fingerprint does not match its ids")
-        if part["count"] != len(part["ids"]):
-            problems.append(f"{label} count does not match its ids")
+        if ids_hash(part["ids"]) != part["sha256"] or part["count"] != len(part["ids"]):
+            problems.append(f"the stored {label} fingerprint or count does not match its ids")
     union = sorted(i for part in record["by_time_control"].values() for i in part["ids"])
     if union != sorted(record["ids"]):
         problems.append("the per-time-control lists do not add up to the window")
+    try:
+        _check_against_manifest(record, json.loads(manifest_path.read_text()))
+    except BaselineError as e:
+        problems.append(str(e))
     if problems:
         raise BaselineError("; ".join(problems))
     return record
@@ -116,10 +159,12 @@ def main(argv: list[str]) -> None:
     if not argv or argv[0] not in ("freeze", "verify"):
         sys.exit(__doc__)
     try:
-        record = freeze(_games()) if argv[0] == "freeze" else verify()
+        record = freeze(_games(), manifest_path=MANIFEST_PATH) if argv[0] == "freeze" else verify()
     except BaselineError as e:
         sys.exit(str(e))
     print(json.dumps({k: record[k] for k in ("status", "frozen_at", "rule", "n", "sha256")}, indent=1))
+    if argv[0] == "verify":
+        print("  matches the independent record in docs/decisions/0002-baseline-window.manifest.json")
     for label, part in record["by_time_control"].items():
         print(f"  {label}: {part['count']} games, sha256 {part['sha256']}")
 
