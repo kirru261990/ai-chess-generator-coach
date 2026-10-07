@@ -46,6 +46,14 @@ def _verdict(loss: int, before: int, after: int) -> tuple[str, str]:
     return "blunder", "That was a blunder."
 
 
+def analyse_move(engine, board: chess.Board, move: chess.Move, user: chess.Color) -> tuple[Analysis, Analysis]:
+    """Engine analysis of the position before the move and after it, both from the user's side."""
+    best = engine.analyse(board, FEEDBACK_BUDGET, perspective=user)
+    played = board.copy()
+    played.push(move)
+    return best, engine.analyse(played, FEEDBACK_BUDGET, perspective=user)
+
+
 def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis) -> dict:
     """Feedback for `move` played from `board`. `best` is the analysis of `board` and `after` of the position after the
     move, both scored from the mover's side."""

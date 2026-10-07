@@ -3,6 +3,8 @@
 import chess
 
 from app.api.store import GAMES
+from app.coach.agent import explain_move
+from app.coach.llm import AnthropicDrafter
 from app.core.game import (
     Game,
     GameError,
@@ -16,7 +18,7 @@ from app.core.game import (
 )
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL
-from app.learner.feedback import FEEDBACK_BUDGET, judge
+from app.learner.feedback import analyse_move, judge
 from app.learner.threats import threats
 
 
@@ -140,17 +142,14 @@ def export_pgn(game_id: str) -> str:
     return to_pgn(game, white=white, black=black)
 
 
-def move_feedback(game_id: str, ply: int) -> dict:
-    """What was right or wrong about the user's move at `ply` (0-based index into the game's moves).
-
-    Practice only: feedback is assistance, so Play games are refused (Practice is never assessment, rule 4).
-    The search runs outside the lock; the move and position are copied first and returned with the answer, so a
-    client can discard feedback for a move that has since been taken back.
-    """
+def _practice_user_move(game_id: str, ply: int, what: str) -> tuple[str, chess.Color, str]:
+    """(FEN before, user colour, move) for the user's move at `ply`. Practice only: feedback and coaching are
+    assistance, so Play games are refused (Practice is never assessment, rule 4). The values are copied under the lock
+    so the slow engine work runs outside it, and callers return `ply` so a client can drop a stale answer."""
     game = _get(game_id)
     with game.lock:
         if game.mode is not Mode.PRACTICE:
-            raise GameError("feedback_not_allowed", "move feedback is only available in Practice mode")
+            raise GameError("feedback_not_allowed", f"{what} is only available in Practice mode")
         if not 0 <= ply < len(game.moves):
             raise GameError("invalid_ply", f"no move {ply} in this game")
         board = chess.Board(game.start_fen)
@@ -158,14 +157,26 @@ def move_feedback(game_id: str, ply: int) -> dict:
             board.push_uci(uci)
         if board.turn != game.user_color:
             raise GameError("invalid_ply", "that was the opponent's move")
-        move = chess.Move.from_uci(game.moves[ply])
-        user = game.user_color
-    engine = get_engine()
-    best = engine.analyse(board, FEEDBACK_BUDGET, perspective=user)
-    played_board = board.copy()
-    played_board.push(move)
-    after = engine.analyse(played_board, FEEDBACK_BUDGET, perspective=user)
+        return board.fen(), game.user_color, game.moves[ply]
+
+
+def move_feedback(game_id: str, ply: int) -> dict:
+    """What was right or wrong about the user's move at `ply` (0-based index into the game's moves)."""
+    fen, user, uci = _practice_user_move(game_id, ply, "move feedback")
+    board, move = chess.Board(fen), chess.Move.from_uci(uci)
+    best, after = analyse_move(get_engine(), board, move, user)
     return {"ply": ply, **judge(board, move, best, after)}
+
+
+def get_drafter():
+    """The coach model, or None when no credential is configured. Replaced in tests."""
+    return AnthropicDrafter()
+
+
+def coach_why(game_id: str, ply: int) -> dict:
+    """The coach's verified explanation of the user's move at `ply` (T17). Falls back to checked facts."""
+    fen, user, uci = _practice_user_move(game_id, ply, "coaching")
+    return {"ply": ply, "played_uci": uci, **explain_move(get_engine(), get_drafter(), fen, user, uci)}
 
 
 def current_threats(game_id: str) -> dict:

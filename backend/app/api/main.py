@@ -95,6 +95,15 @@ def move_feedback(game_id: str, ply: int):
     return tools.move_feedback(game_id, ply)
 
 
+class WhyIn(BaseModel):
+    ply: int
+
+
+@app.post("/games/{game_id}/coach/why")
+def coach_why(game_id: str, body: WhyIn):
+    return tools.coach_why(game_id, body.ply)
+
+
 @app.get("/games/{game_id}/threats")
 def current_threats(game_id: str):
     return tools.current_threats(game_id)

@@ -5,7 +5,10 @@ import {
   acceptGame,
   feedbackIsCurrent,
   latestUserPly,
+  feedbackKey,
   storeFeedback,
+  whyLabel,
+  type Why,
   threatsAreCurrent,
   type Threats,
   type Feedback,
@@ -32,6 +35,7 @@ export default function App() {
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
   const [showBetter, setShowBetter] = useState(false)
   const asked = useRef('')
+  const [why, setWhy] = useState<{ key: string; loading: boolean; data: Why | null } | null>(null)
   const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
   const askedThreats = useRef('')
 
@@ -193,6 +197,22 @@ export default function App() {
     if (g) applyGame(g)
   }
 
+  async function askWhy(f: StoredFeedback) {
+    const key = feedbackKey(f)
+    setWhy({ key, loading: true, data: null })
+    try {
+      const res = await fetch(`${API}/games/${f.gameId}/coach/why`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ply: f.ply }),
+      })
+      const data = res.ok ? ((await res.json()) as Why) : null
+      setWhy((cur) => (cur?.key === key ? { key, loading: false, data } : cur))
+    } catch {
+      setWhy((cur) => (cur?.key === key ? { key, loading: false, data: null } : cur))
+    }
+  }
+
   async function undo() {
     if (!game || busy) return
     setEngineFailed(false)
@@ -276,6 +296,22 @@ export default function App() {
                   {fb.cost_pawns !== null && fb.cost_pawns > 0 && (
                     <p className="fb-cost">This cost you about {fb.cost_pawns} pawns of advantage.</p>
                   )}
+                  {(() => {
+                    const mine = why && why.key === feedbackKey(fb) ? why : null
+                    if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
+                    if (mine?.data)
+                      return (
+                        <div className="why">
+                          <p>{mine.data.text}</p>
+                          <p className="fb-wait">{mine.data.note ?? whyLabel(mine.data.status)}</p>
+                        </div>
+                      )
+                    return (
+                      <button onClick={() => void askWhy(fb)}>
+                        {mine ? 'Could not load it. Try again' : 'Why?'}
+                      </button>
+                    )
+                  })()}{' '}
                   {fb.better_move &&
                     (showBetter ? (
                       <p>Better was: <strong>{fb.better_move.text}</strong> (shown in green on the board)</p>

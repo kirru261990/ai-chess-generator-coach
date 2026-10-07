@@ -85,3 +85,22 @@ export type Threats = {
 export function threatsAreCurrent(t: (Threats & { gameId: string }) | null, game: GameView): boolean {
   return t !== null && t.gameId === game.id && t.revision === game.revision && game.turn === game.user_color
 }
+
+export type Why = {
+  ply: number
+  played_uci: string
+  status: 'verified' | 'repaired' | 'fallback' | 'unavailable'
+  text: string
+  note: string | null
+}
+
+/** Identifies the exact game and moves a piece of feedback (or its explanation) belongs to. */
+export function feedbackKey(fb: StoredFeedback): string {
+  return `${fb.gameId}:${fb.prefix.join(' ')}`
+}
+
+export function whyLabel(status: Why['status']): string {
+  return status === 'verified' || status === 'repaired'
+    ? 'Every claim in this explanation was checked by the engine and the rules.'
+    : 'Limited to facts the engine and rules confirmed.'
+}
