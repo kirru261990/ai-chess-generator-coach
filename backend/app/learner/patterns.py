@@ -32,7 +32,7 @@ import chess
 from app import config
 from app.detectors import hanging_own, missed_free
 from app.detectors.hanging_own import Evidence
-from app.engine.batch import SCHEMA, game_id
+from app.engine.batch import BATCH_BUDGET, SCHEMA, game_id
 from app.learner import baseline
 from app.learner.review import rank_for_mover
 
@@ -131,6 +131,7 @@ def run(games: list[dict], analyses: dict[str, dict], window: dict) -> dict:
     """Measure the window, per time control. Fails closed if a window game or its analysis is missing."""
     by_id = {game_id(g["source_id"]): g for g in games}
     result = {"results_version": RESULTS_VERSION, "window_sha256": window["sha256"], "by_time_control": {}}
+    want = {"depth": BATCH_BUDGET.depth, "movetime_ms": BATCH_BUDGET.movetime_ms}
     engines = set()
     for tc_label, part in window["by_time_control"].items():
         classified = []
@@ -141,17 +142,21 @@ def run(games: list[dict], analyses: dict[str, dict], window: dict) -> dict:
             analysis = analyses.get(game["source_id"])
             if analysis is None:
                 raise PatternError(f"window game {gid} has no fast-pass analysis")
-            engines.add((analysis["engine"], analysis["budget"]["depth"]))
+            if analysis["budget"] != want:  # a shallow re-run must never mix into the baseline evidence
+                raise PatternError(f"window game {gid} was analysed at {analysis['budget']}, expected {want}")
+            engines.add(analysis["engine"])
+            if len(engines) > 1:
+                raise PatternError(f"window games were analysed by different engines: {sorted(engines)}")
             classified.append(classify_game(game, analysis))
         result["by_time_control"][tc_label] = summarise(classified)
-    result["engine"] = [{"engine": e, "depth": d} for e, d in sorted(engines)]
+    result["engine"] = {"name": next(iter(engines)), "budget": want}
     return result
 
 
 def report(result: dict) -> str:
     lines = [
-        "Baseline pattern results (fast-pass evidence; depth "
-        + ", ".join(str(e["depth"]) for e in result["engine"]) + ")",
+        f"Baseline pattern results (fast-pass evidence: {result['engine']['name']}, "
+        f"budget {result['engine']['budget']})",
         "Per time control only. Uncertain moves are excluded from every rate.",
     ]
     for tc, s in result["by_time_control"].items():

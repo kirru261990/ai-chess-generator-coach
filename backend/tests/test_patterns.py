@@ -110,3 +110,28 @@ def test_results_are_kept_per_time_control_and_a_missing_game_fails_closed():
         p.run(games, analyses, window({"10|0": ["1", "3"]}))
     with pytest.raises(p.PatternError):
         p.run(games, {}, window({"10|0": ["1"]}))
+
+
+def test_evidence_at_another_budget_or_engine_is_refused():
+    g = synthetic_game(1)
+    w = window({"10|0": ["1"]})
+    shallow = analysis("d1d5", AFTER_TAKE, 300, 500)
+    shallow["budget"] = {"depth": 1, "movetime_ms": None}
+    with pytest.raises(p.PatternError):
+        p.run([g], {g["source_id"]: shallow}, w)
+    timed = analysis("d1d5", AFTER_TAKE, 300, 500)
+    timed["budget"] = {"depth": 10, "movetime_ms": 50}
+    with pytest.raises(p.PatternError):
+        p.run([g], {g["source_id"]: timed}, w)
+    g2 = synthetic_game(2)
+    other = analysis("d1d5", AFTER_TAKE, 300, 500)
+    other["engine"] = "Stockfish other"
+    with pytest.raises(p.PatternError):
+        p.run([g, g2], {g["source_id"]: analysis("d1d5", AFTER_TAKE, 300, 500), g2["source_id"]: other},
+              window({"10|0": ["1", "2"]}))
+
+
+def test_the_complete_budget_is_kept_in_the_result():
+    g = synthetic_game(1)
+    r = p.run([g], {g["source_id"]: analysis("d1d5", AFTER_TAKE, 300, 500)}, window({"10|0": ["1"]}))
+    assert r["engine"] == {"name": "Stockfish test", "budget": {"depth": 10, "movetime_ms": None}}
