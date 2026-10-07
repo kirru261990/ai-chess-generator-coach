@@ -30,10 +30,10 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - **Status:** set `real_play_v1` **frozen 2026-10-06** (rule v0.4; owner and GPT hand-checks done, see `evals/sets/real_play_v1/FROZEN.md`). Still to do: the precision/recall script and report (run both detectors, publish numbers with versions, denominators, intervals)
 
 ## Day 5 — Blind-spot map + baseline
-- [ ] T14a Choose and **record the baseline window**: the last 100 Chess.com rapid games (10|0 and 15|10) before training starts; game ids in `data/baseline/` (git-ignored), hash in `HANDOFF.md`; report the mix per time control. Propose to the owner first. Freeze before any coaching on these games (see T15)
+- [x] T14a Choose and **record the baseline window** (done 2026-10-07: frozen, see `docs/decisions/0002-baseline-window.md`; the 10|0 and 15|10 games are kept as two separate 50-game lists): the last 100 Chess.com rapid games (10|0 and 15|10) before training starts; game ids in `data/baseline/` (git-ignored), hash in `HANDOFF.md`; report the mix per time control. Propose to the owner first. Freeze before any coaching on these games (see T15)
 - [ ] T14 Run detectors over the baseline window (new `backend/app/learner/` pattern layer, with tests)
   - Evidence comes from the stored fast pass (`data/analysis/`, schema 2, depth 10); uncertain results are excluded from numerator and denominator and reported separately
-  - Report per time control and combined, with detector versions, denominators, intervals and the tentative/established labels (spec C3)
+  - Report **per time control only** for now (owner decision 2026-10-07, ADR 0002; the pooled figure is deferred, not dropped), with detector versions, denominators, intervals and the tentative/established labels (spec C3)
   - Expect misses in already-lopsided positions to show as `uncertain` (T13 finding)
   - `hanging_own`: report misses **per 100 moves** (its opportunity definition matches almost every position, so missed/available is not meaningful)
   - `missed_free`: report missed/available and rate per 100 moves
@@ -41,11 +41,11 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Lichess and Chess.com ratings are on different scales: match bands by percentile or label the comparison "approximate"
   - Only the derived rates go in the repo; raw game files stay in `data/`
   - ADR 0001 §3: one month, both players rated 600–1200 in bands of 100; same detector versions as the baseline; store aggregates (per band: missed, available, moves, games) in `evals/benchmarks/peer_<yyyy-mm>_<detector>_v<N>.json`; stream-decompress zstd, never load a month into memory; **never show a peer comparison without the rating-scale note**; ask before downloading (a month is about 28 GB)
-- [ ] T15 **Freeze baseline** in `data/baseline/` (hash recorded in `HANDOFF.md`)
-- [ ] T16 Blind-spot map page
+- [ ] T15 Freeze the baseline **results** in `data/baseline/` once T14 has produced them (hash recorded in `HANDOFF.md`). The window itself is already frozen (T14a)
+- [ ] T16 Blind-spot map page: show 10|0 and 15|10 separately (ADR 0002)
 
 ## Day 6 — Coaching
-- [ ] T17 Coach agent harness: intent → tools → draft → verify → respond (one repair attempt)
+- [ ] T17 Coach agent harness (one coaching focus per time control for now, ADR 0002): intent → tools → draft → verify → respond (one repair attempt)
 - [ ] T18 Verifier: legality, line consistency, claim checks against engine/detectors
 - [ ] T19 "What were you considering?" on review moments
 

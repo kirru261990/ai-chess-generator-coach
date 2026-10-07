@@ -16,7 +16,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
 - **Branches:** everything is on `main`; no open PRs.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
-- **Baseline frozen?** **No.** Do not coach on the owner's own games until the baseline window is frozen (T14a/T15).
+- **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results not computed yet (T14).** Do not use the coach on these 100 games until the results are frozen (T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
 - **First scores:** `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, `_notes.md`). Read the notes before quoting anything.
 - **What exists:** play vs Stockfish in the web app (click to move, Level 1-10, resign, PGN, Play/Practice with Undo, 1 s reply pause); FastAPI + shared tool layer; MCP `get_game` skeleton; Chess.com sync; batch fast pass + post-game review (`GET /synced-games/{id}/review`); detectors `hanging_own` and `missed_free`; eval tooling (`evals/tools/`).
@@ -27,20 +27,19 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Next up
 
-**T14a. Choose and record the baseline window** (propose, then the owner confirms or delegates). The spec says the last 100 Chess.com rapid games (10|0 and 15|10) before training starts. List the game ids in `data/baseline/` (git-ignored), record the file's hash here, and report the game mix per time control (15|10 usually has fewer misses, so a shift in mix alone can move the combined rate). **Freeze before any coaching on these games.**
+**T14a. Baseline window: DONE** (frozen 2026-10-07, ADR 0002). Verify with `cd backend && uv run python -m app.learner.baseline verify`.
 
 **T14. The pattern layer** (`backend/app/learner/`, not written; needs tests, AGENTS rule). For each user move in each game: board before the move, the move, `Evidence(best_cp, after_cp)` built from the stored fast-pass positions (White's view; use `learner.review.rank_for_mover` for the mover's side), then `detectors.hanging_own.detect` and `detectors.missed_free.detect`. Record opportunity -> taken / missed / uncertain / not_applicable per move. Metrics:
 - `hanging_own`: misses **per 100 moves** (its opportunity held in about 81% of 445 weak-engine self-play positions, so missed/available is not meaningful; re-measure on real games)
 - `missed_free`: missed / available, and per 100 moves
 - uncertain results are excluded from numerator and denominator (AGENTS rule 5) and reported separately
-- per time control and combined; show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
+- **per time control only** (owner decision 2026-10-07: keep 10|0 and 15|10 separate for now; no pooled figure; ADR 0002); show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
 - **Expect** misses made in already-lopsided positions to appear as `uncertain` (T13 finding: the engine under-reports a hung piece when a position is already won or lost)
 
 Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
 
 ## Decisions waiting on the owner
 
-- **Baseline window (T14a)**, as above.
 - Whether to download a Lichess games sample for T14b (ask first; about 28 GB a month).
 
 ## Working agreement with the owner (observed; follow it)
@@ -64,6 +63,12 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 ---
 
 ## Log
+
+### 2026-10-07 · MacBook · Claude Code (session 20)
+- **Baseline window frozen** (owner: "freeze it but keep 10/10 and 15/10 coaching ideas separately for now"; "10/10" read as 10|0). Rule: the 100 most recent case-study games by end time; 50 at 10|0 and 50 at 15|10; 30 Aug to 5 Oct 2026. New `backend/app/learner/baseline.py` (`freeze`, `verify`; refuses to overwrite; file is read-only; 7 tests with synthetic games). Written to `data/baseline/baseline_window_v1.json` (git-ignored; **ids never go in the repo**). Fingerprints and the decision are in `docs/decisions/0002-baseline-window.md`.
+- **Time controls kept apart for now:** two separate lists with their own fingerprints; results reported per time control only (no pooled figure); one coaching focus per time control; the map page shows them separately. Reversible: both lists and the whole are frozen, so a pooled figure can be added later.
+- **No detector has been run on the baseline games yet.** Next is T14, with results per time control, then T15 (freeze the results).
+- **Branch / PR:** `feat/baseline-window`
 
 ### 2026-10-07 · MacBook · Claude Code (session 19)
 - **Licence decided and applied: AGPL-3.0-or-later** (owner: "apply AGPL", on Claude's recommendation: python-chess is GPL-3.0-or-later so MIT is out; AGPL is compatible and covers hosted use; every other dependency is permissive). Added `LICENSE` (official AGPL-3.0 text), `THIRD_PARTY.md` (every direct dependency with version, licence, URL and use; plus Stockfish, the Lichess puzzle data and the Chess.com API), licence fields in `backend/pyproject.toml` and `web/package.json`, and a README section. A scan of all 47 installed Python packages found python-chess is the only copyleft one.
