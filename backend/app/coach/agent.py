@@ -119,7 +119,9 @@ def _user_message(evidence: dict) -> str:
 
 
 def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Color, played_uci: str,
-                 question: str | None = None) -> dict:
+                 question: str | None = None, keep_drafts: bool = False) -> dict:
+    """`keep_drafts` adds each attempt's unverified draft text to the result, for evals only; it is never returned
+    by the API, so unchecked text cannot reach a player."""
     classify_intent(question)
     evidence = build_evidence(engine, fen, user_color, played_uci)
     fb = evidence["_feedback"]
@@ -156,10 +158,11 @@ def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Co
             problems = [f"claim {json.dumps(f['claim'])}: {f['reason']}" for f in report.failed] + report.prose_problems
         except ValueError as e:  # not parseable
             explanation, claims, report, problems = "", [], None, [f"the reply could not be read: {e}"]
-        result["attempts"].append({
-            "ok": not problems, "problems": problems,
-            "tokens": {"input": draft.input_tokens, "output": draft.output_tokens},
-        })
+        record = {"ok": not problems, "problems": problems,
+                  "tokens": {"input": draft.input_tokens, "output": draft.output_tokens}}
+        if keep_drafts:
+            record["draft"] = explanation
+        result["attempts"].append(record)
         if not problems:
             status = "verified" if attempt == 0 else "repaired"
             return {**result, "status": status, "text": explanation, "claims": report.verified, "note": None}
