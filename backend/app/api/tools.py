@@ -17,6 +17,7 @@ from app.core.game import (
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL
 from app.learner.feedback import FEEDBACK_BUDGET, judge
+from app.learner.threats import threats
 
 
 def _color(c: chess.Color) -> str:
@@ -165,3 +166,16 @@ def move_feedback(game_id: str, ply: int) -> dict:
     played_board.push(move)
     after = engine.analyse(played_board, FEEDBACK_BUDGET, perspective=user)
     return {"ply": ply, **judge(board, move, best, after)}
+
+
+def current_threats(game_id: str) -> dict:
+    """What the opponent threatens against the user right now. Practice only (it is assistance, rule 4);
+    empty unless it is the user's turn in a game still being played."""
+    game = _get(game_id)
+    with game.lock:
+        if game.mode is not Mode.PRACTICE:
+            raise GameError("feedback_not_allowed", "threat warnings are only available in Practice mode")
+        board, revision = game.board(), game.revision
+        if game.outcome() is not None or board.turn != game.user_color:
+            return {"revision": revision, "in_check": False, "threats": [], "detectors": {}}
+    return {"revision": revision, **threats(board)}
