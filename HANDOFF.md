@@ -7,14 +7,15 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ## Start here (new session)
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
-2. **No PRs are open** (PR #25, the T13 scoring and the documents, is merged). Work from `main`: `git checkout main && git pull`.
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**176 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
+2. **No feature PRs are open** (T14-T19, T33, T34 and the review fixes are merged). Work from `main`: `git checkout main && git pull`.
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**278 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
 4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
 
 ## Current state
 
-- **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
-- **Branches:** everything is on `main`; no open PRs.
+- **Phase:** Week 1 is built through Day 6: detectors, baseline (frozen, with results), blind-spot map, Practice feedback, threat warnings, verifier, coach harness (`why_move`), "What were you considering?". **Not yet:** Day 7 evals (T20 E2 raw vs grounded vs verified, T21 E1 rules suite), README and demo (T22), training sessions and hint ladder, MCP tools beyond `get_game`. First usable version due 12 Oct 2026.
+- **Branches:** everything is on `main`.
+- **Coach:** needs `ANTHROPIC_API_KEY` in the git-ignored repo-root `.env` (never in `.env.example`; a key was once committed there by mistake on 2026-10-07 and had to be revoked; the history still holds the revoked key). Without a key the Why? button and the Review comparison fall back to checked facts. Model: `COACH_MODEL` (default `claude-sonnet-5-5`). Turn on GitHub secret scanning and push protection for the repo if it is not already on.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
 - **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results frozen (T15, 2026-10-07):** `data/baseline/baseline_results_v1.json`, read-only, sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e` (detectors `hanging_own` v2 and `missed_free` v2, Stockfish 19 depth 10). Check with `sha256sum`. The coach may now be used on these 100 games. Do not use the coach on these 100 games until the results are frozen (T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
