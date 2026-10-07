@@ -151,7 +151,7 @@ def test_prose_pawn_amounts_must_match_the_engine():
 
 
 def test_verify_checks_prose_against_the_verified_claims_and_known_moves():
-    claims = [{"type": "move_legal", "move": "Rxd5"}]
+    claims = [{"type": "move_legal", "move": "Rxd5"}, {"type": "move_captures", "move": "Rxd5"}]
     assert v.verify(FakeEngine(), ctx(), claims, "Rxd5 wins a knight.").ok
     r = v.verify(FakeEngine(), ctx(), claims, "Rxd5 wins a knight, and Rd8+ follows.")
     assert not r.ok and "Rd8+" in r.prose_problems[0]
@@ -175,3 +175,55 @@ def test_with_the_real_engine_the_free_knight_claims_hold():
         ])
         assert r.ok, r.failed
         assert not v.verify(engine, ctx(), [{"type": "best_move", "move": "Rd2"}]).ok
+
+
+def test_prose_asserting_mate_needs_a_mate_claim_even_with_legal_move_claims():
+    start = v.Context(chess.STARTING_FEN, chess.WHITE)
+    r = v.verify(FakeEngine(), start, [{"type": "move_legal", "move": "Nf3"}], "Nf3 is checkmate.")
+    assert not r.ok and "mate statement" in r.prose_problems[0]
+    r = v.verify(FakeEngine(), start, [], "Your opponent is checkmated.")
+    assert not r.ok
+    backed = v.verify(FakeEngine(mate={chess.STARTING_FEN: (2, 1)}), start,
+                      [{"type": "mate_in", "side": "user", "moves": 2}], "You have a forced checkmate.")
+    assert backed.ok
+
+
+@pytest.mark.parametrize("text,category", [
+    ("The knight is hanging.", "material"),
+    ("Your queen can be captured for free.", "material"),
+    ("You win a rook here.", "material"),
+    ("You are completely winning.", "evaluation"),
+    ("That is a losing position.", "evaluation"),
+    ("Qh5 delivers mate.", "mate"),
+])
+def test_unbacked_tactical_words_are_rejected(text, category):
+    r = v.verify(FakeEngine(), ctx(), [], text)
+    assert not r.ok and any(category in p for p in r.prose_problems)
+
+
+def test_assertions_backed_by_the_matching_claim_or_a_harness_fact_pass():
+    ok_text = "The knight on d5 was free to take."
+    assert v.verify(FakeEngine(), ctx(), [{"type": "free_piece_available", "square": "d5"}], ok_text).ok
+    assert not v.verify(FakeEngine(), ctx(), [{"type": "move_legal", "move": "Rxd5"}], ok_text).ok  # wrong kind
+    assert v.verify(FakeEngine(), ctx(), [], ok_text, known_assertions={"material"}).ok
+    assert v.verify(FakeEngine(), ctx(), [], "Keep your pieces safe and develop calmly.").ok  # no assertion
+
+
+@pytest.mark.parametrize("claim", [
+    {"type": "eval_band", "band": ["winning"]},
+    {"type": "eval_band", "band": {"a": 1}},
+    {"type": "move_legal", "move": ["Nf3"]},
+    {"type": "move_legal", "move": None},
+    {"type": "line_legal", "moves": "e4"},
+    {"type": "line_legal", "moves": [["e4"]]},
+    {"type": "piece_can_be_taken", "square": ["e4"], "side": "user"},
+    {"type": "piece_can_be_taken", "square": "e4", "side": ["user"]},
+    {"type": "free_piece_available", "square": 5},
+    {"type": "mate_in", "side": "user", "moves": [2]},
+    {"type": "mate_in", "side": {"x": 1}, "moves": 2},
+    {"type": ["move_legal"]},
+    {"type": "move_legal", "move": "Rxd5", "position": ["after"]},
+])
+def test_malformed_claim_fields_fail_verification_instead_of_crashing(claim):
+    r = v.verify(FakeEngine(mate={FREE_KNIGHT: (2, 1)}), ctx(), [claim])
+    assert len(r.failed) == 1 and not r.ok

@@ -17,6 +17,10 @@ repair attempt, then falls back to verified facts only). Claims are structured J
 Every claim may add `position`: "before" (the position the user faced, default) or "after" (after the move played).
 Moves are SAN or UCI. An unknown claim type fails: the verifier never assumes.
 
+`check_assertions` is the third guard: tactical words in the text (checkmate, "free", "can be taken", "winning"...) must be
+backed by a verified claim of the matching kind, or by a fact the harness itself computed. The vocabulary is a fixed list,
+so it is a net with holes, not a proof; the E2 eval measures what still gets through.
+
 `check_prose` is the second guard: the text itself may only name moves and pawn amounts that the verified evidence
 supports, so a claim cannot be smuggled in outside the claim list. Limit: bare squares ("e4") and pawn pushes written
 as a square are not treated as moves; the prompt asks for "pawn to e4" wording, which is never checked as a move.
@@ -160,7 +164,7 @@ class Verifier:
 
     def _check_eval_band(self, c, board):
         band = c.get("band")
-        if band not in BANDS:
+        if not isinstance(band, str) or band not in BANDS:
             raise ValueError(f"unknown band {band!r}")
         lo, hi = BANDS[band]
         cp = self._cp(board)
@@ -206,6 +210,41 @@ def check_prose(text: str, allowed_moves: set[str], allowed_pawns: set[float]) -
     return problems
 
 
+ASSERTIONS = {  # category -> (words in the text, claim types that can back it)
+    "mate": (
+        re.compile(r"\b(check\s?mates?d?|mated|mating|mate)\b", re.IGNORECASE),
+        {"mate_in"},
+    ),
+    "material": (
+        re.compile(
+            r"\b(free|hanging|unprotected|undefended|unguarded|loose|for nothing|can be (?:taken|captured|won)|"
+            r"(?:wins?|won|winning|lose|loses|lost) (?:a|an|the|your|their|his|her|material)\b|captures?|takes? (?:the|a|your))",
+            re.IGNORECASE),
+        {"piece_can_be_taken", "free_piece_available", "move_captures"},
+    ),
+    "evaluation": (
+        re.compile(r"\b(winning|losing|lost position|equal position|completely won|totally lost)\b", re.IGNORECASE),
+        {"eval_band", "mate_in"},
+    ),
+}
+
+
+def assertion_categories(text: str) -> set[str]:
+    """Which kinds of tactical assertion the text makes."""
+    return {name for name, (pattern, _) in ASSERTIONS.items() if pattern.search(text)}
+
+
+def check_assertions(text: str, verified: list[dict], known: set[str] = frozenset()) -> list[str]:
+    """Problems: an assertion in `text` that no verified claim (or harness-computed fact in `known`) supports."""
+    have = {c.get("type") for c in verified}
+    problems = []
+    for name in sorted(assertion_categories(text)):
+        if name in known or have & ASSERTIONS[name][1]:
+            continue
+        problems.append(f"the text makes a {name} statement that no verified claim supports")
+    return problems
+
+
 def moves_in(claim: dict) -> list[str]:
     """Moves a (verified) claim names, as written."""
     out = []
@@ -216,9 +255,10 @@ def moves_in(claim: dict) -> list[str]:
     return out
 
 
-def verify(engine, ctx: Context, claims: list[dict], prose: str = "", known_moves=(), known_pawns=()) -> Report:
-    """Check all claims, then the prose against what was verified (plus `known_moves`/`known_pawns` the harness
-    itself computed, such as the played move and the engine's best move)."""
+def verify(engine, ctx: Context, claims: list[dict], prose: str = "", known_moves=(), known_pawns=(),
+           known_assertions: set[str] = frozenset()) -> Report:
+    """Check all claims, then the prose against what was verified (plus `known_moves`/`known_pawns`/`known_assertions`
+    the harness itself computed, such as the played move, the engine's best move and what its detectors found)."""
     v = Verifier(engine, ctx)
     report = Report()
     for claim in claims:
@@ -230,9 +270,12 @@ def verify(engine, ctx: Context, claims: list[dict], prose: str = "", known_move
             report.verified.append(claim)
         except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError, chess.AmbiguousMoveError) as e:
             report.failed.append({"claim": claim, "reason": str(e)})
+        except (TypeError, AttributeError, KeyError) as e:  # a field of the wrong shape, e.g. a list where a word belongs
+            report.failed.append({"claim": claim, "reason": f"malformed claim ({type(e).__name__}: {e})"})
     allowed = set(known_moves)
     for claim in report.verified:
         allowed.update(moves_in(claim))
     if prose:
         report.prose_problems += check_prose(prose, allowed, set(known_pawns))
+        report.prose_problems += check_assertions(prose, report.verified, set(known_assertions))
     return report

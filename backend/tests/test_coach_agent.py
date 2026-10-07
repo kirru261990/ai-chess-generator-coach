@@ -119,3 +119,16 @@ def test_pawn_moves_and_squares_in_prose_are_not_mistaken_for_moves():
     ok = reply("Put the pawn to e4 and keep the king on e1; the knight on d5 is free.",
                [{"type": "free_piece_available", "square": "d5"}])
     assert run(Script(ok))["status"] == "verified"
+
+
+def test_a_tactical_statement_without_a_matching_claim_gets_repaired():
+    unsupported = reply("Your opponent is checkmated after Rxd5.", [{"type": "move_legal", "move": "Rxd5"}])
+    r = run(Script(unsupported, GOOD))
+    assert r["status"] == "repaired" and "mate statement" in r["attempts"][0]["problems"][0]
+
+
+def test_statements_the_engine_evidence_already_makes_need_no_extra_claim():
+    # The detector evidence says a free piece was left ("right"/"wrong" lines), so the harness knows that kind of
+    # statement is supported; the moves and amounts are still checked.
+    ok = reply("You left a free piece. Rxd5 was available.", [{"type": "move_legal", "move": "Rxd5"}])
+    assert run(Script(ok))["status"] == "verified"
