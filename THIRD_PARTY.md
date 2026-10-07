@@ -18,6 +18,7 @@ Versions are the ones locked on 2026-10-07 (`backend/uv.lock`, `web/pnpm-lock.ya
 | uvicorn | 0.54.0 | BSD-3-Clause | https://uvicorn.dev/ | Runs the API |
 | mcp | 2.3.0 | MIT | https://modelcontextprotocol.io | MCP server |
 | httpx | 0.28.1 | BSD-3-Clause | https://github.com/encode/httpx | Chess.com sync client |
+| anthropic | 1.11.0 | MIT | https://github.com/anthropics/anthropic-sdk-python | Calls the coach model (`COACH_MODEL`); also pulls in docstring-parser, jiter, sniffio (MIT, MIT, MIT/Apache-2.0) |
 | python-dotenv | 1.2.4 | BSD-3-Clause | https://github.com/theskumar/python-dotenv | Reads `.env` |
 
 Used through the above (not declared directly): pydantic 2.13.5 (MIT), starlette 1.7.0 (BSD-3-Clause).

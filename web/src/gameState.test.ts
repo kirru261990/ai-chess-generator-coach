@@ -107,3 +107,21 @@ describe('threat warnings', () => {
     expect(threatsAreCurrent(null, g({}))).toBe(false)
   })
 })
+
+import { feedbackKey, whyLabel } from './gameState'
+
+describe('coach explanation helpers', () => {
+  it('keys an explanation to its game and exact moves', () => {
+    const a = storeFeedback({ ply: 0 } as Feedback, 'g1', ['e2e4'])
+    const b = storeFeedback({ ply: 0 } as Feedback, 'g1', ['d2d4'])
+    const c = storeFeedback({ ply: 0 } as Feedback, 'g2', ['e2e4'])
+    expect(new Set([feedbackKey(a), feedbackKey(b), feedbackKey(c)]).size).toBe(3)
+  })
+
+  it('says plainly how far an explanation was checked', () => {
+    expect(whyLabel('verified')).toMatch(/checked/)
+    expect(whyLabel('repaired')).toMatch(/checked/)
+    expect(whyLabel('fallback')).toMatch(/Limited/)
+    expect(whyLabel('unavailable')).toMatch(/Limited/)
+  })
+})

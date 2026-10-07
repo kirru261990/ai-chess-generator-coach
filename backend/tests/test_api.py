@@ -238,3 +238,40 @@ def test_feedback_for_a_practice_move():
     # the opponent's reply is not judged
     move(gid, "e2e4", r["revision"], engine_reply=False)
     assert client.get(f"/games/{gid}/feedback/1").json()["error"] == "invalid_ply"
+
+
+def test_coach_why_is_practice_only_and_falls_back_without_a_model(monkeypatch):
+    from app.api import tools
+    from app.coach.llm import CoachUnavailable
+
+    class NoModel:
+        model = "none"
+
+        def draft(self, system, messages):
+            raise CoachUnavailable("no key")
+
+    monkeypatch.setattr(tools, "get_drafter", lambda: NoModel())
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    move(gid, "e2e4", 0, engine_reply=False)
+    assert client.post(f"/games/{gid}/coach/why", json={"ply": 0}).status_code == 403
+    client.post(f"/games/{gid}/mode", json={"mode": "practice"})
+    assert client.post(f"/games/{gid}/coach/why", json={"ply": 9}).json()["error"] == "invalid_ply"
+    assert client.post("/games/nope/coach/why", json={"ply": 0}).status_code == 404
+
+
+@needs_engine
+def test_coach_why_returns_checked_facts_when_the_model_is_unavailable(monkeypatch):
+    from app.api import tools
+    from app.coach.llm import CoachUnavailable
+
+    class NoModel:
+        model = "none"
+
+        def draft(self, system, messages):
+            raise CoachUnavailable("no key")
+
+    monkeypatch.setattr(tools, "get_drafter", lambda: NoModel())
+    gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
+    move(gid, "f2f3", 0, engine_reply=False)
+    r = client.post(f"/games/{gid}/coach/why", json={"ply": 0}).json()
+    assert r["status"] == "unavailable" and r["ply"] == 0 and r["played_uci"] == "f2f3" and r["text"]
