@@ -68,3 +68,13 @@ def test_evidence_records_engine_budget_and_detector_versions():
 def test_describe_move_uses_plain_words_first(played):
     text = f.describe_move(chess.Board(), chess.Move.from_uci(played))
     assert text.startswith("Knight ") and text.endswith(")")
+
+
+def test_no_pawn_cost_is_claimed_when_a_mate_score_is_involved():
+    board = chess.Board(FREE_KNIGHT)
+    r = f.judge(board, chess.Move.from_uci("e1f1"), analysis("d1d5", cp=-75),
+                analysis("x", mate=1, mate_sign=-1))
+    assert r["cost_pawns"] is None and r["verdict"] == "blunder"
+    assert "This lets the opponent force checkmate." in r["wrong"]
+    r = f.judge(board, chess.Move.from_uci("d1d5"), analysis("d1d5", cp=300), analysis("x", cp=300))
+    assert r["cost_pawns"] == 0.0

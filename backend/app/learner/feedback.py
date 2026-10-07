@@ -52,6 +52,8 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis)
     b = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign)
     a = cp_equiv(after.score.cp, after.score.mate, after.score.mate_sign)
     loss = max(0, b - a)
+    # Mates are clamped to +/-1000 only to rank moves; that number is not an evaluation, so no pawn cost is claimed.
+    mate_involved = best.score.mate is not None or after.score.mate is not None
     is_best = best.best_move == move.uci()
     verdict, headline = ("good", "Best move.") if is_best else _verdict(loss, b, a)
     evidence = Evidence(b, a)
@@ -86,7 +88,7 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis)
     return {
         "verdict": verdict,
         "headline": headline,
-        "cost_pawns": round(loss / 100, 1),
+        "cost_pawns": None if mate_involved else round(loss / 100, 1),
         "right": right,
         "wrong": wrong,
         "better_move": better,

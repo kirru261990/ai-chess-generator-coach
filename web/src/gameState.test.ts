@@ -63,22 +63,32 @@ describe('acceptGame', () => {
   })
 })
 
-import { feedbackIsCurrent, latestUserPly, type Feedback } from './gameState'
+import { feedbackIsCurrent, latestUserPly, storeFeedback, type Feedback } from './gameState'
 
 describe('practice feedback helpers', () => {
-  const fb = { ply: 2, played: { uci: 'g1f3', text: '' } } as Feedback
+  const judged = ['e2e4', 'e7e5', 'g1f3']
+  const fb = storeFeedback({ ply: 2, played: { uci: 'g1f3', text: '' } } as Feedback, 'g1', judged)
 
   it('finds the latest move of the user, whichever colour they play', () => {
     expect(latestUserPly([], 'white')).toBeNull()
     expect(latestUserPly(['e2e4'], 'black')).toBeNull()
-    expect(latestUserPly(['e2e4', 'e7e5', 'g1f3'], 'white')).toBe(2)
-    expect(latestUserPly(['e2e4', 'e7e5', 'g1f3'], 'black')).toBe(1)
+    expect(latestUserPly(judged, 'white')).toBe(2)
+    expect(latestUserPly(judged, 'black')).toBe(1)
   })
 
-  it('hides feedback once the move it judged is taken back or replaced', () => {
-    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5', 'g1f3'])).toBe(true)
-    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5'])).toBe(false)
-    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5', 'b1c3'])).toBe(false)
-    expect(feedbackIsCurrent(null, [])).toBe(false)
+  it('shows feedback for the exact moves it judged', () => {
+    expect(feedbackIsCurrent(fb, 'g1', judged, 'white')).toBe(true)
+  })
+
+  it('hides feedback after a takeback, a different move, or a newer move', () => {
+    expect(feedbackIsCurrent(fb, 'g1', ['e2e4', 'e7e5'], 'white')).toBe(false)
+    expect(feedbackIsCurrent(fb, 'g1', ['e2e4', 'e7e5', 'b1c3'], 'white')).toBe(false)
+    expect(feedbackIsCurrent(fb, 'g1', [...judged, 'b8c6', 'f1c4'], 'white')).toBe(false)
+  })
+
+  it('hides feedback from another game or another line with the same last move', () => {
+    expect(feedbackIsCurrent(fb, 'g2', judged, 'white')).toBe(false)
+    expect(feedbackIsCurrent(fb, 'g1', ['d2d4', 'd7d5', 'g1f3'], 'white')).toBe(false)
+    expect(feedbackIsCurrent(null, 'g1', [], 'white')).toBe(false)
   })
 })

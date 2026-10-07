@@ -5,7 +5,9 @@ import {
   acceptGame,
   feedbackIsCurrent,
   latestUserPly,
+  storeFeedback,
   type Feedback,
+  type StoredFeedback,
   type GameView,
 } from './gameState'
 
@@ -25,7 +27,7 @@ export default function App() {
   const [mode, setMode] = useState<'play' | 'practice'>('play')
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
   const [showBetter, setShowBetter] = useState(false)
   const asked = useRef('')
 
@@ -74,14 +76,15 @@ export default function App() {
     if (!game || game.mode !== 'practice') return
     const ply = latestUserPly(game.moves, game.user_color)
     if (ply === null) return
-    const key = `${game.id}:${ply}:${game.moves[ply]}`
+    const moves = game.moves
+    const key = `${game.id}:${moves.slice(0, ply + 1).join(' ')}`
     if (asked.current === key) return
     asked.current = key
     fetch(`${API}/games/${game.id}/feedback/${ply}`)
       .then(async (res) => (res.ok ? ((await res.json()) as Feedback) : null))
       .then((fb) => {
         if (fb && asked.current === key) {
-          setFeedback(fb)
+          setFeedback(storeFeedback(fb, game.id, moves))
           setShowBetter(false)
         }
       })
@@ -137,7 +140,7 @@ export default function App() {
   }
 
   const highlights: Record<string, React.CSSProperties> = {}
-  const fb = game && feedbackIsCurrent(feedback, game.moves) ? feedback : null
+  const fb = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedback : null
   if (fb && showBetter && fb.better_move) {
     highlights[fb.better_move.from] = { background: 'rgba(60, 170, 90, 0.55)' }
     highlights[fb.better_move.to] = { background: 'rgba(60, 170, 90, 0.55)' }
@@ -246,7 +249,7 @@ export default function App() {
                   {fb.wrong.map((t) => (
                     <p key={t} className="fb-wrong">✗ {t}</p>
                   ))}
-                  {fb.cost_pawns > 0 && (
+                  {fb.cost_pawns !== null && fb.cost_pawns > 0 && (
                     <p className="fb-cost">This cost you about {fb.cost_pawns} pawns of advantage.</p>
                   )}
                   {fb.better_move &&
