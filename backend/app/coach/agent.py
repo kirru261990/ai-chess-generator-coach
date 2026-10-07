@@ -102,6 +102,18 @@ def parse_draft(text: str) -> tuple[str, list]:
     return explanation.strip(), claims
 
 
+def loose_explanation(text: str) -> str | None:
+    """Best-effort 'explanation' from a reply that did not meet the schema (evals only), else None."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        value = json.loads(text[start : end + 1]).get("explanation")
+    except (ValueError, AttributeError):
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def facts_text(evidence: dict) -> str:
     """The deterministic explanation: only what the engine and detectors confirmed."""
     parts = [evidence["headline"], f"You played {evidence['played']['text']}."]
@@ -119,7 +131,9 @@ def _user_message(evidence: dict) -> str:
 
 
 def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Color, played_uci: str,
-                 question: str | None = None) -> dict:
+                 question: str | None = None, keep_drafts: bool = False) -> dict:
+    """`keep_drafts` adds each attempt's unverified draft text to the result, for evals only; it is never returned
+    by the API, so unchecked text cannot reach a player."""
     classify_intent(question)
     evidence = build_evidence(engine, fen, user_color, played_uci)
     fb = evidence["_feedback"]
@@ -156,10 +170,14 @@ def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Co
             problems = [f"claim {json.dumps(f['claim'])}: {f['reason']}" for f in report.failed] + report.prose_problems
         except ValueError as e:  # not parseable
             explanation, claims, report, problems = "", [], None, [f"the reply could not be read: {e}"]
-        result["attempts"].append({
-            "ok": not problems, "problems": problems,
-            "tokens": {"input": draft.input_tokens, "output": draft.output_tokens},
-        })
+        record = {"ok": not problems, "problems": problems,
+                  "tokens": {"input": draft.input_tokens, "output": draft.output_tokens}}
+        if keep_drafts:
+            parsed = report is not None
+            record["draft"] = explanation if parsed else (loose_explanation(draft.text) or "")
+            record["draft_status"] = "parsed" if parsed else "unparseable"
+            record["raw_reply"] = draft.text  # the original reply, so a nonconforming draft is never lost
+        result["attempts"].append(record)
         if not problems:
             status = "verified" if attempt == 0 else "repaired"
             return {**result, "status": status, "text": explanation, "claims": report.verified, "note": None}

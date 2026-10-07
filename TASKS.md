@@ -52,7 +52,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T19 (v1: facts + gaps; Review tab) "What were you considering?" on review moments
 
 ## Day 7 — Evals + write-up
-- [ ] T20 Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
+- [x] T20 (first run 2026-10-07: `verified` 93% of checkable claims correct, target 98% NOT met as measured; see `evals/reports/e2_v1_2026-10-07.md` and `_notes.md`) Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
 - [ ] T21 E1 state/rules regression suite
 - [ ] T22 README update + short demo clip
 
@@ -62,6 +62,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Follow-ups: if outside contributions are ever accepted, add a contributor agreement first; before publishing a built web bundle, include the bundled packages' licence notices
 
 - [ ] T30 Persist games in Postgres (they are in memory today and vanish on restart); needs Docker installed and a database-level guard instead of the in-process lock
+- [ ] T35 E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 
