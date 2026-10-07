@@ -19,8 +19,11 @@ The fixed set of the owner's own games that is measured **before any coaching**,
 | 10\|0 only | 50 | `7ac385a0c9c94a29138afe9fc0159122e0a7d2e760a39a3bd7cab847455cc4c2` |
 | 15\|10 only | 50 | `01b8d1cb4c22fadbdf93e685c614fc79c5e732b79791d45153c23a2f92791aad` |
 
-- **Check it:** `cd backend && uv run python -m app.learner.baseline verify` recomputes every fingerprint from the stored ids.
-  The freeze command refuses to overwrite an existing file, and the file is read-only.
+- **Independent record:** the same fingerprints and counts are in `docs/decisions/0002-baseline-window.manifest.json` (committed; no game ids).
+- **Check it:** `cd backend && uv run python -m app.learner.baseline verify` recomputes every fingerprint from the stored ids and compares
+  them with that committed manifest, **not** with hashes stored in the frozen file itself, so a replaced or reshuffled window (including
+  swapped 10|0 and 15|10 lists) cannot vouch for itself. It fails closed if the manifest is missing. The freeze command creates the file
+  exclusively, so a repeated or concurrent call can never overwrite it, and the file is read-only.
 
 ## Decision: the two time controls are kept apart for now
 The owner asked to keep the 10|0 and 15|10 work separate. **Interpretation (Claude's; "10/10" was read as 10|0):**
