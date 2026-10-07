@@ -155,8 +155,8 @@ def run(games: list[dict], analyses: dict[str, dict], window: dict) -> dict:
 
 def report(result: dict) -> str:
     lines = [
-        f"Baseline pattern results (fast-pass evidence: {result['engine']['name']}, "
-        f"budget {result['engine']['budget']})",
+        (f"Baseline pattern results (fast-pass evidence: {result['engine']['name']}, "
+         f"budget {result['engine']['budget']})"),
         "Per time control only. Uncertain moves are excluded from every rate.",
     ]
     for tc, s in result["by_time_control"].items():
