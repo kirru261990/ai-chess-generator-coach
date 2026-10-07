@@ -28,6 +28,7 @@ app.add_middleware(
 
 _STATUS = {
     "not_found": 404,
+    "feedback_not_allowed": 403,
     "revision_conflict": 409,
     "not_your_turn": 409,
     "takeback_not_allowed": 409,
@@ -81,6 +82,11 @@ def synced_games(limit: int = 20):
 @app.get("/synced-games/{gid}/review")
 def synced_game_review(gid: str):
     return synced.review_synced_game(gid)
+
+
+@app.get("/games/{game_id}/feedback/{ply}")
+def move_feedback(game_id: str, ply: int):
+    return tools.move_feedback(game_id, ply)
 
 
 class ModeIn(BaseModel):
