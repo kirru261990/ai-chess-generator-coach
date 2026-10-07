@@ -8,7 +8,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
 2. **No PRs are open** (PR #25, the T13 scoring and the documents, is merged). Work from `main`: `git checkout main && git pull`.
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should give **149 passed** and clean lint. `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**166 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
 4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
 
 ## Current state
