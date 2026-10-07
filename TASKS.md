@@ -31,7 +31,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Day 5 — Blind-spot map + baseline
 - [x] T14a Choose and **record the baseline window** (done 2026-10-07: frozen, see `docs/decisions/0002-baseline-window.md`; the 10|0 and 15|10 games are kept as two separate 50-game lists): the last 100 Chess.com rapid games (10|0 and 15|10) before training starts; game ids in `data/baseline/` (git-ignored), hash in `HANDOFF.md`; report the mix per time control. Propose to the owner first. Freeze before any coaching on these games (see T15)
-- [ ] T14 Run detectors over the baseline window (new `backend/app/learner/` pattern layer, with tests)
+- [x] T14 (code done and run 2026-10-07; results in `data/patterns/`, not frozen) Run detectors over the baseline window (new `backend/app/learner/` pattern layer, with tests)
   - Evidence comes from the stored fast pass (`data/analysis/`, schema 2, depth 10); uncertain results are excluded from numerator and denominator and reported separately
   - Report **per time control only** for now (owner decision 2026-10-07, ADR 0002; the pooled figure is deferred, not dropped), with detector versions, denominators, intervals and the tentative/established labels (spec C3)
   - Expect misses in already-lopsided positions to show as `uncertain` (T13 finding)
