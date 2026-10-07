@@ -41,7 +41,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Lichess and Chess.com ratings are on different scales: match bands by percentile or label the comparison "approximate"
   - Only the derived rates go in the repo; raw game files stay in `data/`
   - ADR 0001 §3: one month, both players rated 600–1200 in bands of 100; same detector versions as the baseline; store aggregates (per band: missed, available, moves, games) in `evals/benchmarks/peer_<yyyy-mm>_<detector>_v<N>.json`; stream-decompress zstd, never load a month into memory; **never show a peer comparison without the rating-scale note**; ask before downloading (a month is about 28 GB)
-- [ ] T15 Freeze the baseline **results** in `data/baseline/` once T14 has produced them (hash recorded in `HANDOFF.md`). The window itself is already frozen (T14a)
+- [x] T15 (done 2026-10-07, sha256 in `HANDOFF.md`) Freeze the baseline **results** in `data/baseline/` once T14 has produced them (hash recorded in `HANDOFF.md`). The window itself is already frozen (T14a)
 - [ ] T16 Blind-spot map page: show 10|0 and 15|10 separately (ADR 0002)
 
 ## Day 6 — Coaching

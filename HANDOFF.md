@@ -16,7 +16,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Phase:** Week 1, Day 4 done. T11, T12 and T13 are complete (two detectors, a frozen real-play eval set, first scores). Day 5 (T14: run the detectors on the owner's own games, T15 freeze the baseline) is next.
 - **Branches:** everything is on `main`; no open PRs.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
-- **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results computed (T14) but not frozen (T15).** Do not use the coach on these 100 games until the results are frozen (T15).
+- **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results frozen (T15, 2026-10-07):** `data/baseline/baseline_results_v1.json`, read-only, sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e` (detectors `hanging_own` v2 and `missed_free` v2, Stockfish 19 depth 10). Check with `sha256sum`. The coach may now be used on these 100 games. Do not use the coach on these 100 games until the results are frozen (T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
 - **First scores:** `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, `_notes.md`). Read the notes before quoting anything.
 - **What exists:** play vs Stockfish in the web app (click to move, Level 1-10, resign, PGN, Play/Practice with Undo, 1 s reply pause); FastAPI + shared tool layer; MCP `get_game` skeleton; Chess.com sync; batch fast pass + post-game review (`GET /synced-games/{id}/review`); detectors `hanging_own` and `missed_free`; eval tooling (`evals/tools/`).
@@ -36,7 +36,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **per time control only** (owner decision 2026-10-07: keep 10|0 and 15|10 separate for now; no pooled figure; ADR 0002); show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
 - **Expect** misses made in already-lopsided positions to appear as `uncertain` (T13 finding: the engine under-reports a hung piece when a position is already won or lost)
 
-Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
+Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
 
 ## Decisions waiting on the owner
 
@@ -63,6 +63,10 @@ Then T15 (freeze the baseline, hash recorded here) and T16 (blind-spot map page)
 ---
 
 ## Log
+
+### 2026-10-07 · MacBook · Claude Code (session 21, part 2)
+- **T15 done:** `uv run python -m app.learner.patterns freeze` re-verifies the window, then copies the results to `data/baseline/baseline_results_v1.json` (exclusive create, read-only; refuses to overwrite). sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e`. Test added (177 total). A change to detectors or evidence means a new version file, never an edit.
+- **Branch / PR:** `feat/freeze-baseline-results`, stacked on `feat/pattern-layer` (PR #30); base it on `main` once #30 merges.
 
 ### 2026-10-07 · MacBook · Claude Code (session 21)
 - **T14 done: pattern layer** `backend/app/learner/patterns.py`. Verifies the baseline window against its manifest first, then for each user move builds `Evidence` from the stored depth-10 fast pass (mover's side via `rank_for_mover`) and runs both detectors. Per time control only; uncertain moves leave every numerator and denominator (also the per-100-moves denominator) and are reported separately; labels per spec C3 (`insufficient` / `tentative` at >=3 misses in >=2 games / `established` with >=8 opportunities too); 95% Wilson intervals (optimistic: moves within a game are not independent). `hanging_own` is per 100 moves only. Fails closed if a window game or its analysis is missing or the analysis schema is old. 10 new tests, 176 total, lint clean.

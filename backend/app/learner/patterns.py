@@ -17,12 +17,16 @@ Rates (AGENTS rules 3 and 5):
 Results are grouped by time control (no pooled figure; ADR 0002). Game ids and examples stay in `data/` only.
 
   uv run python -m app.learner.patterns baseline   # the frozen 100-game window -> data/patterns/
+  uv run python -m app.learner.patterns freeze     # T15: freeze those results in data/baseline/ (never overwritten)
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
+import stat
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -190,9 +194,41 @@ def _load_analyses(path: Path) -> dict[str, dict]:
     return out
 
 
+FROZEN_NAME = "baseline_results_v1.json"
+
+
+def freeze_results(source: Path, dest: Path) -> str:
+    """Copy the computed results to `dest`, created exclusively and read-only (never overwritten).
+    Returns the sha256 of the frozen bytes."""
+    data = source.read_bytes()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    except FileExistsError as e:
+        raise PatternError(f"{dest} already exists: frozen results are never overwritten") from e
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return hashlib.sha256(data).hexdigest()
+
+
 def main(argv: list[str]) -> None:
-    if argv != ["baseline"]:
+    if argv not in (["baseline"], ["freeze"]):
         sys.exit(__doc__)
+    if argv == ["freeze"]:
+        try:
+            baseline.verify()  # the window must still match its record
+            sha = freeze_results(
+                config.DATA_DIR / "patterns" / "baseline_patterns_v1.json",
+                config.DATA_DIR / "baseline" / FROZEN_NAME,
+            )
+        except (baseline.BaselineError, PatternError, OSError) as e:
+            sys.exit(str(e))
+        print(f"frozen {FROZEN_NAME}\nsha256 {sha}")
+        return
     username = config.chesscom_username()
     if not username:
         sys.exit("set CHESSCOM_USERNAME in .env")
