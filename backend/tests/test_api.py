@@ -196,3 +196,27 @@ def test_a_late_engine_move_after_a_resignation_is_rejected(monkeypatch):
     final = client.get(f"/games/{gid}").json()
     assert final["outcome"] == {"result": "0-1", "termination": "resignation"}
     assert final["moves"] == ["e2e4"]
+
+
+def test_feedback_is_refused_in_play_mode_and_for_bad_plies():
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    move(gid, "e2e4", 0, engine_reply=False)
+    r = client.get(f"/games/{gid}/feedback/0")
+    assert r.status_code == 403 and r.json()["error"] == "feedback_not_allowed"
+    client.post(f"/games/{gid}/mode", json={"mode": "practice"})
+    assert client.get(f"/games/{gid}/feedback/5").json()["error"] == "invalid_ply"
+    assert client.get("/games/nope/feedback/0").status_code == 404
+
+
+@needs_engine
+def test_feedback_for_a_practice_move():
+    gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
+    r = move(gid, "f2f3", 0, engine_reply=False).json()
+    fb = client.get(f"/games/{gid}/feedback/0")
+    assert fb.status_code == 200
+    body = fb.json()
+    assert body["ply"] == 0 and body["played"]["uci"] == "f2f3"
+    assert body["verdict"] in {"good", "slip", "mistake", "blunder"} and body["better_move"]["uci"]
+    # the opponent's reply is not judged
+    move(gid, "e2e4", r["revision"], engine_reply=False)
+    assert client.get(f"/games/{gid}/feedback/1").json()["error"] == "invalid_ply"

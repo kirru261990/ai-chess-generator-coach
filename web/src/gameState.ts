@@ -33,3 +33,27 @@ export function acceptGame(
   if (incoming.id !== current.id) return current // a response for a game that was left behind
   return incoming.revision >= current.revision ? incoming : current
 }
+
+export type Feedback = {
+  ply: number
+  verdict: 'good' | 'slip' | 'mistake' | 'blunder'
+  headline: string
+  cost_pawns: number
+  right: string[]
+  wrong: string[]
+  better_move: { uci: string; from: string; to: string; text: string } | null
+  played: { uci: string; text: string }
+}
+
+/** Index of the user's most recent move in a normal game (White moves on even plies), or null. */
+export function latestUserPly(moves: string[], userColor: 'white' | 'black'): number | null {
+  for (let i = moves.length - 1; i >= 0; i--) {
+    if ((i % 2 === 0) === (userColor === 'white')) return i
+  }
+  return null
+}
+
+/** Feedback is only shown while the move it judges is still on the board (a takeback removes it). */
+export function feedbackIsCurrent(fb: Feedback | null, moves: string[]): fb is Feedback {
+  return fb !== null && moves[fb.ply] === fb.played.uci
+}

@@ -62,3 +62,23 @@ describe('acceptGame', () => {
     expect(acceptGame(current, game({ id: 'g2', revision: 0 }), true).id).toBe('g2')
   })
 })
+
+import { feedbackIsCurrent, latestUserPly, type Feedback } from './gameState'
+
+describe('practice feedback helpers', () => {
+  const fb = { ply: 2, played: { uci: 'g1f3', text: '' } } as Feedback
+
+  it('finds the latest move of the user, whichever colour they play', () => {
+    expect(latestUserPly([], 'white')).toBeNull()
+    expect(latestUserPly(['e2e4'], 'black')).toBeNull()
+    expect(latestUserPly(['e2e4', 'e7e5', 'g1f3'], 'white')).toBe(2)
+    expect(latestUserPly(['e2e4', 'e7e5', 'g1f3'], 'black')).toBe(1)
+  })
+
+  it('hides feedback once the move it judged is taken back or replaced', () => {
+    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5', 'g1f3'])).toBe(true)
+    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5'])).toBe(false)
+    expect(feedbackIsCurrent(fb, ['e2e4', 'e7e5', 'b1c3'])).toBe(false)
+    expect(feedbackIsCurrent(null, [])).toBe(false)
+  })
+})
