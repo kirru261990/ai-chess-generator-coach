@@ -66,6 +66,8 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 2)
 - **T15 done:** `uv run python -m app.learner.patterns freeze` re-verifies the window, then copies the results to `data/baseline/baseline_results_v1.json` (exclusive create, read-only; refuses to overwrite). sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e`. Test added (177 total). A change to detectors or evidence means a new version file, never an edit.
+- **Review fixes (GPT, 2 P2, reproduced):** #30: `run()` now refuses evidence not made at the baseline budget (depth 10, no movetime) or by mixed engines, and keeps the full budget in the result. #31: `freeze` now validates the exact bytes (valid JSON, results version, window fingerprint, time controls, both detectors, engine budget) before creating the file. 185 tests.
+- **Note on the frozen file:** it was frozen before the #30 fix, so its `engine` field uses the earlier layout (`[{engine, depth}]`; movetime was None). The numbers are identical to a fresh run (checked); the hash above stays the record. It was not replaced (deleting it was blocked and it is read-only by design). A re-run writes the new layout to `data/patterns/`.
 - **Branch / PR:** `feat/freeze-baseline-results`, stacked on `feat/pattern-layer` (PR #30); base it on `main` once #30 merges.
 
 ### 2026-10-07 · MacBook · Claude Code (session 21)
