@@ -3,6 +3,23 @@
 .error { color: #c0392b; }
 .controls { display: flex; gap: 12px; justify-content: center; align-items: center; margin: 12px 0; }
 .badge { background: #f5e6b8; border-radius: 4px; padding: 1px 6px; }
+.tabs { display: flex; gap: 8px; justify-content: center; padding: 12px 16px 0; }
+.tabs .on { font-weight: 700; border-bottom: 2px solid var(--accent); }
+.spots { max-width: 900px; margin: 0 auto; padding: 16px; text-align: left; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.column h3 { margin: 8px 0; }
+.sub { font-size: 0.8em; font-weight: 400; margin-left: 6px; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.card-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.card .what { margin: 6px 0; font-size: 0.9em; }
+.card .headline { color: var(--text-h); font-weight: 600; margin: 6px 0 2px; }
+.card .range { margin: 0 0 6px; font-size: 0.85em; }
+.card ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.85em; }
+.chip { font-size: 0.75em; padding: 2px 8px; border-radius: 10px; white-space: nowrap; background: var(--code-bg); }
+.chip.established { background: #d6f0dc; color: #1c5a2a; }
+.chip.tentative { background: #f5e6b8; color: #6b4e00; }
+.note { font-size: 0.9em; }
+.note.small { font-size: 0.8em; }
 .feedback { text-align: left; border: 1px solid var(--border); border-left-width: 6px; border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: 0.9em; }
 .feedback p { margin: 4px 0; }
 .feedback.good { border-left-color: #3caa5a; }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from app.api import synced, tools
+from app.api import blind_spots, synced, tools
 from app.core.game import GameError
 from app.engine.shared import close_engine
 from app.engine.stockfish import EngineError
@@ -28,6 +28,7 @@ app.add_middleware(
 
 _STATUS = {
     "not_found": 404,
+    "baseline_invalid": 500,
     "feedback_not_allowed": 403,
     "revision_conflict": 409,
     "not_your_turn": 409,
@@ -82,6 +83,11 @@ def synced_games(limit: int = 20):
 @app.get("/synced-games/{gid}/review")
 def synced_game_review(gid: str):
     return synced.review_synced_game(gid)
+
+
+@app.get("/blind-spots/baseline")
+def baseline_blind_spots():
+    return blind_spots.baseline_blind_spots()
 
 
 @app.get("/games/{game_id}/feedback/{ply}")
