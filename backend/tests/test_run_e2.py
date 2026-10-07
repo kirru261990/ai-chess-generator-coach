@@ -37,7 +37,7 @@ def test_the_report_states_scoring_coverage(tmp_path):
 
     m = runner()
     summary = m.summarise([result(scored=False)])
-    run_dir = tmp_path / "e2_20261007_000000"
+    run_dir = tmp_path / "e2_19990101_000000"
     run_dir.mkdir()
     (run_dir / "results.json").write_text(json.dumps({
         "meta": {"items": 1, "model": "m", "prompts": {}, "verifier": "1", "score_budget": {"depth": 18},

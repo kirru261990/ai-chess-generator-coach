@@ -65,6 +65,10 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-07 · MacBook · Claude Code (session 21, part 9)
+- **Test bug fixed:** `test_the_report_states_scoring_coverage` wrote its test report to the same date-named file as the real E2 report and then deleted it, so running the tests removed `evals/reports/e2_v1_2026-10-07.md` from the working tree (GitHub's copy was never affected; restored with `git checkout`). The test now uses a 1999 date, so it can never touch a real report.
+- **End of day state:** `main` is at the merge of PR 39; no other PRs open except the one for this fix (`fix/report-test-clobber`). Backend 287 tests, web 24. Open: T35 (E2 follow-ups), T21 (E1 rules suite), T22 (README and demo clip, first usable version due 12 Oct), training sessions and hint ladder, T14b (Lichess sample, ask first), revoke check for the key that was committed on 7 Oct.
+
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 8)
 - **T20 done: E2 set frozen and first run published.** `evals/sets/e2_v1` (50 Lichess-puzzle positions, 25 good and 25 engine-confirmed mistakes), frozen with the three eval prompts and `why_v1` (hashes in its `FROZEN.md`, a test enforces them) **before** any scored run; design and limits in `docs/decisions/0003-e2-eval-design.md`. Runner `evals/tools/run_e2.py`, report generator `report_e2.py`. Cost about 1.9 dollars for the full run (50 items, about 35 s each).
 - **Result (claim correctness at depth-18 scoring):** raw 80% (162/202), grounded first draft 93% (151/162), verified 93% (143/154). Texts with a wrong claim: 27, 9, 8 of 50. Unverifiable statements: 243, 71, 68. **The 98% target for `verified` was not met as measured.** The gate repaired 9 of 50 and fell back once. `evals/reports/e2_v1_2026-10-07.md` and `_notes.md` (read the notes first).
