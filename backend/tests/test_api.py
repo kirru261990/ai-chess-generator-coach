@@ -294,7 +294,14 @@ def _fake_synced(monkeypatch, tmp_path, user_color="white"):
         def get(self, sid):
             return analysis
 
+    from app.engine.stockfish import Analysis, Budget, Score
+
+    class QuietEngine:  # no mates anywhere: keeps these tests independent of Stockfish
+        def analyse(self, board, budget=None, perspective=None):
+            return Analysis(None, Score(board.turn if perspective is None else perspective, cp=0), (), 1, "fake", Budget(depth=1))
+
     monkeypatch.setattr(synced, "_stores", lambda: (Games(), Analyses()))
+    monkeypatch.setattr(synced, "get_engine", lambda: QuietEngine())
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
 
 
@@ -327,3 +334,42 @@ def test_intent_endpoint_rejects_moves_that_are_not_the_players(monkeypatch, tmp
     r = client.post("/synced-games/777/moments/0/intent", json={"text": "x"})
     assert r.status_code == 400 and r.json()["error"] == "invalid_ply"
     assert client.post("/synced-games/nope/moments/0/intent", json={}).status_code == 404
+
+
+@needs_engine
+def test_intent_facts_include_an_allowed_mate_found_by_the_engine(monkeypatch, tmp_path):
+    import chess
+
+    from app.api import synced, tools
+    from app.coach.llm import Draft
+    from app.engine.batch import SCHEMA
+
+    board = chess.Board()
+    board.push_san("f3")
+    board.push_san("e5")  # White to move; 2.g4 allows Qh4#
+    game = {"source_id": "https://www.chess.com/game/live/888", "user_color": "white"}
+    analysis = {"schema": SCHEMA, "moves": ["f2f3", "e7e5", "g2g4"],
+                "positions": [{"fen": "x"}, {"fen": "x"}, {"fen": board.fen()}, {"fen": "x"}]}
+
+    class Games:
+        def all(self):
+            return [game]
+
+    class Analyses:
+        def get(self, sid):
+            return analysis
+
+    class Model:
+        model = "fake"
+
+        def draft(self, system, messages):
+            return Draft('{"mentioned": []}', "fake")
+
+    from app import config
+
+    monkeypatch.setattr(synced, "_stores", lambda: (Games(), Analyses()))
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(tools, "get_drafter", lambda: Model())
+    r = client.post("/synced-games/888/moments/2/intent", json={"text": "attack"}).json()
+    assert r["status"] == "compared"
+    assert "Your move allowed a forced checkmate against you." in r["gaps"]

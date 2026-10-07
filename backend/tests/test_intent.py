@@ -103,3 +103,24 @@ def test_the_answer_is_cleaned_but_not_rewritten():
     assert intent.clean_answer("  I saw it\x00 \n") == "I saw it"
     assert intent.clean_answer(None) == ""
     assert len(intent.clean_answer("a" * 900)) == intent.MAX_ANSWER_CHARS
+
+
+class FakeEngine:
+    def __init__(self, before, after):
+        self.scores = [before, after]
+
+    def analyse(self, board, budget=None, perspective=None):
+        from app.engine.stockfish import Analysis, Budget, Score
+
+        mate, sign = self.scores.pop(0)
+        score = Score(chess.WHITE, mate=mate, mate_sign=sign) if mate is not None else Score(chess.WHITE, cp=0)
+        return Analysis(None, score, (), 16, "fake", Budget(depth=16))
+
+
+def test_mate_flags_come_from_the_engines_mate_scores():
+    f = lambda b, a: intent.mate_flags(FakeEngine(b, a), FREE_KNIGHT, chess.WHITE, "e1f1")
+    assert f((3, 1), (None, None)) == ["missed_mate"]
+    assert f((None, None), (1, -1)) == ["allowed_mate"]
+    assert f((3, 1), (2, 1)) == []  # still mating: nothing missed
+    assert f((None, None), (None, None)) == []
+    assert f((2, -1), (1, -1)) == []  # already being mated: this move did not allow it

@@ -3,7 +3,7 @@
 import chess
 
 from app import config
-from app.coach.intent import clean_answer, compare, moment_facts
+from app.coach.intent import clean_answer, compare, mate_flags, moment_facts
 from app.coach.intent_store import save as save_intent
 from app.core.game import GameError
 from app.engine.batch import BATCH_BUDGET, SCHEMA, AnalysisStore, analyse_game, game_id
@@ -79,7 +79,7 @@ def moment_intent(gid: str, ply: int, answer: str | None, drafter) -> dict:
     game, _, fen, uci = _moment(gid, ply)
     user = chess.WHITE if game["user_color"] == "white" else chess.BLACK
     answer = clean_answer(answer)
-    facts = moment_facts(fen, user, uci)
+    facts = moment_facts(fen, user, uci, mate_flags(get_engine(), fen, user, uci))
     comparison = compare(drafter, answer, facts)
     if answer:
         save_intent(gid, ply, answer, comparison, facts)

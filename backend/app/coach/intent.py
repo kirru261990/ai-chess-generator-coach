@@ -26,6 +26,7 @@ import chess
 from app.coach.llm import CoachUnavailable, Drafter
 from app.detectors import hanging_own, missed_free
 from app.learner.feedback import PIECE
+from app.learner.review import DEEP_BUDGET
 from app.learner.threats import mate_threats
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -38,6 +39,20 @@ def clean_answer(text: str | None) -> str:
     """The player's words, trimmed. Never altered otherwise."""
     text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", text or "").strip()
     return text[:MAX_ANSWER_CHARS]
+
+
+def mate_flags(engine, fen: str, user_color: chess.Color, played_uci: str) -> list[str]:
+    """Engine-confirmed mates (deep search, same budget as the review): a forced mate the move missed, or one it allowed."""
+    board = chess.Board(fen)
+    best = engine.analyse(board, DEEP_BUDGET, perspective=user_color)
+    board.push(chess.Move.from_uci(played_uci))
+    after = engine.analyse(board, DEEP_BUDGET, perspective=user_color)
+    flags = []
+    if best.score.mate_sign == 1 and after.score.mate_sign != 1:
+        flags.append("missed_mate")
+    if after.score.mate_sign == -1 and best.score.mate_sign != -1:
+        flags.append("allowed_mate")
+    return flags
 
 
 def moment_facts(fen: str, user_color: chess.Color, played_uci: str, flags: list[str] | None = None) -> list[dict]:
