@@ -196,3 +196,23 @@ def test_a_late_engine_move_after_a_resignation_is_rejected(monkeypatch):
     final = client.get(f"/games/{gid}").json()
     assert final["outcome"] == {"result": "0-1", "termination": "resignation"}
     assert final["moves"] == ["e2e4"]
+
+
+def test_blind_spots_endpoint_serves_frozen_results_and_refuses_a_foreign_window(tmp_path, monkeypatch):
+    import json
+
+    from app import config
+    from app.api import blind_spots
+    from app.learner import baseline
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    assert client.get("/blind-spots/baseline").status_code == 404  # not frozen yet
+    (tmp_path / "baseline").mkdir()
+    window = {"sha256": "w1"}
+    monkeypatch.setattr(baseline, "verify", lambda: window)
+    f = tmp_path / "baseline" / blind_spots.FROZEN_NAME
+    f.write_text(json.dumps({"window_sha256": "w1", "by_time_control": {}}))
+    r = client.get("/blind-spots/baseline")
+    assert r.status_code == 200 and len(r.json()["results_sha256"]) == 64
+    f.write_text(json.dumps({"window_sha256": "other", "by_time_control": {}}))
+    assert client.get("/blind-spots/baseline").status_code == 500

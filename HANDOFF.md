@@ -64,6 +64,11 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-07 · MacBook · Claude Code (session 21, part 3)
+- **T16 v1: blind-spot map page.** New `Blind spots` tab (`web/src/Shell.tsx` holds the Play and Blind spots tabs; the game stays mounted so it is not lost). `GET /blind-spots/baseline` (`backend/app/api/blind_spots.py`) serves the frozen results after re-verifying the window; 404 if not frozen, 500 if the window does not match. The page shows 10|0 and 15|10 side by side, two cards each (missed / available with a plain range; own pieces left hanging per 100 moves), a confidence chip, games affected, how many unclear moves were left out, and a caveat that the check is quick (depth 10). Wording lives in `web/src/spotCards.ts` (tested). Not yet: recency windows, context tags, linked examples (spec C2/C4), and no live (new-game) numbers; it shows only the frozen baseline.
+- **Check it:** API on any free port, `cd web && VITE_API_URL=http://localhost:<port> pnpm dev`. The API has no `--reload`: restart it after pulling, or `/blind-spots/baseline` returns 404.
+- **Branch / PR:** `feat/blind-spot-map`
+
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 2)
 - **T15 done:** `uv run python -m app.learner.patterns freeze` re-verifies the window, then copies the results to `data/baseline/baseline_results_v1.json` (exclusive create, read-only; refuses to overwrite). sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e`. Test added (177 total). A change to detectors or evidence means a new version file, never an edit.
 - **Review fixes (GPT, 2 P2, reproduced):** #30: `run()` now refuses evidence not made at the baseline budget (depth 10, no movetime) or by mixed engines, and keeps the full budget in the result. #31: `freeze` now validates the exact bytes (valid JSON, results version, window fingerprint, time controls, both detectors, engine budget) before creating the file. 185 tests.
