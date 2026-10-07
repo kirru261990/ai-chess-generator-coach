@@ -85,6 +85,11 @@ def known_moves(evidence: dict) -> set[str]:
     return moves
 
 
+def known_assertions(evidence: dict) -> set[str]:
+    """Kinds of tactical statement the engine/detector evidence itself already makes (its right/wrong lines)."""
+    return verifier.assertion_categories(" ".join(evidence["right"] + evidence["wrong"]))
+
+
 def parse_draft(text: str) -> tuple[str, list]:
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
@@ -146,7 +151,7 @@ def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Co
             return fallback("unavailable", NOTE_UNAVAILABLE)
         try:
             explanation, claims = parse_draft(draft.text)
-            report = verifier.verify(engine, ctx, claims, explanation, moves, pawns)
+            report = verifier.verify(engine, ctx, claims, explanation, moves, pawns, known_assertions(evidence))
             problems = [f"claim {json.dumps(f['claim'])}: {f['reason']}" for f in report.failed] + report.prose_problems
         except ValueError as e:  # not parseable
             explanation, claims, report, problems = "", [], None, [f"the reply could not be read: {e}"]
