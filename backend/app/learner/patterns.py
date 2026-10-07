@@ -17,12 +17,16 @@ Rates (AGENTS rules 3 and 5):
 Results are grouped by time control (no pooled figure; ADR 0002). Game ids and examples stay in `data/` only.
 
   uv run python -m app.learner.patterns baseline   # the frozen 100-game window -> data/patterns/
+  uv run python -m app.learner.patterns freeze     # T15: freeze those results in data/baseline/ (never overwritten)
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
+import stat
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -190,9 +194,63 @@ def _load_analyses(path: Path) -> dict[str, dict]:
     return out
 
 
+FROZEN_NAME = "baseline_results_v1.json"
+
+
+def check_results(data: bytes, window: dict) -> None:
+    """The exact bytes about to be frozen must be complete results for this verified window."""
+    try:
+        r = json.loads(data)
+    except ValueError as e:
+        raise PatternError(f"the results are not valid JSON: {e}") from e
+    if not isinstance(r, dict) or r.get("results_version") != RESULTS_VERSION:
+        raise PatternError("the results have no current results_version")
+    if r.get("window_sha256") != window["sha256"]:
+        raise PatternError("the results were computed for a different window")
+    if set(r.get("by_time_control", {})) != set(window["by_time_control"]):
+        raise PatternError("the results do not cover exactly the window's time controls")
+    for label, part in window["by_time_control"].items():
+        s = r["by_time_control"][label]
+        if s.get("games") != len(part["ids"]) or set(s.get("detectors", {})) != set(DETECTORS):
+            raise PatternError(f"the {label} results are incomplete")
+    if not isinstance(r.get("engine"), dict) or "budget" not in r["engine"]:
+        raise PatternError("the results do not record the engine budget")
+
+
+def freeze_results(source: Path, dest: Path, window: dict) -> str:
+    """Check, then copy the computed results to `dest`, created exclusively and read-only (never
+    overwritten). Returns the sha256 of the frozen bytes."""
+    data = source.read_bytes()
+    check_results(data, window)  # before anything is created
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    except FileExistsError as e:
+        raise PatternError(f"{dest} already exists: frozen results are never overwritten") from e
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return hashlib.sha256(data).hexdigest()
+
+
 def main(argv: list[str]) -> None:
-    if argv != ["baseline"]:
+    if argv not in (["baseline"], ["freeze"]):
         sys.exit(__doc__)
+    if argv == ["freeze"]:
+        try:
+            window = baseline.verify()  # the window must still match its record
+            sha = freeze_results(
+                config.DATA_DIR / "patterns" / "baseline_patterns_v1.json",
+                config.DATA_DIR / "baseline" / FROZEN_NAME,
+                window,
+            )
+        except (baseline.BaselineError, PatternError, OSError) as e:
+            sys.exit(str(e))
+        print(f"frozen {FROZEN_NAME}\nsha256 {sha}")
+        return
     username = config.chesscom_username()
     if not username:
         sys.exit("set CHESSCOM_USERNAME in .env")

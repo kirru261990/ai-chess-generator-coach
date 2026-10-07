@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 import pytest
 
 from app.learner import patterns as p
@@ -135,3 +138,46 @@ def test_the_complete_budget_is_kept_in_the_result():
     g = synthetic_game(1)
     r = p.run([g], {g["source_id"]: analysis("d1d5", AFTER_TAKE, 300, 500)}, window({"10|0": ["1"]}))
     assert r["engine"] == {"name": "Stockfish test", "budget": {"depth": 10, "movetime_ms": None}}
+def computed(tmp_path, mutate=None):
+    g = synthetic_game(1)
+    w = window({"10|0": ["1"]})
+    r = p.run([g], {g["source_id"]: analysis("d1d5", AFTER_TAKE, 300, 500)}, w)
+    if mutate:
+        mutate(r)
+    src = tmp_path / "in.json"
+    src.write_text(json.dumps(r))
+    return src, w
+
+
+def test_frozen_results_are_exclusive_read_only_and_hashed(tmp_path):
+    src, w = computed(tmp_path)
+    dest = tmp_path / "baseline" / "out.json"
+    sha = p.freeze_results(src, dest, w)
+    assert sha == hashlib.sha256(src.read_bytes()).hexdigest() and dest.read_bytes() == src.read_bytes()
+    assert not dest.stat().st_mode & 0o222  # read-only
+    with pytest.raises(p.PatternError):
+        p.freeze_results(src, dest, w)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda r: r.update(window_sha256="other"),
+    lambda r: r.update(results_version=0),
+    lambda r: r["by_time_control"].clear(),
+    lambda r: r["by_time_control"]["10|0"]["detectors"].pop("missed_free"),
+    lambda r: r.pop("engine"),
+])
+def test_results_that_do_not_match_the_window_are_not_frozen(tmp_path, mutate):
+    src, w = computed(tmp_path, mutate)
+    dest = tmp_path / "baseline" / "out.json"
+    with pytest.raises(p.PatternError):
+        p.freeze_results(src, dest, w)
+    assert not dest.exists()  # nothing created
+
+
+def test_incomplete_json_is_not_frozen(tmp_path):
+    src, w = computed(tmp_path)
+    src.write_text("{")
+    dest = tmp_path / "out.json"
+    with pytest.raises(p.PatternError):
+        p.freeze_results(src, dest, w)
+    assert not dest.exists()
