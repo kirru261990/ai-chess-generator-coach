@@ -54,7 +54,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## Day 7 — Evals + write-up
 - [x] T20 (first run 2026-10-07: `verified` 93% of checkable claims correct, target 98% NOT met as measured; see `evals/reports/e2_v1_2026-10-07.md` and `_notes.md`) Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
 - [x] T21 (2026-10-08; cross-user access is a visible skip until sign-in exists) E1 state/rules regression suite: `backend/tests/test_e1_rules_state.py`
-- [ ] T22 README update + short demo clip
+- [~] T22 README update done 2026-10-08; the demo clip is still to be recorded by the owner (screen recording of play, Practice feedback, Review and Blind spots; keep real game data and opponent names out of the clip or blur them)
 
 ## Housekeeping (any day)
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
