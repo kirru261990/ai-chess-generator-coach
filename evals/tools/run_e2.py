@@ -14,6 +14,7 @@ Independence limits are in docs/decisions/0003-e2-eval-design.md. Nothing here m
 Run from the repo root:
   cd backend && uv run python ../evals/tools/run_e2.py pilot              # evals/runs/e2_pilot set, throwaway
   cd backend && uv run python ../evals/tools/run_e2.py run [e2_v1|e2_v2] [N]  # a frozen set (default e2_v1)
+  cd backend && uv run python ../evals/tools/run_e2.py run e2_v2 --resume DIR  # continue an interrupted run in DIR
   cd backend && uv run python ../evals/tools/run_e2.py rescore RESULTS.json    # re-extract and re-score saved texts
                                                                               # with the current extractor (no new texts)
 """
@@ -215,16 +216,34 @@ def main(argv):
     items = items[:limit] if limit else items
     drafter = AnthropicDrafter()
     tally = Tally()
+    resume = Path(argv[argv.index("--resume") + 1]) if "--resume" in argv else None
     tag = "pilot_" if pilot else ("" if set_name == "e2_v1" else f"{set_name[3:]}_")
     out_dir = ROOT / "evals" / "runs" / f"e2_{tag}{time.strftime('%Y%m%d_%H%M%S')}"
-    out_dir.mkdir(parents=True)
-    results = []
+    if resume:  # keep writing into the interrupted run's folder
+        out_dir = resume
+    out_dir.mkdir(parents=True, exist_ok=True)
+    done_file = out_dir / "items.jsonl"  # one finished item per line, written as soon as it is done
+    results = [json.loads(line) for line in done_file.read_text().splitlines() if line.strip()] if done_file.exists() else []
+    for r in results:  # a resumed run keeps the cost of what it already did
+        tally.tokens["input"] += r.get("tokens", {}).get("input", 0)
+        tally.tokens["output"] += r.get("tokens", {}).get("output", 0)
+    finished = {r["id"] for r in results}
+    if finished:
+        print(f"  resuming: {len(finished)} items already done", flush=True)
     with Engine() as engine:
         for item in items:
+            if item["id"] in finished:
+                continue
+            before = dict(tally.tokens)
             try:
-                results.append(run_item(engine, drafter, item, tally))
+                res = run_item(engine, drafter, item, tally)
             except CoachUnavailable as e:
-                sys.exit(f"the coach model is unavailable: {e}")
+                sys.exit(f"the coach model is unavailable: {e}\n{len(results)} finished items are saved in {done_file}; "
+                         f"continue with: run {set_name} --resume {out_dir}")
+            res["tokens"] = {k: tally.tokens[k] - before[k] for k in before}
+            results.append(res)
+            with done_file.open("a") as f:
+                f.write(json.dumps(res) + "\n")
             print(f"  {item['id']} done  (${tally.usd():.2f} so far)", flush=True)
             if tally.usd() > MAX_USD:
                 sys.exit(f"stopped: cost passed the ${MAX_USD:.0f} limit")

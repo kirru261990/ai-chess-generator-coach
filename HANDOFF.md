@@ -65,6 +65,14 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-08 · MacBook · Claude Code (session 22, part 3)
+- **T35 mostly done; final run blocked.** Verifier **v2** (`check_sequences`: a sentence that names two or more moves as a line of play must match a verified `line_legal` claim or an engine line, in order and contiguous), coach prompt `why_v2` (now the default; `why_v1` stays frozen on disk), `extract_v2` (literal extraction), runner options (`run e2_v2`, `rescore`, `--resume`), ADR 0004. 616 backend tests.
+- **Development run on the e2_v1 positions (tuning, NOT a result):** new stack `verified` 119/119 (100%), `grounded` 122/124, `raw` 118/163; unverifiable statements in `verified` 22 (was 68). Re-scoring the old v1 texts with `extract_v2` gave `verified` 131/138 (95%), so the stricter extractor alone moved 93% to 95%; the rest is the new prompt and verifier, measured on positions they were designed against.
+- **Fresh frozen set `e2_v2`** (50 new Lichess puzzles, none from v1; hashes in its `FROZEN.md`, enforced by a test) built and frozen **before** the final run. **The final run started and then stopped at item 45 because the Anthropic account ran out of credit** ("credit balance is too low"). It lost its results: the runner wrote results only at the end. Fixed: finished items are now saved to `items.jsonl` as they complete and `--resume DIR` continues (a test covers an interruption). The runner changed after the freeze; scoring did not (recorded here; the runner hash in `FROZEN.md` is for the version at the freeze).
+- **To finish T35:** top up Anthropic credit, then `cd backend && uv run python ../evals/tools/run_e2.py run e2_v2` (about 1.8 dollars, about 30 minutes; it prints a resume command if interrupted), then `uv run python ../evals/tools/report_e2.py ../evals/runs/e2_v2_<time>/results.json`, write notes next to the report, update README's E2 line. Target unchanged: 98% of checkable claims for `verified`; report the result whatever it is.
+- **Also open:** a person reads a sample of extractions; a GPT raw baseline; unverifiable statements still many.
+- **Branch / PR:** `feat/verifier-v2`
+
 ### 2026-10-08 · MacBook · Claude Code (session 22, part 2)
 - **T22 README done; demo clip not done.** README now has the architecture sketch, an honest works / not-yet table, the E1 and E2 results with their caveats (E2: 80% raw, 93% grounded, 93% verified, target not met as measured), and setup notes (key in `.env` only). The owner's personal baseline numbers are deliberately not in it. **The clip is the owner's to record** (no screen recorder is available to the agent without capturing the whole desktop): show Play, Practice feedback and Why?, Review with the "What were you considering?" box, and Blind spots; real opponent names and results are on screen in the Review list and Blind spots numbers, so crop or blur them before sharing.
 - **Branch / PR:** `docs/readme-t22`
