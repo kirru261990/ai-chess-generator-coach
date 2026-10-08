@@ -65,6 +65,10 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-08 · Cloud · Claude Code (session 23)
+- **Docs only:** the T13 "Status" line in `TASKS.md` still said the precision/recall script and report were to do; both were done on 2026-10-06. It now points at the report and names what is left for v2 (the rapid-games sample, ADR 0001 A3). The old `feat/t13-build-real-play-set` branch is fully on `main`; nothing else remains for T13.
+- **Branch / PR:** `docs/t13-status-note`
+
 ### 2026-10-08 · MacBook · Claude Code (session 22, part 2)
 - **T22 README done; demo clip not done.** README now has the architecture sketch, an honest works / not-yet table, the E1 and E2 results with their caveats (E2: 80% raw, 93% grounded, 93% verified, target not met as measured), and setup notes (key in `.env` only). The owner's personal baseline numbers are deliberately not in it. **The clip is the owner's to record** (no screen recorder is available to the agent without capturing the whole desktop): show Play, Practice feedback and Why?, Review with the "What were you considering?" box, and Blind spots; real opponent names and results are on screen in the Review list and Blind spots numbers, so crop or blur them before sharing.
 - **Branch / PR:** `docs/readme-t22`

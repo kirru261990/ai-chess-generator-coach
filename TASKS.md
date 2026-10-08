@@ -27,7 +27,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Label rule written and frozen BEFORE running the detectors; ~30 labels hand-checked by me, recorded in the set README
   - Report each detector's version next to its numbers
   - Follow `docs/decisions/0001-open-source-reuse.md` §3. Puzzle format: `FEN` is the position **before** the opponent's move and `Moves[0]` is that move (a real blunder), so `hanging_own` uses `(FEN, Moves[0])` and `missed_free` uses the position after `Moves[0]` (ADR amendments A1, A2). The games sample is deferred to v2 (A3)
-  - **Status:** set `real_play_v1` **frozen 2026-10-06** (rule v0.4; owner and GPT hand-checks done, see `evals/sets/real_play_v1/FROZEN.md`). Still to do: the precision/recall script and report (run both detectors, publish numbers with versions, denominators, intervals)
+  - **Status:** set `real_play_v1` **frozen 2026-10-06** (rule v0.4; owner and GPT hand-checks done, see `evals/sets/real_play_v1/FROZEN.md`). Scored on 2026-10-06: report in `evals/reports/real_play_v1_2026-10-06.md` (detector versions, denominators, 95% Wilson intervals). Left for v2: the Lichess rapid-games sample (ADR 0001 A3; download needs approval, overlaps T14b)
 
 ## Day 5 — Blind-spot map + baseline
 - [x] T14a Choose and **record the baseline window** (done 2026-10-07: frozen, see `docs/decisions/0002-baseline-window.md`; the 10|0 and 15|10 games are kept as two separate 50-game lists): the last 100 Chess.com rapid games (10|0 and 15|10) before training starts; game ids in `data/baseline/` (git-ignored), hash in `HANDOFF.md`; report the mix per time control. Propose to the owner first. Freeze before any coaching on these games (see T15)
