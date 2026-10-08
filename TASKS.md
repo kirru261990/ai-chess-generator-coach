@@ -53,7 +53,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## Day 7 — Evals + write-up
 - [x] T20 (first run 2026-10-07: `verified` 93% of checkable claims correct, target 98% NOT met as measured; see `evals/reports/e2_v1_2026-10-07.md` and `_notes.md`) Freeze E2 set (~50 positions); run raw LLM vs grounded vs grounded + verifier
-- [ ] T21 E1 state/rules regression suite
+- [x] T21 (2026-10-08; cross-user access is a visible skip until sign-in exists) E1 state/rules regression suite: `backend/tests/test_e1_rules_state.py`
 - [ ] T22 README update + short demo clip
 
 ## Housekeeping (any day)
