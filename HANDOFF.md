@@ -65,9 +65,18 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-08 · MacBook · Claude Code (session 22)
+- **T21 done: E1 rules and state suite** `backend/tests/test_e1_rules_state.py`. 300 seeded random action sequences on the game core (legal and illegal moves, garbage, stale and duplicate revisions, mode switches, takebacks, resignations, with and without an engine opponent) are checked after every action against an independent python-chess reference for invariants I1-I8 (docstring): accepted actions change state exactly as the reference says, rejected ones change nothing, the revision only goes up by 1 per accepted action, position and outcome match the reference, `assisted` never goes from true to false, takeback rules, a duplicate never applies twice, nothing is accepted after game over, and the PGN replays with the right Assisted/Mode headers. 20 more sequences over HTTP. A reach test fails if the sequences stop reaching takebacks, assisted Play games and resignations. **Result: zero violations.**
+- **Does the suite catch bugs?** Six planted bugs in `core/game.py`: five were caught at once (no revision bump, switching to Play clears assisted, takeback limit removed, moves allowed after game over, stale revision ignored). One survived: "takeback forgets to mark assisted", which cannot be observed because takebacks exist only in Practice and a Practice game is already assisted (that line is defensive).
+- **Not tested, on purpose:** cross-user access (E1 lists it) needs sign-in and game ownership (spec Week 4); it is a visible `skip` with that reason, not a silent pass.
+- **Finding, not a bug:** a duplicate move over HTTP is refused with `not_your_turn`, not `revision_conflict`, because the turn check runs first; both refuse it.
+- **Old API key:** the owner confirmed on 2026-10-07 that the key committed to `.env.example` was deleted. Item closed.
+- **Next:** T22 (README, demo clip; first usable version due 12 Oct), then T35.
+- **Branch / PR:** `feat/e1-rules-suite`
+
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 9)
 - **Test bug fixed:** `test_the_report_states_scoring_coverage` wrote its test report to the same date-named file as the real E2 report and then deleted it, so running the tests removed `evals/reports/e2_v1_2026-10-07.md` from the working tree (GitHub's copy was never affected; restored with `git checkout`). The test now uses a 1999 date, so it can never touch a real report.
-- **End of day state:** `main` is at the merge of PR 39; no other PRs open except the one for this fix (`fix/report-test-clobber`). Backend 287 tests, web 24. Open: T35 (E2 follow-ups), T21 (E1 rules suite), T22 (README and demo clip, first usable version due 12 Oct), training sessions and hint ladder, T14b (Lichess sample, ask first), revoke check for the key that was committed on 7 Oct.
+- **End of day state:** `main` is at the merge of PR 39; no other PRs open except the one for this fix (`fix/report-test-clobber`). Backend 287 tests, web 24. Open: T35 (E2 follow-ups), T21 (E1 rules suite), T22 (README and demo clip, first usable version due 12 Oct), training sessions and hint ladder, T14b (Lichess sample, ask first).
 
 ### 2026-10-07 · MacBook · Claude Code (session 21, part 8)
 - **T20 done: E2 set frozen and first run published.** `evals/sets/e2_v1` (50 Lichess-puzzle positions, 25 good and 25 engine-confirmed mistakes), frozen with the three eval prompts and `why_v1` (hashes in its `FROZEN.md`, a test enforces them) **before** any scored run; design and limits in `docs/decisions/0003-e2-eval-design.md`. Runner `evals/tools/run_e2.py`, report generator `report_e2.py`. Cost about 1.9 dollars for the full run (50 items, about 35 s each).
