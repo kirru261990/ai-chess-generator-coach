@@ -13,7 +13,9 @@ Independence limits are in docs/decisions/0003-e2-eval-design.md. Nothing here m
 
 Run from the repo root:
   cd backend && uv run python ../evals/tools/run_e2.py pilot              # evals/runs/e2_pilot set, throwaway
-  cd backend && uv run python ../evals/tools/run_e2.py run                # the frozen evals/sets/e2_v1 set
+  cd backend && uv run python ../evals/tools/run_e2.py run [e2_v1|e2_v2] [N]  # a frozen set (default e2_v1)
+  cd backend && uv run python ../evals/tools/run_e2.py rescore RESULTS.json    # re-extract and re-score saved texts
+                                                                              # with the current extractor (no new texts)
 """
 
 import json
@@ -32,7 +34,8 @@ from app.coach.llm import AnthropicDrafter, CoachUnavailable
 from app.engine.stockfish import Budget, Engine
 
 PROMPTS = Path(__file__).parent / "prompts"
-EXTRACT_PROMPT = (PROMPTS / "extract_v1.md").read_text()
+EXTRACT_VERSION = "extract_v2"  # extract_v1 produced the e2_v1 numbers; it stays on disk, frozen
+EXTRACT_PROMPT = (PROMPTS / f"{EXTRACT_VERSION}.md").read_text()
 RAW_PROMPT = (PROMPTS / "raw_v1.md").read_text()
 SCORE_BUDGET = Budget(depth=18)
 CONFIGS = ("raw", "grounded", "verified")
@@ -171,17 +174,49 @@ def summarise(results):
     return summary
 
 
+def rescore(path):
+    """Re-extract and re-score the saved texts of an earlier run with the current extraction prompt. Separates the effect of
+    a changed extractor from a changed coach: the texts are identical, only the measuring instrument differs."""
+    data = json.loads(Path(path).read_text())
+    set_dir = ROOT / data["meta"]["set"]
+    items = {json.loads(line)["id"]: json.loads(line) for line in (set_dir / "positions.jsonl").read_text().splitlines() if line}
+    drafter, tally = AnthropicDrafter(), Tally()
+    results = []
+    with Engine() as engine:
+        for old in data["results"]:
+            item = items[old["id"]]
+            res = {**old, "claims": {}, "unverifiable": {}, "scored": {}}
+            for cfg in CONFIGS:
+                claims, unv, err = extract_claims(drafter, item, old["texts"][cfg], tally)
+                res["claims"][cfg] = score_claims(engine, item, claims)
+                res["unverifiable"][cfg] = unv
+                res["scored"][cfg] = bool(old["texts"][cfg]) and not err
+            results.append(res)
+            print(f"  {old['id']} rescored  (${tally.usd():.2f} so far)", flush=True)
+    meta = {**data["meta"], "rescored_with": EXTRACT_VERSION, "rescore_usd": round(tally.usd(), 2)}
+    summary = summarise(results)
+    out = Path(path).with_name("rescored_" + EXTRACT_VERSION + ".json")
+    out.write_text(json.dumps({"meta": meta, "summary": summary, "results": results}, indent=1))
+    print(json.dumps(summary, indent=1))
+    print(f"\nrescored results: {out}")
+
+
 def main(argv):
+    if argv and argv[0] == "rescore":
+        return rescore(argv[1])
     if not argv or argv[0] not in ("pilot", "run"):
         sys.exit(__doc__)
     pilot = argv[0] == "pilot"
-    set_dir = ROOT / "evals" / ("runs/e2_pilot" if pilot else "sets/e2_v1")
+    set_name = argv[1] if len(argv) > 1 and argv[1].startswith("e2_v") else "e2_v1"
+    set_dir = ROOT / "evals" / ("runs/e2_pilot" if pilot else f"sets/{set_name}")
     items = [json.loads(line) for line in (set_dir / "positions.jsonl").read_text().splitlines() if line.strip()]
-    limit = int(argv[1]) if len(argv) > 1 else None
+    nums = [a for a in argv[1:] if a.isdigit()]
+    limit = int(nums[0]) if nums else None
     items = items[:limit] if limit else items
     drafter = AnthropicDrafter()
     tally = Tally()
-    out_dir = ROOT / "evals" / "runs" / f"e2_{'pilot_' if pilot else ''}{time.strftime('%Y%m%d_%H%M%S')}"
+    tag = "pilot_" if pilot else ("" if set_name == "e2_v1" else f"{set_name[3:]}_")
+    out_dir = ROOT / "evals" / "runs" / f"e2_{tag}{time.strftime('%Y%m%d_%H%M%S')}"
     out_dir.mkdir(parents=True)
     results = []
     with Engine() as engine:
@@ -195,7 +230,7 @@ def main(argv):
                 sys.exit(f"stopped: cost passed the ${MAX_USD:.0f} limit")
     summary = summarise(results)
     meta = {"set": str(set_dir.relative_to(ROOT)), "items": len(items), "model": drafter.model,
-            "prompts": {"why": agent.PROMPT_VERSION, "extract": "extract_v1", "raw": "raw_v1"},
+            "prompts": {"why": agent.PROMPT_VERSION, "extract": EXTRACT_VERSION, "raw": "raw_v1"},
             "verifier": verifier.VERSION, "score_budget": {"depth": SCORE_BUDGET.depth},
             "tokens": tally.tokens, "usd": round(tally.usd(), 2)}
     (out_dir / "results.json").write_text(json.dumps({"meta": meta, "summary": summary, "results": results}, indent=1))

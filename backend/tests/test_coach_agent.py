@@ -51,7 +51,7 @@ def test_a_verified_draft_is_returned_as_is_with_its_versions():
     r = run(d)
     assert r["status"] == "verified" and r["text"].startswith("A free knight on d5")
     assert len(r["claims"]) == 2 and len(d.calls) == 1
-    assert r["versions"]["prompt"] == "why_v1" and r["versions"]["model"] == "scripted"
+    assert r["versions"]["prompt"] == "why_v2" and r["versions"]["model"] == "scripted"
     assert r["versions"]["engine"]["budget"] == {"depth": 12, "movetime_ms": None}
     assert "_feedback" not in r["evidence"]
 
@@ -149,3 +149,17 @@ def test_a_nonconforming_first_draft_is_preserved_for_evals_but_never_shown():
 def test_drafts_are_not_returned_unless_asked_for():
     r = run(Script(GOOD))
     assert all("draft" not in a and "raw_reply" not in a for a in r["attempts"])
+
+
+def test_a_move_sequence_in_the_text_must_match_an_engine_line_in_order():
+    from app.coach.agent import known_lines
+
+    # The fake engine has no principal variations, so the harness knows no lines: a stated line is unbacked.
+    text = "Rxd5 would have won the knight, and then Ke7 follows."
+    claims = [{"type": "free_piece_available", "square": "d5"}, {"type": "move_legal", "move": "Rxd5"},
+              {"type": "move_legal", "move": "Ke7", "position": "after"}]
+    r = run(Script(reply(text, claims), GOOD))
+    assert r["status"] == "repaired" and "line of play" in r["attempts"][0]["problems"][0]
+    ev = {"played": {"text": "King e1 to f1 (Kf1)"}, "line_after_played_move": ["Nc3", "Rd2"],
+          "best_line_from_position": ["Rxd5", "Ke7"]}
+    assert known_lines(ev) == [["Rxd5", "Ke7"], ["Nc3", "Rd2"], ["Kf1", "Nc3", "Rd2"]]

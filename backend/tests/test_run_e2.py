@@ -40,7 +40,7 @@ def test_the_report_states_scoring_coverage(tmp_path):
     run_dir = tmp_path / "e2_19990101_000000"
     run_dir.mkdir()
     (run_dir / "results.json").write_text(json.dumps({
-        "meta": {"items": 1, "model": "m", "prompts": {}, "verifier": "1", "score_budget": {"depth": 18},
+        "meta": {"set": "evals/sets/e2_v1", "items": 1, "model": "m", "prompts": {}, "verifier": "1", "score_budget": {"depth": 18},
                  "usd": 0, "tokens": {"input": 0, "output": 0}},
         "summary": summary, "results": [result(scored=False)]}))
     report = RUNNER.with_name("report_e2.py")

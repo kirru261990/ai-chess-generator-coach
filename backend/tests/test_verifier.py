@@ -227,3 +227,38 @@ def test_assertions_backed_by_the_matching_claim_or_a_harness_fact_pass():
 def test_malformed_claim_fields_fail_verification_instead_of_crashing(claim):
     r = v.verify(FakeEngine(mate={FREE_KNIGHT: (2, 1)}), ctx(), [claim])
     assert len(r.failed) == 1 and not r.ok
+
+
+# ---- v2: move sequences -----------------------------------------------------------------------------------------
+LINE = ["Rxd5", "Ke7", "Rd1"]
+
+
+def test_a_stated_line_needs_a_verified_line_claim_or_an_engine_line_in_that_order():
+    text = "The line goes Rxd5 then Ke7."
+    assert any("line of play" in p for p in v.check_sequences(text, [], []))
+    assert v.check_sequences(text, [], [LINE]) == []  # contiguous part of an engine line
+    assert v.check_sequences(text, [{"type": "line_legal", "moves": ["Rxd5", "Ke7"]}], []) == []
+    assert v.check_sequences("The line goes Rxd5 then Ke7.", [{"type": "move_legal", "move": "Rxd5"}], [])  # wrong kind
+
+
+def test_skipping_a_move_or_swapping_the_order_is_caught():
+    assert v.check_sequences("Rxd5 and then Rd1 follows.", [], [LINE])  # skips Ke7
+    assert v.check_sequences("Ke7 then Rxd5.", [], [LINE])  # wrong order
+
+
+def test_sentences_that_are_not_lines_of_play_are_left_alone():
+    assert v.check_sequences("Rxd5 was better than Rd2.", [], []) == []  # two moves, no sequence cue
+    assert v.check_sequences("Then play Rxd5.", [], []) == []  # one move
+    assert v.check_sequences("You played Rd2. The engine preferred Rxd5.", [], []) == []  # different sentences
+
+
+def test_checks_and_mates_marks_do_not_break_matching():
+    assert v.check_sequences("Rxd5+ is followed by Ke7.", [], [["Rxd5", "Ke7"]]) == []
+
+
+def test_verify_applies_the_sequence_guard():
+    claims = [{"type": "move_legal", "move": "Rxd5"}]
+    r = v.verify(FakeEngine(), ctx(), claims, "Rxd5 and then Ke7.", known_moves=["Ke7"])  # no line backs it
+    assert not r.ok and any("line of play" in p for p in r.prose_problems)
+    ok = v.verify(FakeEngine(), ctx(), claims, "Rxd5 and then Ke7.", known_moves=["Ke7"], known_lines=[["Rxd5", "Ke7"]])
+    assert ok.ok, ok.prose_problems
