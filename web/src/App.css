@@ -54,3 +54,7 @@
 .hint-board { width: 100%; max-width: 280px; margin: 6px auto; }
 .hint { font-size: 1.1em; line-height: 1; padding: 2px 8px; margin-left: 6px; border-radius: 6px; cursor: pointer; }
 .hint.on { background: #fff3c4; border-color: #e0b030; }
+.fb-legend { font-size: 0.8em; margin: 4px 0; color: var(--text); }
+.fb-legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
+.fb-legend .sw.red { background: rgba(220, 60, 50, 0.6); }
+.fb-legend .sw.green { background: rgba(60, 170, 90, 0.6); }

@@ -78,3 +78,18 @@ def test_no_pawn_cost_is_claimed_when_a_mate_score_is_involved():
     assert "This lets the opponent force checkmate." in r["wrong"]
     r = f.judge(board, chess.Move.from_uci("d1d5"), analysis("d1d5", cp=300), analysis("x", cp=300))
     assert r["cost_pawns"] == 0.0
+
+
+def test_squares_to_mark_on_the_board_come_only_from_confirmed_misses():
+    r = judge(FREE_KNIGHT, "e1f1", "d1d5", 300, 100)  # a free knight on d5 ignored, loss confirmed
+    assert r["marks"]["missed_free"] == [{"square": "d5", "piece": "n"}] and r["marks"]["own_hanging"] == []
+    ok = judge(FREE_KNIGHT, "d1d5", "d1d5", 300, 300)
+    assert ok["marks"] == {"own_hanging": [], "missed_free": []}
+    unconfirmed = judge(FREE_KNIGHT, "e1f1", "d1d5", 300, 280)  # the engine does not confirm a loss: nothing is marked
+    assert unconfirmed["marks"] == {"own_hanging": [], "missed_free": []}
+
+
+def test_a_piece_left_hanging_is_marked_with_its_square_and_letter():
+    board = chess.Board("4k3/8/3p4/8/4N3/8/8/4K3 w - - 0 1")  # Nc5 hangs to the pawn on d6
+    r = f.judge(board, chess.Move.from_uci("e4c5"), analysis("e4d2", cp=0), analysis("x", cp=-300))
+    assert r["marks"]["own_hanging"] == [{"square": "c5", "piece": "N"}]
