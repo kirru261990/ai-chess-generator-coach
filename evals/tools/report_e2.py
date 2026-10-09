@@ -37,7 +37,7 @@ def main(path):
     meta, summary, results = data["meta"], data["summary"], data["results"]
     n = meta["items"]
     lines = [
-        f"# E2 explanation correctness, e2_v1 ({time_stamp(path)})", "",
+        f"# E2 explanation correctness, {set_label(meta)} ({time_stamp(path)})", "",
         (f"{n} positions, model `{meta['model']}`, prompts {meta['prompts']}, verifier v{meta['verifier']}, scored at "
          f"Stockfish depth {meta['score_budget']['depth']}. Cost of the run: about ${meta['usd']} "
          f"({meta['tokens']['input']} input and {meta['tokens']['output']} output tokens). "
@@ -82,14 +82,18 @@ def main(path):
          "errors are unmeasured. 50 puzzle-derived positions, one run; intervals are wide and a re-run will differ."),
         "- No human has reviewed the items or a sample of the texts.",
     ]
-    out = ROOT / "evals" / "reports" / f"e2_v1_{time_stamp(path)}.md"
+    out = ROOT / "evals" / "reports" / f"{set_label(meta)}_{time_stamp(path)}.md"
     out.write_text("\n".join(lines) + "\n")
     print(out)
 
 
+def set_label(meta):
+    return Path(meta["set"]).name  # e2_v1, e2_v2
+
+
 def time_stamp(path):
-    stem = Path(path).parent.name  # e2_20261007_220000
-    d = stem.split("_")[1]
+    stem = Path(path).parent.name  # e2_20261007_220000 or e2_v2_20261009_103000
+    d = next(part for part in stem.split("_") if len(part) == 8 and part.isdigit())
     return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
 
 

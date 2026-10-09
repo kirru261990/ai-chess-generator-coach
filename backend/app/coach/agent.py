@@ -23,7 +23,7 @@ from app.coach import verifier
 from app.coach.llm import CoachUnavailable, Draft, Drafter
 from app.learner.feedback import analyse_move, judge
 
-PROMPT_VERSION = "why_v1"
+PROMPT_VERSION = "why_v2"  # why_v1 stays on disk, frozen with the E2 v1 eval
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 PROMPT = (PROMPTS_DIR / f"{PROMPT_VERSION}.md").read_text()
 LINE_PLIES = 6
@@ -84,6 +84,14 @@ def known_moves(evidence: dict) -> set[str]:
     if evidence["better_move"]:
         moves.add(evidence["better_move"]["text"].rsplit("(", 1)[-1].rstrip(")"))
     return moves
+
+
+def known_lines(evidence: dict) -> list[list[str]]:
+    """Move sequences the engine itself produced: the best line, the line after the played move, and that line
+    preceded by the played move (a text may start from either)."""
+    played = evidence["played"]["text"].rsplit("(", 1)[-1].rstrip(")")
+    after = evidence["line_after_played_move"]
+    return [evidence["best_line_from_position"], after, [played, *after]]
 
 
 def known_assertions(evidence: dict) -> set[str]:
@@ -166,7 +174,8 @@ def explain_move(engine, drafter: Drafter | None, fen: str, user_color: chess.Co
             return fallback("unavailable", NOTE_UNAVAILABLE)
         try:
             explanation, claims = parse_draft(draft.text)
-            report = verifier.verify(engine, ctx, claims, explanation, moves, pawns, known_assertions(evidence))
+            report = verifier.verify(engine, ctx, claims, explanation, moves, pawns, known_assertions(evidence),
+                                      known_lines(evidence))
             problems = [f"claim {json.dumps(f['claim'])}: {f['reason']}" for f in report.failed] + report.prose_problems
         except ValueError as e:  # not parseable
             explanation, claims, report, problems = "", [], None, [f"the reply could not be read: {e}"]

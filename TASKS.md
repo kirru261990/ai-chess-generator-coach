@@ -62,7 +62,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
   - Follow-ups: if outside contributions are ever accepted, add a contributor agreement first; before publishing a built web bundle, include the bundled packages' licence notices
 
 - [ ] T30 Persist games in Postgres (they are in memory today and vanish on restart); needs Docker installed and a database-level guard instead of the in-process lock
-- [ ] T35 E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
+- [~] T35 (2026-10-08: verifier v2, `why_v2`, `extract_v2`, frozen `e2_v2` and a dev run done; **the final e2_v2 run is blocked by empty API credit**, resume with `run e2_v2`; still open: a person reading a sample of extractions, a GPT raw baseline) E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 

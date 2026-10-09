@@ -21,6 +21,10 @@ Moves are SAN or UCI. An unknown claim type fails: the verifier never assumes.
 backed by a verified claim of the matching kind, or by a fact the harness itself computed. The vocabulary is a fixed list,
 so it is a net with holes, not a proof; the E2 eval measures what still gets through.
 
+`check_sequences` is the fourth guard (v2): when one sentence names two or more moves and reads like a line of play
+("then", "follows", "reply", "the line goes"...), those moves must appear in that order and next to each other in a verified
+`line_legal` claim or in an engine line the harness computed. Each move being legal on its own is not enough.
+
 `check_prose` is the second guard: the text itself may only name moves and pawn amounts that the verified evidence
 supports, so a claim cannot be smuggled in outside the claim list. Limit: bare squares ("e4") and pawn pushes written
 as a square are not treated as moves; the prompt asks for "pawn to e4" wording, which is never checked as a move.
@@ -46,7 +50,7 @@ BANDS = {  # user's side, centipawns (mates clamp to +/-1000)
     "worse": (-200, -50),
     "losing": (-10_000, -200),
 }
-VERSION = "1"
+VERSION = "2"  # v2: move sequences in the text must be backed by a legal-line claim or an engine line
 
 
 @dataclass(frozen=True)
@@ -245,6 +249,35 @@ def check_assertions(text: str, verified: list[dict], known: set[str] = frozense
     return problems
 
 
+_CUE = re.compile(
+    r"\b(then|next|follow(?:s|ed|ing)?|repl(?:y|ies|ied)|respond(?:s|ed)?|line|variation|sequence|after that|"
+    r"afterwards|continu(?:e|es|ed)|plays?|played|answer(?:s|ed)?)\b",
+    re.IGNORECASE,
+)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def _contiguous(needle: list[str], haystack: list[str]) -> bool:
+    n = len(needle)
+    return any(haystack[i : i + n] == needle for i in range(len(haystack) - n + 1))
+
+
+def check_sequences(text: str, verified: list[dict], known_lines=()) -> list[str]:
+    """Problems: a sentence that names two or more moves as a line of play that no verified line backs."""
+    lines = [[_norm(m) for m in c.get("moves", []) if isinstance(m, str)]
+             for c in verified if c.get("type") == "line_legal" and isinstance(c.get("moves"), list)]
+    lines += [[_norm(m) for m in ln] for ln in known_lines]
+    problems = []
+    for sentence in _SENTENCE.split(text):
+        tokens = [_norm(m) for m in _MOVE.findall(sentence)]
+        if len(tokens) < 2 or not _CUE.search(sentence):
+            continue
+        if not any(_contiguous(tokens, ln) for ln in lines):
+            problems.append("the text gives the moves " + " ".join(tokens) +
+                            " as a line of play, which no verified line backs in that order")
+    return problems
+
+
 def moves_in(claim: dict) -> list[str]:
     """Moves a (verified) claim names, as written."""
     out = []
@@ -256,9 +289,10 @@ def moves_in(claim: dict) -> list[str]:
 
 
 def verify(engine, ctx: Context, claims: list[dict], prose: str = "", known_moves=(), known_pawns=(),
-           known_assertions: set[str] = frozenset()) -> Report:
+           known_assertions: set[str] = frozenset(), known_lines=()) -> Report:
     """Check all claims, then the prose against what was verified (plus `known_moves`/`known_pawns`/`known_assertions`
-    the harness itself computed, such as the played move, the engine's best move and what its detectors found)."""
+    the harness itself computed, such as the played move, the engine's best move, what its detectors found and the
+    engine's lines in SAN as `known_lines`)."""
     v = Verifier(engine, ctx)
     report = Report()
     for claim in claims:
@@ -278,4 +312,5 @@ def verify(engine, ctx: Context, claims: list[dict], prose: str = "", known_move
     if prose:
         report.prose_problems += check_prose(prose, allowed, set(known_pawns))
         report.prose_problems += check_assertions(prose, report.verified, set(known_assertions))
+        report.prose_problems += check_sequences(prose, report.verified, known_lines)
     return report
