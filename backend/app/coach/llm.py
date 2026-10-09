@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
+from app.coach import usage
+
 DEFAULT_MODEL = "claude-sonnet-5-5"
 MAX_TOKENS = 4000
 
@@ -33,11 +35,17 @@ class Drafter(Protocol):
 
 
 class AnthropicDrafter:
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, purpose: str = "coach"):
         self.model = model or os.environ.get("COACH_MODEL") or DEFAULT_MODEL
+        self.purpose = purpose  # recorded with each call in the usage ledger
 
     def draft(self, system: str, messages: list[dict]) -> Draft:
         import anthropic  # imported here so the rest of the app works without a key
+
+        try:
+            usage.check()  # the monthly budget guard: no call once the month's budget is spent
+        except usage.BudgetExceeded as e:
+            raise CoachUnavailable(str(e)) from e
 
         try:
             client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY (or another configured credential)
@@ -48,5 +56,6 @@ class AnthropicDrafter:
             raise CoachUnavailable(f"{type(e).__name__}: {e}") from e
         if response.stop_reason == "refusal":
             raise CoachUnavailable("the model declined this request")
+        usage.record(self.model, response.usage.input_tokens, response.usage.output_tokens, self.purpose)
         text = "".join(b.text for b in response.content if b.type == "text")
         return Draft(text, self.model, response.usage.input_tokens, response.usage.output_tokens)

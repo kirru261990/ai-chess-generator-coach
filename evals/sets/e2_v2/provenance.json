@@ -1,0 +1,37 @@
+{
+ "seed": 20261009,
+ "source": "Lichess puzzle database (CC0), ratings 400-1199",
+ "puzzle_file_sha256": "76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d",
+ "oracle": "Stockfish depth 14",
+ "good_within_cp": 50,
+ "mistake_range_cp": [
+  150,
+  600
+ ],
+ "quotas": {
+  "hangingPiece": [
+   6,
+   6
+  ],
+  "fork": [
+   3,
+   3
+  ],
+  "pin_skewer": [
+   2,
+   2
+  ],
+  "other": [
+   14,
+   14
+  ]
+ },
+ "excluded_puzzles": 55,
+ "usable_puzzles_seen_per_group": {
+  "hangingPiece": 32787,
+  "fork": 298269,
+  "pin_skewer": 97597,
+  "other": 414270
+ },
+ "items": 50
+}

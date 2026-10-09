@@ -57,12 +57,13 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [~] T22 README update done 2026-10-08; the demo clip is still to be recorded by the owner (screen recording of play, Practice feedback, Review and Blind spots; keep real game data and opponent names out of the clip or blur them)
 
 ## Housekeeping (any day)
+- [x] T36 Model spend ledger and monthly budget guard (2026-10-09): every API call recorded in `data/usage/` with tokens and estimated dollars; calls stop at `MONTHLY_BUDGET_USD` (default 10); `GET /usage`; a spend line in the app; eval runs print the month's spend and refuse to start if the budget cannot cover them
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
 - [x] T24 Licence chosen and added: **AGPL-3.0-or-later** (decided 2026-10-07 because python-chess is GPL-3.0-or-later; AGPL also covers hosted use). `LICENSE`, `THIRD_PARTY.md`, licence fields in `pyproject.toml` and `package.json`, README section. Rule: every new dependency gets a `THIRD_PARTY.md` row first (a test enforces it and fails on any new copyleft package)
   - Follow-ups: if outside contributions are ever accepted, add a contributor agreement first; before publishing a built web bundle, include the bundled packages' licence notices
 
 - [ ] T30 Persist games in Postgres (they are in memory today and vanish on restart); needs Docker installed and a database-level guard instead of the in-process lock
-- [ ] T35 E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
+- [~] T35 (2026-10-08: verifier v2, `why_v2`, `extract_v2`, frozen `e2_v2` and a dev run done; **the final e2_v2 run is blocked by empty API credit**, resume with `run e2_v2`; still open: a person reading a sample of extractions, a GPT raw baseline) E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 

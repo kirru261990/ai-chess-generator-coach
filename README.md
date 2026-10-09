@@ -59,7 +59,7 @@ uv run uvicorn app.api.main:app --port 8000   # restart after code changes (no a
 cd ../web && pnpm install && pnpm dev
 ```
 
-Needs Stockfish (`STOCKFISH_PATH`). The coach needs `ANTHROPIC_API_KEY` in `.env`; without it everything else works and the
+Needs Stockfish (`STOCKFISH_PATH`). The coach needs `ANTHROPIC_API_KEY` in `.env`; model spend is logged locally and calls stop at `MONTHLY_BUDGET_USD` (default 10, an estimate from list prices; also set a spending limit in the Anthropic Console); without it everything else works and the
 Why? and Review comparison show checked facts only. Docker/Postgres is not needed yet.
 
 ## Docs

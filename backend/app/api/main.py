@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from app.api import blind_spots, synced, tools
+from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
 from app.engine.stockfish import EngineError
@@ -109,13 +110,19 @@ def current_threats(game_id: str):
     return tools.current_threats(game_id)
 
 
+@app.get("/usage")
+def model_usage():
+    """This month's model spend against the budget (estimated from list prices; the Console is the authority)."""
+    return usage.summary()
+
+
 class IntentIn(BaseModel):
     text: str | None = None  # the player's own words; empty or missing means they skipped the question
 
 
 @app.post("/synced-games/{gid}/moments/{ply}/intent")
 def moment_intent(gid: str, ply: int, body: IntentIn):
-    return synced.moment_intent(gid, ply, body.text, tools.get_drafter())
+    return synced.moment_intent(gid, ply, body.text, tools.get_drafter("coach_intent"))
 
 
 class ModeIn(BaseModel):

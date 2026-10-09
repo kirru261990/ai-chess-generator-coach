@@ -9,7 +9,9 @@ the owner's own games is used.
 
 Independence: this file imports nothing from app/detectors/ or app/coach/.
 
-Run from the repo root:  cd backend && uv run python ../evals/tools/build_e2_set.py [--pilot]
+Run from the repo root:  cd backend && uv run python ../evals/tools/build_e2_set.py [--pilot | --version v2]
+--version v2 builds evals/sets/e2_v2 with a new seed and none of the e2_v1 or pilot puzzles (a fresh set, because the
+instruments were tuned on e2_v1 after its results were seen).
 --pilot builds a small throwaway set in evals/runs/ (git-ignored) with a different seed, used only to debug the runner;
 the real set never contains a pilot puzzle. The real set is written once and refuses to overwrite an existing one.
 """
@@ -31,9 +33,11 @@ sys.path.insert(0, str(ROOT / "backend"))
 from app.engine.stockfish import Budget, Engine
 
 PUZZLES = ROOT / "data" / "lichess" / "lichess_db_puzzle.csv.zst"
-OUT = ROOT / "evals" / "sets" / "e2_v1"
+SETS = ROOT / "evals" / "sets"
+OUT = SETS / "e2_v1"
 PILOT_OUT = ROOT / "evals" / "runs" / "e2_pilot"
 SEED, PILOT_SEED = 20261008, 7777
+V2_SEED = 20261009
 ORACLE = Budget(depth=14)
 GOOD_LOSS_CP = 50
 MISTAKE_RANGE = (150, 600)
@@ -156,22 +160,26 @@ def sha256(path):
 
 def main(argv):
     pilot = "--pilot" in argv
-    out = PILOT_OUT if pilot else OUT
+    version = argv[argv.index("--version") + 1] if "--version" in argv else "v1"
+    out = PILOT_OUT if pilot else SETS / f"e2_{version}"
     quotas = {"hangingPiece": (1, 1), "fork": (1, 0), "other": (1, 1)} if pilot else THEME_GROUPS
     if not pilot and (out / "positions.jsonl").exists():
         sys.exit(f"{out} already exists: a frozen set is never overwritten")
-    rng = random.Random(PILOT_SEED if pilot else SEED)
-    exclude = frozenset()
+    seed = PILOT_SEED if pilot else (V2_SEED if version == "v2" else SEED)
+    rng = random.Random(seed)
+    exclude = set()
     if not pilot:
-        pilot_file = PILOT_OUT / "positions.jsonl"
-        if pilot_file.exists():
-            exclude = frozenset(json.loads(line)["puzzle_id"] for line in pilot_file.read_text().splitlines() if line)
+        earlier = [PILOT_OUT / "positions.jsonl"] + ([OUT / "positions.jsonl"] if version != "v1" else [])
+        for f in earlier:
+            if f.exists():
+                exclude |= {json.loads(line)["puzzle_id"] for line in f.read_text().splitlines() if line}
+    exclude = frozenset(exclude)
     with Engine() as engine:
         items, seen = build(rng, engine, quotas, exclude)
     out.mkdir(parents=True, exist_ok=True)
     path = out / "positions.jsonl"
     path.write_text("".join(json.dumps(it) + "\n" for it in items))
-    prov = {"seed": PILOT_SEED if pilot else SEED, "source": "Lichess puzzle database (CC0), ratings 400-1199",
+    prov = {"seed": seed, "source": "Lichess puzzle database (CC0), ratings 400-1199",
             "puzzle_file_sha256": sha256(PUZZLES), "oracle": f"Stockfish depth {ORACLE.depth}",
             "good_within_cp": GOOD_LOSS_CP, "mistake_range_cp": list(MISTAKE_RANGE), "quotas": quotas,
             "excluded_puzzles": len(exclude), "usable_puzzles_seen_per_group": seen, "items": len(items)}
