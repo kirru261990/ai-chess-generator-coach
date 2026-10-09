@@ -7,6 +7,7 @@ import {
   acceptGame,
   boardMarks,
   isUndoKey,
+  moveBadge,
   feedbackIsCurrent,
   latestUserPly,
   feedbackKey,
@@ -216,6 +217,19 @@ export default function App() {
   const marks = game && fb ? boardMarks(game.fen, fb) : { hanging: [], missed: [] }
   for (const sq of marks.hanging) highlights[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
   for (const sq of marks.missed) highlights[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
+  // The badge for the player's last move, drawn on the square it was played to (never on the hint view of the old position).
+  const badge = fb && !previewing ? moveBadge(fb.classification.key, fb.classification.opening) : null
+  const badgeSquare = fb ? fb.played.uci.slice(2, 4) : null
+  const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {children}
+      {badge && square === badgeSquare && (
+        <span className={`move-badge ${badge.tone}`} title={badge.label} aria-label={badge.label}>
+          {badge.symbol}
+        </span>
+      )}
+    </div>
+  )
   // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
   // player's move, so it is drawn on that saved position, never on the live board.
   const hintArrows = fb?.better_move
@@ -366,6 +380,7 @@ export default function App() {
                     }
                   : highlights,
                 arrows: previewing ? hintArrows : [],
+                squareRenderer,
                 id: 'main-board',
               }}
             />
@@ -376,7 +391,7 @@ export default function App() {
               {fb ? (
                 <>
                   <p className="fb-head">
-                    <strong>{fb.headline}</strong> <span className="fb-move">You played {fb.played.text}.</span>
+                    <strong>{moveBadge(fb.classification.key, fb.classification.opening).symbol} {fb.headline}</strong> <span className="fb-move">You played {fb.played.text}.</span>
                   </p>
                   {fb.right.map((t) => (
                     <p key={t} className="fb-right">✓ {t}</p>

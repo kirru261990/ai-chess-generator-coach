@@ -45,7 +45,10 @@ export type Feedback = {
   played: { uci: string; text: string }
   fen_before: string // the position the move was played in; the suggested move is only valid there
   marks: { own_hanging: Mark[]; missed_free: Mark[] } // squares the board can mark (engine-confirmed misses only)
+  classification: { key: MoveClass; opening: string | null } // how the move is labelled on the board
 }
+
+export type MoveClass = 'book' | 'best' | 'good' | 'slip' | 'mistake' | 'blunder'
 
 export type Mark = { square: string; piece: string } // piece = FEN letter, so a mark is drawn only while it is still there
 
@@ -148,4 +151,17 @@ export function boardMarks(fen: string, fb: Pick<Feedback, 'verdict' | 'marks'>)
 export function isUndoKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }, targetTag: string, editable: boolean): boolean {
   if (e.key !== 'ArrowLeft' || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false
   return !editable && !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag.toUpperCase())
+}
+
+/** The badge shown on the square a move was played to, like the labels on chess sites. */
+export function moveBadge(key: MoveClass, opening?: string | null): { symbol: string; label: string; tone: string } {
+  const table: Record<MoveClass, { symbol: string; label: string; tone: string }> = {
+    book: { symbol: '📖', label: opening ? `Book move: ${opening}` : 'Book move', tone: 'book' },
+    best: { symbol: '★', label: 'Best move', tone: 'best' },
+    good: { symbol: '👍', label: 'Good move', tone: 'good' },
+    slip: { symbol: '?!', label: 'Inaccuracy: a small slip', tone: 'slip' },
+    mistake: { symbol: '?', label: 'Mistake', tone: 'mistake' },
+    blunder: { symbol: '??', label: 'Blunder', tone: 'blunder' },
+  }
+  return table[key]
 }

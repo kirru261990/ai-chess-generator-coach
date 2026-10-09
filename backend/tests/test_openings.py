@@ -35,9 +35,8 @@ def test_known_opening_moves_are_book_and_odd_ones_are_not():
 
 
 def test_transpositions_count_as_book():
-    # 1.d4 Nf6 2.c4 e6 3.Nc3 Bb4 (Nimzo) reached through a different move order
-    assert openings.book_name(play("Nf3", "Nf6", "c4", "e6", "Nc3", "Bb4"), 6) is None or True
-    assert openings.book_name(play("c4", "Nf6", "d4", "e6", "Nc3", "Bb4", "e3"), 7) is not None  # same position as Nimzo lines
+    # 1.c4 Nf6 2.d4 e6 3.Nc3 Bb4 4.e3 reaches the same position as the Nimzo-Indian line 1.d4 Nf6 2.c4 e6 3.Nc3 Bb4 4.e3
+    assert openings.book_name(play("c4", "Nf6", "d4", "e6", "Nc3", "Bb4", "e3"), 7) is not None
 
 
 def test_late_moves_and_the_start_position_are_never_book():
@@ -66,3 +65,11 @@ def test_labels_without_a_book_are_best_good_and_the_error_grades():
     assert label("d1d2", 300, 180) == "slip"
     assert label("d1d2", 300, 100) == "mistake"
     assert label("e1f1", 300, -100) == "blunder"
+
+
+def test_names_are_general_where_openings_overlap_and_specific_where_they_do_not():
+    assert openings.book_name(play("e4"), 1) == "King's Pawn Opening"
+    assert openings.book_name(play("d4"), 1) == "Queen's Pawn Opening"
+    assert openings.book_name(play("e4", "e5", "Nf3", "Nc6", "Bb5"), 5) == "Ruy Lopez"  # shared by two Ruy Lopez lines
+    assert openings.book_name(play("e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"), 10) == "Sicilian Defense: Najdorf"
+    assert openings.book_name(play("e4", "e5", "Nf3", "Nc6"), 4) == "King's Pawn Opening"  # Ruy, Italian, Scotch, Four Knights

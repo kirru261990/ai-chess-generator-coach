@@ -58,3 +58,10 @@
 .fb-legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
 .fb-legend .sw.red { background: rgba(220, 60, 50, 0.6); }
 .fb-legend .sw.green { background: rgba(60, 170, 90, 0.6); }
+.move-badge { position: absolute; top: -2px; right: -2px; z-index: 5; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.5); border: 1.5px solid #fff; line-height: 1; pointer-events: none; }
+.move-badge.best { background: #3a9d5d; font-size: 14px; }
+.move-badge.good { background: #7fae52; font-size: 12px; }
+.move-badge.book { background: #a1744f; font-size: 12px; }
+.move-badge.slip { background: #d8b13a; color: #3a2e00; }
+.move-badge.mistake { background: #e58f2a; }
+.move-badge.blunder { background: #ca3431; }

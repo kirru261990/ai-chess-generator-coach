@@ -176,3 +176,20 @@ describe('left arrow means Undo', () => {
     expect(isUndoKey({ key: 'ArrowLeft' }, 'DIV', true)).toBe(false)
   })
 })
+
+import { moveBadge } from './gameState'
+
+describe('moveBadge', () => {
+  it('gives each label its own symbol and a plain name', () => {
+    expect(moveBadge('best')).toMatchObject({ symbol: '★', label: 'Best move' })
+    expect(moveBadge('good').symbol).toBe('👍')
+    expect(moveBadge('slip').symbol).toBe('?!')
+    expect(moveBadge('mistake').symbol).toBe('?')
+    expect(moveBadge('blunder').symbol).toBe('??')
+  })
+
+  it('names the opening on a book move', () => {
+    expect(moveBadge('book', 'Sicilian Defense: Najdorf').label).toBe('Book move: Sicilian Defense: Najdorf')
+    expect(moveBadge('book').label).toBe('Book move')
+  })
+})

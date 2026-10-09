@@ -117,6 +117,7 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis,
         "wrong": wrong,
         "better_move": better,
         "marks": marks,
+        "classification": {"key": label, "opening": opening if label == "book" else None},
         "played": {"uci": move.uci(), "text": describe_move(board, move)},
         "evidence": {
             "engine": best.engine,

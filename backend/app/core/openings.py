@@ -80,22 +80,46 @@ LINES: list[tuple[str, str]] = [
 ]
 
 _book: dict[str, str] | None = None
+FIRST_MOVE_NAMES = {  # the general name for a position that several different openings share
+    "e4": "King's Pawn Opening", "d4": "Queen's Pawn Opening", "c4": "English Opening",
+    "Nf3": "Reti Opening", "f4": "Bird Opening", "b3": "Larsen's Opening",
+}
 
 
 def _key(board: chess.Board) -> str:
     return board.epd()  # the position without move counters
 
 
+def _family(name: str) -> str:
+    return name.split(":")[0]
+
+
 def book() -> dict[str, str]:
-    """Position key -> opening name, for every position on every line (built once)."""
+    """Position key -> opening name, for every position on every line (built once).
+
+    A position reached by lines of one family (for example two Ruy Lopez variations) gets the family name; a position shared
+    by different families (for example everything after 1.e4) gets the general name for the first move.
+    """
     global _book
     if _book is None:
-        table: dict[str, str] = {}
+        names: dict[str, set[str]] = {}
+        firsts: dict[str, str] = {}
         for name, line in LINES:
             board = chess.Board()
-            for san in line.split():
+            for i, san in enumerate(line.split()):
+                if i == 0:
+                    first = san
                 board.push_san(san)
-                table.setdefault(_key(board), name)  # the first (listed earlier) name wins for a shared position
+                key = _key(board)
+                names.setdefault(key, set()).add(name)
+                firsts.setdefault(key, first)
+        table: dict[str, str] = {}
+        for key, found in names.items():
+            if len(found) == 1:
+                table[key] = next(iter(found))
+                continue
+            families = {_family(n) for n in found}
+            table[key] = families.pop() if len(families) == 1 else FIRST_MOVE_NAMES.get(firsts[key], "Opening")
         _book = table
     return _book
 
