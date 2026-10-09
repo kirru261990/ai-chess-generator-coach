@@ -177,7 +177,7 @@ export default function App() {
   // Click a piece, then click where it should go. The board only ever shows the
   // server-confirmed position; legal targets come from the server's list.
   function onSquareClick({ piece, square }: { piece: { pieceType: string } | null; square: string }) {
-    if (!game || game.outcome || busy || engineToMove) return
+    if (!game || game.outcome || busy || engineToMove || previewing) return
     const mine = piece !== null && piece.pieceType[0] === (game.user_color === 'white' ? 'w' : 'b')
     if (mine) {
       setSelected(square === selected ? null : square)
@@ -204,6 +204,9 @@ export default function App() {
 
   const highlights: Record<string, React.CSSProperties> = {}
   const fb = game ? feedbackToShow(feedback, game) : null // Practice only: nothing here may leak into Play
+  // The hint switches the main board to the position BEFORE the player's last move, with the stronger move drawn on it.
+  // That is the only position the suggestion is valid for. Nothing can be played while it is showing.
+  const previewing = !!(fb?.better_move && showArrow)
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
@@ -239,6 +242,7 @@ export default function App() {
       )
     )
       return
+    setShowArrow(false) // leave the hint view whenever the mode changes
     const g = await call(`/games/${game.id}/mode`, { mode: next })
     if (g) applyGame(g)
   }
@@ -262,9 +266,19 @@ export default function App() {
   async function undo() {
     if (!game || busy) return
     setEngineFailed(false)
+    setShowArrow(false)
     const g = await call(`/games/${game.id}/takeback`, {})
     if (g) applyGame(g)
   }
+
+  // Esc leaves the hint view and returns to the live game.
+  useEffect(() => {
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowArrow(false)
+    }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [])
 
   // Left arrow = Undo (Practice only, and not while typing in a box or choosing in a menu).
   useEffect(() => {
@@ -327,6 +341,12 @@ export default function App() {
       </div>
       {game && (
         <>
+          {previewing && (
+            <p className="preview-banner" role="status">
+              Showing the position before your last move. The green arrow is a stronger move: only a suggestion, play what you
+              like. <button onClick={() => setShowArrow(false)}>Back to my game</button> (or press Esc)
+            </p>
+          )}
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
@@ -337,11 +357,17 @@ export default function App() {
             <div className="board">
             <Chessboard
               options={{
-                position: game.fen,
+                position: previewing && fb ? fb.fen_before : game.fen,
                 boardOrientation: game.user_color,
                 allowDragging: false,
                 onSquareClick,
-                squareStyles: highlights,
+                squareStyles: previewing && fb?.better_move
+                  ? {
+                      [fb.better_move.from]: { background: 'rgba(60, 170, 90, 0.35)' },
+                      [fb.better_move.to]: { background: 'rgba(60, 170, 90, 0.35)' },
+                    }
+                  : highlights,
+                arrows: previewing ? hintArrows : [],
                 id: 'main-board',
               }}
             />
@@ -392,25 +418,6 @@ export default function App() {
                     >
                       💡
                     </button>
-                  )}
-                  {fb.better_move && showArrow && (
-                    <div className="fb-arrow">
-                      <p>
-                        The green arrow shows a stronger move in the position before your last move. It is only a suggestion:
-                        play what you like{game.can_take_back ? ', or Undo to try it' : ''}.
-                      </p>
-                      <div className="hint-board">
-                        <Chessboard
-                          options={{
-                            position: fb.fen_before,
-                            boardOrientation: game.user_color,
-                            allowDragging: false,
-                            arrows: hintArrows,
-                            id: 'hint-board',
-                          }}
-                        />
-                      </div>
-                    </div>
                   )}
                 </>
               ) : (
