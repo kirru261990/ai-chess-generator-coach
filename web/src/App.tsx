@@ -5,6 +5,8 @@ import EvalBar from './EvalBar'
 import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
+  boardMarks,
+  isUndoKey,
   feedbackIsCurrent,
   latestUserPly,
   feedbackKey,
@@ -210,6 +212,10 @@ export default function App() {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
   }
+  // After a suboptimal move: mark on the board your piece(s) that can be taken (red) and a free piece you missed (green).
+  const marks = game && fb ? boardMarks(game.fen, fb) : { hanging: [], missed: [] }
+  for (const sq of marks.hanging) highlights[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
+  for (const sq of marks.missed) highlights[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
   // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
   // player's move, so it is drawn on that saved position, never on the live board.
   const hintArrows = fb?.better_move
@@ -271,6 +277,19 @@ export default function App() {
     window.addEventListener('keydown', onEsc)
     return () => window.removeEventListener('keydown', onEsc)
   }, [])
+
+  // Left arrow = Undo (Practice only, and not while typing in a box or choosing in a menu).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null
+      if (!isUndoKey(e, el?.tagName ?? '', !!el?.isContentEditable)) return
+      if (!game || game.mode !== 'practice' || !game.can_take_back || busy) return
+      e.preventDefault()
+      void undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   async function resign() {
     if (!game || game.outcome) return
@@ -365,6 +384,12 @@ export default function App() {
                   {fb.wrong.map((t) => (
                     <p key={t} className="fb-wrong">✗ {t}</p>
                   ))}
+                  {(marks.hanging.length > 0 || marks.missed.length > 0) && (
+                    <p className="fb-legend">
+                      {marks.hanging.length > 0 && <span><i className="sw red" /> your piece that can be taken (or was taken here) </span>}
+                      {marks.missed.length > 0 && <span><i className="sw green" /> a free piece you could have taken</span>}
+                    </p>
+                  )}
                   {(() => {
                     const mine = why && why.key === feedbackKey(fb) ? why : null
                     if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
@@ -419,7 +444,7 @@ export default function App() {
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
             {game.mode === 'practice' && (
-              <button onClick={() => void undo()} disabled={busy || !game.can_take_back}>
+              <button onClick={() => void undo()} disabled={busy || !game.can_take_back} title="Undo (left arrow key)">
                 Undo
               </button>
             )}

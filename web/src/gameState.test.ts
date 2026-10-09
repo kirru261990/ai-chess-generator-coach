@@ -125,3 +125,54 @@ describe('coach explanation helpers', () => {
     expect(whyLabel('unavailable')).toMatch(/Limited/)
   })
 })
+
+import { boardMarks, isUndoKey, pieceAt } from './gameState'
+
+describe('board marks after a suboptimal move', () => {
+  const fen = '4k3/8/8/3n4/4N3/8/8/3RK3 w - - 0 1'
+  const fb = (verdict: 'good' | 'slip' | 'mistake' | 'blunder') => ({
+    verdict,
+    marks: { own_hanging: [{ square: 'e4', piece: 'N' }], missed_free: [{ square: 'd5', piece: 'n' }] },
+  })
+
+  it('reads pieces from a FEN', () => {
+    expect(pieceAt(fen, 'e4')).toBe('N')
+    expect(pieceAt(fen, 'd5')).toBe('n')
+    expect(pieceAt(fen, 'a1')).toBeNull()
+    expect(pieceAt(fen, 'z9')).toBeNull()
+  })
+
+  it('marks your hanging piece red and the missed free piece green', () => {
+    expect(boardMarks(fen, fb('mistake'))).toEqual({ hanging: ['e4'], missed: ['d5'] })
+    expect(boardMarks(fen, fb('slip'))).toEqual({ hanging: ['e4'], missed: ['d5'] })
+  })
+
+  it('never marks after a good move', () => {
+    expect(boardMarks(fen, fb('good'))).toEqual({ hanging: [], missed: [] })
+  })
+
+  it('keeps a red mark on the square where your piece was taken, and drops the green one when the free piece moved', () => {
+    const taken = '4k3/8/8/3n4/4n3/8/8/3RK3 w - - 0 1' // a black knight captured on e4; the free knight is still on d5
+    expect(boardMarks(taken, fb('blunder'))).toEqual({ hanging: ['e4'], missed: ['d5'] })
+    const gone = '4k3/8/8/8/8/8/8/3RK3 w - - 0 1' // both squares empty: nothing left to mark
+    expect(boardMarks(gone, fb('blunder'))).toEqual({ hanging: [], missed: [] })
+  })
+
+  it('drops a mark when a different piece of your own colour now stands there', () => {
+    const other = '4k3/8/8/3n4/4B3/8/8/3RK3 w - - 0 1'
+    expect(boardMarks(other, fb('blunder')).hanging).toEqual([])
+    const swapped = '4k3/8/8/3N4/4N3/8/8/3RK3 w - - 0 1' // d5 now holds a different piece
+    expect(boardMarks(swapped, fb('blunder')).missed).toEqual([])
+  })
+})
+
+describe('left arrow means Undo', () => {
+  it('only for a plain left arrow outside form controls', () => {
+    expect(isUndoKey({ key: 'ArrowLeft' }, 'BODY', false)).toBe(true)
+    expect(isUndoKey({ key: 'ArrowRight' }, 'BODY', false)).toBe(false)
+    expect(isUndoKey({ key: 'ArrowLeft', metaKey: true }, 'BODY', false)).toBe(false)
+    expect(isUndoKey({ key: 'ArrowLeft', shiftKey: true }, 'BODY', false)).toBe(false)
+    for (const tag of ['TEXTAREA', 'input', 'SELECT']) expect(isUndoKey({ key: 'ArrowLeft' }, tag, false)).toBe(false)
+    expect(isUndoKey({ key: 'ArrowLeft' }, 'DIV', true)).toBe(false)
+  })
+})
