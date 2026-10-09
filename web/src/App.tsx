@@ -36,7 +36,7 @@ export default function App() {
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
-  const [showArrow, setShowArrow] = useState(true)
+  const [showArrow, setShowArrow] = useState(false) // never proactive: only when the player asks with the hint icon
   const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
   const askedEval = useRef('')
   const asked = useRef('')
@@ -98,7 +98,7 @@ export default function App() {
       .then((fb) => {
         if (fb && asked.current === key) {
           setFeedback(storeFeedback(fb, game.id, moves))
-          setShowArrow(true)
+          setShowArrow(false) // a new verdict starts with no arrow; the hint icon reveals it
         }
       })
       .catch(() => {})
@@ -340,15 +340,25 @@ export default function App() {
                     )
                   })()}{' '}
                   {fb.better_move && (
+                    <button
+                      className={`hint ${showArrow ? 'on' : ''}`}
+                      onClick={() => setShowArrow((v) => !v)}
+                      aria-pressed={showArrow}
+                      aria-label="Hint: show what could have been the best move"
+                      title="Hint: what could have been the best move?"
+                    >
+                      💡
+                    </button>
+                  )}
+                  {fb.better_move && showArrow && (
                     <p className="fb-arrow">
                       {suggestion ? (
                         <>
-                          The green arrow is a stronger move from before your last move. It is only a suggestion: play what
-                          you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.{' '}
-                          <button onClick={() => setShowArrow((v) => !v)}>{showArrow ? 'Hide arrow' : 'Show arrow'}</button>
+                          The green arrow shows a stronger move from before your last move. It is only a suggestion: play what
+                          you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
                         </>
                       ) : (
-                        <span className="fb-wait">The stronger move no longer fits the board now that the game has moved on.</span>
+                        <span className="fb-wait">That move no longer fits the board now that the game has moved on.</span>
                       )}
                     </p>
                   )}
