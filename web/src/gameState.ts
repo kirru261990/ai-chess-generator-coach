@@ -10,7 +10,7 @@ export type GameView = {
   outcome: { result: string; termination: string } | null
   legal_moves: string[]
   moves: string[]
-  takebacks_left: number
+  can_take_back: boolean
 }
 
 /**

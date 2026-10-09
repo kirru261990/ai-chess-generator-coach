@@ -119,19 +119,20 @@ def test_takeback_when_engine_has_not_replied_removes_only_the_users_move():
     assert g.moves == []
 
 
-def test_at_most_two_takebacks_in_a_row_and_a_move_resets_the_count():
+def test_any_number_of_takebacks_back_to_the_start():
     from app.core.game import take_back
 
-    g = play(practice(), "e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6")
-    assert g.takebacks_left == 2
-    take_back(g)
-    take_back(g)
-    assert g.moves == ["e2e4", "e7e5"] and g.takebacks_left == 0
+    g = play(practice(), "e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "d2d3", "d7d6")
+    for expected in (6, 4, 2, 0):  # no limit: undo all four of the user's moves in a row
+        assert g.can_take_back
+        take_back(g)
+        assert len(g.moves) == expected
+    assert g.moves == [] and not g.can_take_back
     with pytest.raises(GameError) as e:
         take_back(g)
-    assert e.value.code == "takeback_limit"
-    play(g, "d2d4")  # a new move starts a fresh allowance
-    assert g.takebacks_left == 2
+    assert e.value.code == "nothing_to_take_back"
+    play(g, "d2d4")  # and play on from the start
+    assert g.can_take_back
 
 
 def test_takeback_only_in_practice_and_never_after_resigning():
@@ -140,7 +141,7 @@ def test_takeback_only_in_practice_and_never_after_resigning():
     g = play(new_game(engine_level=3), "e2e4", "e7e5")
     with pytest.raises(GameError) as e:
         take_back(g)
-    assert e.value.code == "takeback_not_allowed" and g.takebacks_left == 0
+    assert e.value.code == "takeback_not_allowed" and not g.can_take_back
     p = play(practice(), "e2e4", "e7e5")
     resign(p, chess.WHITE)
     with pytest.raises(GameError) as e:
@@ -152,7 +153,7 @@ def test_nothing_to_take_back_when_the_engine_only_opened():
     from app.core.game import take_back
 
     g = play(practice(chess.BLACK), "e2e4")  # engine (white) opened; black user to move
-    assert g.takebacks_left == 0
+    assert not g.can_take_back
     with pytest.raises(GameError) as e:
         take_back(g)
     assert e.value.code == "nothing_to_take_back" and g.moves == ["e2e4"]

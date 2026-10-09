@@ -345,8 +345,8 @@ export default function App() {
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
             {game.mode === 'practice' && (
-              <button onClick={() => void undo()} disabled={busy || game.takebacks_left === 0}>
-                Undo ({game.takebacks_left} left)
+              <button onClick={() => void undo()} disabled={busy || !game.can_take_back}>
+                Undo
               </button>
             )}
             <button onClick={() => void resign()} disabled={!!game.outcome}>

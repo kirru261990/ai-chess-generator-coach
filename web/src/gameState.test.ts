@@ -13,7 +13,7 @@ const game = (over: Partial<GameView> = {}): GameView => ({
   outcome: null,
   legal_moves: [],
   moves: [],
-  takebacks_left: 0,
+  can_take_back: false,
   ...over,
 })
 
