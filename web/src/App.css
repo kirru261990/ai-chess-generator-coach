@@ -51,5 +51,6 @@
 .evalbar-label.on-white { color: #403d39; }
 .evalbar-label.on-black { color: #f0f0f0; }
 .fb-arrow { font-size: 0.9em; margin: 6px 0; }
+.hint-board { width: 100%; max-width: 280px; margin: 6px auto; }
 .hint { font-size: 1.1em; line-height: 1; padding: 2px 8px; margin-left: 6px; border-radius: 6px; cursor: pointer; }
 .hint.on { background: #fff3c4; border-color: #e0b030; }

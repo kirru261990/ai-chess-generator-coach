@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { evalLabel, evalWords, whiteShare } from './evaluation'
-import { arrowStillFits } from './gameState'
 
 const cp = (n: number) => ({ cp: n, mate: null, mate_sign: null })
 const mate = (n: number, sign: number) => ({ cp: null, mate: n, mate_sign: sign })
@@ -37,27 +36,5 @@ describe('labels and words', () => {
     expect(evalWords(cp(-400))).toBe('Black is much better')
     expect(evalWords(cp(900))).toBe('White is winning')
     expect(evalWords(mate(3, -1))).toBe('Black can force checkmate in 3')
-  })
-})
-
-describe('arrowStillFits', () => {
-  const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-  it('needs a piece of the player’s colour on the starting square', () => {
-    expect(arrowStillFits(start, 'e2', 'white')).toBe(true)
-    expect(arrowStillFits(start, 'e7', 'white')).toBe(false) // an enemy pawn
-    expect(arrowStillFits(start, 'e7', 'black')).toBe(true)
-    expect(arrowStillFits(start, 'e4', 'white')).toBe(false) // empty
-  })
-
-  it('reads counted gaps in a position', () => {
-    const fen = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2'
-    expect(arrowStillFits(fen, 'e4', 'white')).toBe(true)
-    expect(arrowStillFits(fen, 'e5', 'black')).toBe(true)
-    expect(arrowStillFits(fen, 'e2', 'white')).toBe(false)
-  })
-
-  it('rejects nonsense squares', () => {
-    expect(arrowStillFits(start, 'z9', 'white')).toBe(false)
-    expect(arrowStillFits(start, 'e0', 'white')).toBe(false)
   })
 })

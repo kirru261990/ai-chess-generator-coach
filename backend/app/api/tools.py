@@ -165,7 +165,7 @@ def move_feedback(game_id: str, ply: int) -> dict:
     fen, user, uci = _practice_user_move(game_id, ply, "move feedback")
     board, move = chess.Board(fen), chess.Move.from_uci(uci)
     best, after = analyse_move(get_engine(), board, move, user)
-    return {"ply": ply, **judge(board, move, best, after)}
+    return {"ply": ply, "fen_before": fen, **judge(board, move, best, after)}
 
 
 def get_drafter(purpose: str = "coach"):

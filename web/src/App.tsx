@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import './App.css'
 import EvalBar from './EvalBar'
-import { type Evaluation } from './evaluation'
+import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
-  arrowStillFits,
   feedbackIsCurrent,
   latestUserPly,
   feedbackKey,
@@ -39,6 +38,8 @@ export default function App() {
   const [showArrow, setShowArrow] = useState(false) // never proactive: only when the player asks with the hint icon
   const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
   const askedEval = useRef('')
+  const evalRetries = useRef(0)
+  const [evalRetry, setEvalRetry] = useState(0)
   const asked = useRef('')
   const [why, setWhy] = useState<{ key: string; loading: boolean; data: Why | null } | null>(null)
   const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
@@ -98,7 +99,6 @@ export default function App() {
       .then((fb) => {
         if (fb && asked.current === key) {
           setFeedback(storeFeedback(fb, game.id, moves))
-          setShowArrow(false) // a new verdict starts with no arrow; the hint icon reveals it
         }
       })
       .catch(() => {})
@@ -124,13 +124,32 @@ export default function App() {
     const key = `${game.id}:${game.revision}`
     if (askedEval.current === key) return
     askedEval.current = key
+    const failed = () => {
+      // Allow one more try a little later; the bar shows "unavailable" meanwhile, never an older position's score.
+      if (askedEval.current !== key) return
+      askedEval.current = ''
+      if (evalRetries.current < 2) {
+        evalRetries.current += 1
+        setTimeout(() => setEvalRetry((n) => n + 1), 3000)
+      }
+    }
     fetch(`${API}/games/${game.id}/eval`)
       .then(async (res) => (res.ok ? ((await res.json()) as Evaluation) : null))
       .then((ev) => {
-        if (ev && askedEval.current === key) setEvaluation({ ...ev, gameId: game.id })
+        if (ev && askedEval.current === key) {
+          evalRetries.current = 0
+          setEvaluation({ ...ev, gameId: game.id })
+        } else if (!ev) failed()
       })
-      .catch(() => {})
-  }, [game])
+      .catch(failed)
+  }, [game, evalRetry])
+
+  // The hint belongs to one judged move. Hide it whenever that changes (new move, takeback, new game), whether or not a
+  // fresh verdict has arrived yet, so replaying the same move after Undo never shows it without a new click.
+  const judgedKey = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedbackKey(feedback) : null
+  useEffect(() => {
+    setShowArrow(false)
+  }, [judgedKey])
 
   const engineToMove =
     !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
@@ -188,12 +207,11 @@ export default function App() {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
   }
-  // A suggestion only: nothing stops the player from playing anything. Hidden when it no longer fits the board.
-  const suggestion = fb?.better_move && game && arrowStillFits(game.fen, fb.better_move.from, game.user_color) ? fb.better_move : null
-  const arrows =
-    suggestion && showArrow
-      ? [{ startSquare: suggestion.from, endSquare: suggestion.to, color: 'rgba(60, 170, 90, 0.85)' }]
-      : []
+  // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
+  // player's move, so it is drawn on that saved position, never on the live board.
+  const hintArrows = fb?.better_move
+    ? [{ startSquare: fb.better_move.from, endSquare: fb.better_move.to, color: 'rgba(60, 170, 90, 0.85)' }]
+    : []
   if (game && selected) {
     highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
     for (const m of game.legal_moves) {
@@ -292,7 +310,7 @@ export default function App() {
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
-                evaluation={evaluation?.gameId === game.id ? evaluation : null} // the last value stays until the new one arrives
+                evaluation={evalIsCurrent(evaluation, game.id, game.revision) ? evaluation : null} // pending until this position's score arrives
                 orientation={game.user_color}
               />
             )}
@@ -304,7 +322,6 @@ export default function App() {
                 allowDragging: false,
                 onSquareClick,
                 squareStyles: highlights,
-                arrows,
                 id: 'main-board',
               }}
             />
@@ -351,16 +368,23 @@ export default function App() {
                     </button>
                   )}
                   {fb.better_move && showArrow && (
-                    <p className="fb-arrow">
-                      {suggestion ? (
-                        <>
-                          The green arrow shows a stronger move from before your last move. It is only a suggestion: play what
-                          you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
-                        </>
-                      ) : (
-                        <span className="fb-wait">That move no longer fits the board now that the game has moved on.</span>
-                      )}
-                    </p>
+                    <div className="fb-arrow">
+                      <p>
+                        The green arrow shows a stronger move in the position before your last move. It is only a suggestion:
+                        play what you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
+                      </p>
+                      <div className="hint-board">
+                        <Chessboard
+                          options={{
+                            position: fb.fen_before,
+                            boardOrientation: game.user_color,
+                            allowDragging: false,
+                            arrows: hintArrows,
+                            id: 'hint-board',
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
                 </>
               ) : (
