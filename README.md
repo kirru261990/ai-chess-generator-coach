@@ -37,7 +37,7 @@ the engine and rules confirmed, with a note.
 | Works | Not yet |
 |---|---|
 | Play vs Stockfish (click to move, Level 1-10, resign, PGN download) | Training sessions and hint ladder |
-| Practice mode: Undo, a verdict after each move (good / slip / mistake / blunder), what was right or wrong, a better move on request, "Watch out" threat warnings; always marked assisted | Lichess sync, PGN import, Maia-2 opponent |
+| Practice mode: Undo, an evaluation bar beside the board, a verdict after each move (good / slip / mistake / blunder), what was right or wrong, a green arrow for a stronger move (a suggestion only), "Watch out" threat warnings; always marked assisted | Lichess sync, PGN import, Maia-2 opponent |
 | Chess.com sync, batch engine analysis, post-game review (up to 3 key moments) | Postgres persistence (games live in memory), sign-in, other users |
 | Review tab: say what you were thinking at a key moment and see what was really on the board (your words saved as written) | Peer benchmark (needs a Lichess games sample) |
 | Detectors `hanging_own` and `missed_free` (versioned), run over a frozen 100-game baseline; a Blind spots page with 10\|0 and 15\|10 side by side | Forks and pins; recency windows and example links on the map |

@@ -104,3 +104,24 @@ export function whyLabel(status: Why['status']): string {
     ? 'Every claim in this explanation was checked by the engine and the rules.'
     : 'Limited to facts the engine and rules confirmed.'
 }
+
+/**
+ * Whether the arrow for a suggested move still makes sense on the board now: its starting square must hold a piece of the
+ * player's colour. (The suggestion was made for the position before the player's last move; after the opponent's reply
+ * the same squares may no longer fit.) `fen` is the current position.
+ */
+export function arrowStillFits(fen: string, from: string, userColor: 'white' | 'black'): boolean {
+  const rows = fen.split(' ')[0].split('/')
+  const file = from.charCodeAt(0) - 97
+  const rank = Number(from[1])
+  if (file < 0 || file > 7 || !(rank >= 1 && rank <= 8) || rows.length !== 8) return false
+  let col = 0
+  for (const ch of rows[8 - rank]) {
+    if (/\d/.test(ch)) col += Number(ch)
+    else {
+      if (col === file) return userColor === 'white' ? ch === ch.toUpperCase() : ch === ch.toLowerCase()
+      col += 1
+    }
+  }
+  return false
+}

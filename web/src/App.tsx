@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import './App.css'
+import EvalBar from './EvalBar'
+import { type Evaluation } from './evaluation'
 import {
   acceptGame,
+  arrowStillFits,
   feedbackIsCurrent,
   latestUserPly,
   feedbackKey,
@@ -33,7 +36,9 @@ export default function App() {
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
-  const [showBetter, setShowBetter] = useState(false)
+  const [showArrow, setShowArrow] = useState(true)
+  const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
+  const askedEval = useRef('')
   const asked = useRef('')
   const [why, setWhy] = useState<{ key: string; loading: boolean; data: Why | null } | null>(null)
   const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
@@ -93,7 +98,7 @@ export default function App() {
       .then((fb) => {
         if (fb && asked.current === key) {
           setFeedback(storeFeedback(fb, game.id, moves))
-          setShowBetter(false)
+          setShowArrow(true)
         }
       })
       .catch(() => {})
@@ -109,6 +114,20 @@ export default function App() {
       .then(async (res) => (res.ok ? ((await res.json()) as Threats) : null))
       .then((t) => {
         if (t && askedThreats.current === key) setThreats({ ...t, gameId: game.id })
+      })
+      .catch(() => {})
+  }, [game])
+
+  // Practice only: the evaluation bar follows the position after every move, mine and the opponent's.
+  useEffect(() => {
+    if (!game || game.mode !== 'practice') return
+    const key = `${game.id}:${game.revision}`
+    if (askedEval.current === key) return
+    askedEval.current = key
+    fetch(`${API}/games/${game.id}/eval`)
+      .then(async (res) => (res.ok ? ((await res.json()) as Evaluation) : null))
+      .then((ev) => {
+        if (ev && askedEval.current === key) setEvaluation({ ...ev, gameId: game.id })
       })
       .catch(() => {})
   }, [game])
@@ -169,10 +188,12 @@ export default function App() {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
   }
-  if (fb && showBetter && fb.better_move) {
-    highlights[fb.better_move.from] = { background: 'rgba(60, 170, 90, 0.55)' }
-    highlights[fb.better_move.to] = { background: 'rgba(60, 170, 90, 0.55)' }
-  }
+  // A suggestion only: nothing stops the player from playing anything. Hidden when it no longer fits the board.
+  const suggestion = fb?.better_move && game && arrowStillFits(game.fen, fb.better_move.from, game.user_color) ? fb.better_move : null
+  const arrows =
+    suggestion && showArrow
+      ? [{ startSquare: suggestion.from, endSquare: suggestion.to, color: 'rgba(60, 170, 90, 0.85)' }]
+      : []
   if (game && selected) {
     highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
     for (const m of game.legal_moves) {
@@ -268,7 +289,14 @@ export default function App() {
       </div>
       {game && (
         <>
-          <div className="board">
+          <div className="board-row">
+            {game.mode === 'practice' && (
+              <EvalBar
+                evaluation={evaluation?.gameId === game.id ? evaluation : null} // the last value stays until the new one arrives
+                orientation={game.user_color}
+              />
+            )}
+            <div className="board">
             <Chessboard
               options={{
                 position: game.fen,
@@ -276,9 +304,11 @@ export default function App() {
                 allowDragging: false,
                 onSquareClick,
                 squareStyles: highlights,
+                arrows,
                 id: 'main-board',
               }}
             />
+            </div>
           </div>
           {game.mode === 'practice' && (
             <section className={`feedback ${fb ? fb.verdict : ''}`} aria-live="polite">
@@ -293,9 +323,6 @@ export default function App() {
                   {fb.wrong.map((t) => (
                     <p key={t} className="fb-wrong">✗ {t}</p>
                   ))}
-                  {fb.cost_pawns !== null && fb.cost_pawns > 0 && (
-                    <p className="fb-cost">This cost you about {fb.cost_pawns} pawns of advantage.</p>
-                  )}
                   {(() => {
                     const mine = why && why.key === feedbackKey(fb) ? why : null
                     if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
@@ -312,12 +339,19 @@ export default function App() {
                       </button>
                     )
                   })()}{' '}
-                  {fb.better_move &&
-                    (showBetter ? (
-                      <p>Better was: <strong>{fb.better_move.text}</strong> (shown in green on the board)</p>
-                    ) : (
-                      <button onClick={() => setShowBetter(true)}>Show the better move</button>
-                    ))}
+                  {fb.better_move && (
+                    <p className="fb-arrow">
+                      {suggestion ? (
+                        <>
+                          The green arrow is a stronger move from before your last move. It is only a suggestion: play what
+                          you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.{' '}
+                          <button onClick={() => setShowArrow((v) => !v)}>{showArrow ? 'Hide arrow' : 'Show arrow'}</button>
+                        </>
+                      ) : (
+                        <span className="fb-wait">The stronger move no longer fits the board now that the game has moved on.</span>
+                      )}
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="fb-wait">Make a move and I will tell you what was right or wrong with it.</p>

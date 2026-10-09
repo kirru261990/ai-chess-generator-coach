@@ -105,6 +105,11 @@ def coach_why(game_id: str, body: WhyIn):
     return tools.coach_why(game_id, body.ply)
 
 
+@app.get("/games/{game_id}/eval")
+def position_eval(game_id: str):
+    return tools.position_eval(game_id)
+
+
 @app.get("/games/{game_id}/threats")
 def current_threats(game_id: str):
     return tools.current_threats(game_id)

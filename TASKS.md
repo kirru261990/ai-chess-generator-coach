@@ -57,6 +57,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [~] T22 README update done 2026-10-08; the demo clip is still to be recorded by the owner (screen recording of play, Practice feedback, Review and Blind spots; keep real game data and opponent names out of the clip or blur them)
 
 ## Housekeeping (any day)
+- [x] T38 Practice UI (owner's first requests, 2026-10-09): a vertical evaluation bar beside the board (Practice only; `GET /games/{id}/eval`) replaces the "cost in pawns" sentence; the better move is a green arrow on the board instead of words, shown as a suggestion that can be hidden and that disappears when it no longer fits the board
 - [ ] T37 E2 follow-ups from the v2 notes: claim types `gives_check` and forced-reply, let the extractor express harness-provided facts, a person reads 15-20 extractions, a GPT raw baseline; any change is a new version and a run on a new set
 - [x] T36 Model spend ledger and monthly budget guard (2026-10-09): every API call recorded in `data/usage/` with tokens and estimated dollars; calls stop at `MONTHLY_BUDGET_USD` (default 10); `GET /usage`; a spend line in the app; eval runs print the month's spend and refuse to start if the budget cannot cover them
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
