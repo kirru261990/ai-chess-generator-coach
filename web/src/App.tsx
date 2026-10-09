@@ -355,7 +355,7 @@ export default function App() {
                       {suggestion ? (
                         <>
                           The green arrow shows a stronger move from before your last move. It is only a suggestion: play what
-                          you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
+                          you like{game.can_take_back ? ', or Undo to try it' : ''}.
                         </>
                       ) : (
                         <span className="fb-wait">That move no longer fits the board now that the game has moved on.</span>
