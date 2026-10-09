@@ -17,9 +17,6 @@ class Mode(str, Enum):
     PRACTICE = "practice"
 
 
-MAX_TAKEBACKS = 2  # in a row; making a move resets the count
-
-
 class GameError(Exception):
     """Raised with a stable error code in `code`."""
 
@@ -42,16 +39,14 @@ class Game:
     # Counts every state change (move, resignation, takeback). It only ever goes up, so a
     # stale client revision can never match a position that was reached after an undo.
     revision: int = 0
-    takebacks_in_row: int = 0  # consecutive takebacks since the last move
     # Every state change validates and mutates under this lock, so two requests can never
     # both pass the same revision check. Reentrant: callers may hold it across several steps.
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     @property
-    def takebacks_left(self) -> int:
-        if self.mode is not Mode.PRACTICE or self.resigned_by is not None:
-            return 0
-        return max(0, MAX_TAKEBACKS - self.takebacks_in_row) if self._can_take_back() else 0
+    def can_take_back(self) -> bool:
+        """Practice only, any number of times, back to the start of the game (owner's decision 2026-10-09)."""
+        return self.mode is Mode.PRACTICE and self.resigned_by is None and self._can_take_back()
 
     def _plies_to_remove(self) -> int:
         """Back to the user's turn: drop the engine's reply and the user's move, or just the
@@ -137,25 +132,21 @@ def make_move(game: Game, uci: str, expected_revision: int) -> Game:
         if move not in board.legal_moves:
             raise GameError("illegal_move", f"{uci}: not a legal move here")
         game.moves.append(move.uci())
-        game.takebacks_in_row = 0
         game.revision += 1
         return game
 
 
 def take_back(game: Game) -> Game:
-    """Undo the user's last move (and the engine's reply). Practice mode only, at most
-    MAX_TAKEBACKS in a row. The game stays assisted for good."""
+    """Undo the user's last move (and the engine's reply). Practice mode only, as many times as the player likes, back to
+    the start. The game stays assisted for good."""
     with game.lock:
         if game.mode is not Mode.PRACTICE:
             raise GameError("takeback_not_allowed", "takebacks are only available in Practice mode")
         if game.resigned_by is not None:
             raise GameError("game_over", "game has ended")
-        if game.takebacks_in_row >= MAX_TAKEBACKS:
-            raise GameError("takeback_limit", f"at most {MAX_TAKEBACKS} takebacks in a row")
         if not game._can_take_back():
             raise GameError("nothing_to_take_back", "no move of yours to take back")
         del game.moves[-game._plies_to_remove() :]
-        game.takebacks_in_row += 1
         game.assisted = True
         game.revision += 1
         return game

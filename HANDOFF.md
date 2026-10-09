@@ -73,6 +73,12 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 - **Next:** unchanged (training sessions and the hint ladder, MCP tools, T37, the demo clip).
 - **Branch / PR:** `docs/handoff-t38-review`
 
+### 2026-10-09 · MacBook · Claude Code (session 24, part 5)
+- **Unlimited Undo (T39), owner's request.** The earlier rule "at most 2 undos in a row" (session 8, see that entry) is **reversed**: Undo in Practice works as many times as the player likes, back to the start (the engine's reply goes with the player's move; takebacks still never happen in Play or after resigning, and still mark the game assisted for good). `Game.takebacks_in_row` and `MAX_TAKEBACKS` are gone; the view field `takebacks_left` is now `can_take_back` (bool); the page shows a plain "Undo" button. Tests updated (core, API, and the E1 suite: invariant I5 now says no cap and checks `can_take_back` against the reference). 629 backend and 34 web tests.
+- **Rebuilt on the latest `main`** after the other machine's PR 47 fixes and history rewrite (the first attempt, PR 49, was stacked on the old hashes and was closed); the hint board's note uses `can_take_back` too.
+- **Test-run note:** several overlapping `uv run pytest` jobs queue behind uv's environment lock; a full run is about 40 seconds when started alone.
+- **Branch / PR:** `feat/unlimited-undo-v2`
+
 ### 2026-10-09 · MacBook · Claude Code (session 24, part 3)
 - **First changes requested by the owner while practising (T38).** (1) **Evaluation bar:** a vertical bar beside the board in Practice, like chess sites: White's share from a logistic of the engine score (a mate fills the bar), a small label (+1.4, M3), words on hover, turns with the board for Black, refreshed after every move (mine and the opponent's). `GET /games/{id}/eval` (Practice only, 403 in Play, depth 12, White's side, returns the revision). The "this cost you about X pawns" sentence is gone. (2) **Arrow instead of words, only on request:** after the owner plays, a 💡 hint icon appears next to Why? (only when the move was not the best); the green arrow for the stronger move is drawn **only after the owner clicks it** ("don't be proactive"), is a suggestion only (any move may be played), toggles off, and shows a short note instead when the board has moved on so that its starting square no longer holds one of the player's pieces. The "Show the better move" button and the text are gone.
 - **Tests:** 2 backend (one with Stockfish, including a mate score), 7 web (bar maths and words, arrow check). Checked in the browser.

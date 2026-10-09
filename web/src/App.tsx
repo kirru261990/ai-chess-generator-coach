@@ -371,7 +371,7 @@ export default function App() {
                     <div className="fb-arrow">
                       <p>
                         The green arrow shows a stronger move in the position before your last move. It is only a suggestion:
-                        play what you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
+                        play what you like{game.can_take_back ? ', or Undo to try it' : ''}.
                       </p>
                       <div className="hint-board">
                         <Chessboard
@@ -413,8 +413,8 @@ export default function App() {
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
             {game.mode === 'practice' && (
-              <button onClick={() => void undo()} disabled={busy || game.takebacks_left === 0}>
-                Undo ({game.takebacks_left} left)
+              <button onClick={() => void undo()} disabled={busy || !game.can_take_back}>
+                Undo
               </button>
             )}
             <button onClick={() => void resign()} disabled={!!game.outcome}>
