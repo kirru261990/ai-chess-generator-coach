@@ -127,6 +127,19 @@ export function pieceAt(fen: string, square: string): string | null {
 }
 
 /**
+ * The feedback the page may show: only in Practice (it is assistance, and Play counts as real evidence), only for the game on
+ * screen, and only while the move it judged is still the player's latest. Every coaching visual (verdict, board marks, hint
+ * view, move badge) goes through this, so switching to Play removes them all at once.
+ */
+export function feedbackToShow(
+  fb: StoredFeedback | null,
+  game: Pick<GameView, 'id' | 'moves' | 'user_color' | 'mode'>,
+): StoredFeedback | null {
+  if (game.mode !== 'practice') return null
+  return feedbackIsCurrent(fb, game.id, game.moves, game.user_color) ? fb : null
+}
+
+/**
  * Squares to mark on the live board after a suboptimal move: your own pieces that can be taken (red, and still red on the
  * square where one was taken after the opponent's reply) and free pieces you could have taken (green, only while the same
  * piece still stands there). Never marked after a good move.

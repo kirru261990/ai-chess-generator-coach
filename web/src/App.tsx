@@ -8,6 +8,7 @@ import {
   boardMarks,
   isUndoKey,
   feedbackIsCurrent,
+  feedbackToShow,
   latestUserPly,
   feedbackKey,
   storeFeedback,
@@ -202,7 +203,7 @@ export default function App() {
   }
 
   const highlights: Record<string, React.CSSProperties> = {}
-  const fb = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedback : null
+  const fb = game ? feedbackToShow(feedback, game) : null // Practice only: nothing here may leak into Play
   // The hint switches the main board to the position BEFORE the player's last move, with the stronger move drawn on it.
   // That is the only position the suggestion is valid for. Nothing can be played while it is showing.
   const previewing = !!(fb?.better_move && showArrow)
@@ -241,6 +242,7 @@ export default function App() {
       )
     )
       return
+    setShowArrow(false) // leave the hint view whenever the mode changes
     const g = await call(`/games/${game.id}/mode`, { mode: next })
     if (g) applyGame(g)
   }
