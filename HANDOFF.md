@@ -7,7 +7,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ## Start here (new session)
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
-2. **No feature PRs are open** (T14-T19, T33, T34 and the review fixes are merged). Work from `main`: `git checkout main && git pull`.
+2. **No feature PRs are open** (T14-T19, T33, T34, T35, T36, T38 and the review fixes are merged). Work from `main`: `git checkout main && git pull`.
 3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**278 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
 4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
 
@@ -64,6 +64,14 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 ---
 
 ## Log
+
+### 2026-10-09 · MacBook (second machine) · Claude Code (session 24, part 4)
+- **PR 47 (T38) reviewed, fixed and merged.** The GPT review had three findings, all fixed: (1) the suggested move belongs to the position **before** the player's move, so it is no longer drawn on the live board: `GET /games/{id}/feedback/{ply}` now returns `fen_before`, and the 💡 hint shows a small "position before your move" board with the green arrow (`arrowStillFits` and its tests are gone); (2) hint visibility resets whenever the judged move changes (new move, Undo, new game), independent of the feedback response, so Undo then replaying the same move no longer shows the arrow without a click; (3) the evaluation bar shows a score only when game id **and** revision match (`evalIsCurrent`), pending otherwise, and a failed `/eval` fetch retries up to twice, 3 s apart. This replaces the "no longer fits the board" note described in the entry below.
+- **Not verified:** web tests (31) and `tsc` pass; the backend suite was **not run** (this machine has no `uv` or Stockfish), so the new `fen_before` assertion in `backend/tests/test_api.py` has only been syntax-checked; nobody has looked at the hint board in a browser; the branch had no CI. Run `cd backend && uv run pytest -q` and try the 💡 hint on the machine with Stockfish. `oxlint` has 3 warnings (two `set-state-in-effect`, one `exhaustive-deps`).
+- **History rewrite (owner approved, 2026-10-09):** the fix commit had been authored with the wrong GitHub identity, so `main` and `feat/eval-bar-and-arrow` were force-pushed with that commit and the PR 47 merge commit re-authored as `kirru261990` (hashes changed: now `e4ba5a0` and `b40f73b`; trees identical). **If you cloned or pulled `main` between the merge and this entry, run `git fetch && git reset --hard origin/main`.** GitHub may still serve the old commit by its hash. Lesson: set `git config user.name/user.email` (use the GitHub noreply address) before committing on a new machine; never take the identity from the logged-in `gh` account without checking it is the repo owner.
+- **Machine note:** this second Mac has the repo at `~/Projects/ai-chess-generator-coach`, Node and Python but no Homebrew, `uv`, `pnpm` (use `npx pnpm`) or Stockfish. `gh` has two accounts; the repo owner's (`kirru261990`) must be the active one to push.
+- **Next:** unchanged (training sessions and the hint ladder, MCP tools, T37, the demo clip).
+- **Branch / PR:** `docs/handoff-t38-review`
 
 ### 2026-10-09 · MacBook · Claude Code (session 24, part 3)
 - **First changes requested by the owner while practising (T38).** (1) **Evaluation bar:** a vertical bar beside the board in Practice, like chess sites: White's share from a logistic of the engine score (a mate fills the bar), a small label (+1.4, M3), words on hover, turns with the board for Black, refreshed after every move (mine and the opponent's). `GET /games/{id}/eval` (Practice only, 403 in Play, depth 12, White's side, returns the revision). The "this cost you about X pawns" sentence is gone. (2) **Arrow instead of words, only on request:** after the owner plays, a 💡 hint icon appears next to Why? (only when the move was not the best); the green arrow for the stronger move is drawn **only after the owner clicks it** ("don't be proactive"), is a suggestion only (any move may be played), toggles off, and shows a short note instead when the board has moved on so that its starting square no longer holds one of the player's pieces. The "Show the better move" button and the text are gone.
