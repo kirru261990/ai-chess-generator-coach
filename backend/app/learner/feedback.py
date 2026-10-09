@@ -54,7 +54,7 @@ def analyse_move(engine, board: chess.Board, move: chess.Move, user: chess.Color
     return best, engine.analyse(played, FEEDBACK_BUDGET, perspective=user)
 
 
-def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis) -> dict:
+def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis, opening: str | None = None) -> dict:
     """Feedback for `move` played from `board`. `best` is the analysis of `board` and `after` of the position after the
     move, both scored from the mover's side."""
     b = cp_equiv(best.score.cp, best.score.mate, best.score.mate_sign)
@@ -94,6 +94,16 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis)
     if b <= -DECIDED_CP and loss < OFF_BELOW_CP and not wrong:
         headline = "A hard position, and this was reasonable."
 
+    # How the move is labelled on the board: book > best > good > slip / mistake / blunder.
+    if opening and verdict in ("good", "slip"):
+        label = "book"
+        right.append(f"A known opening move ({opening}).")
+        headline = f"Book move: {opening}."
+    elif is_best:
+        label = "best"
+    else:
+        label = verdict  # good, slip, mistake or blunder
+
     better = None
     if not is_best and best.best_move:
         bm = chess.Move.from_uci(best.best_move)
@@ -107,6 +117,7 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis)
         "wrong": wrong,
         "better_move": better,
         "marks": marks,
+        "classification": {"key": label, "opening": opening if label == "book" else None},
         "played": {"uci": move.uci(), "text": describe_move(board, move)},
         "evidence": {
             "engine": best.engine,

@@ -16,6 +16,7 @@ from app.core.game import (
     take_back,
     to_pgn,
 )
+from app.core.openings import book_name
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL, Budget
 from app.learner.feedback import analyse_move, judge
@@ -165,7 +166,10 @@ def move_feedback(game_id: str, ply: int) -> dict:
     fen, user, uci = _practice_user_move(game_id, ply, "move feedback")
     board, move = chess.Board(fen), chess.Move.from_uci(uci)
     best, after = analyse_move(get_engine(), board, move, user)
-    return {"ply": ply, "fen_before": fen, **judge(board, move, best, after)}
+    played = board.copy()
+    played.push(move)
+    opening = book_name(played, ply + 1)  # a known opening position after this move, or None
+    return {"ply": ply, "fen_before": fen, **judge(board, move, best, after, opening)}
 
 
 def get_drafter(purpose: str = "coach"):
