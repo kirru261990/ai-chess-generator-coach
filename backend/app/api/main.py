@@ -34,7 +34,6 @@ _STATUS = {
     "revision_conflict": 409,
     "not_your_turn": 409,
     "takeback_not_allowed": 409,
-    "takeback_limit": 409,
     "nothing_to_take_back": 409,
 }
 

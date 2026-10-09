@@ -11,8 +11,8 @@ Invariants
   I2  the revision never goes down; it goes up by exactly 1 on every accepted action and never on a rejected one
   I3  the position and the outcome always equal the reference board's
   I4  `assisted` never goes from true to false; Practice start, switching to Practice, and any takeback set it
-  I5  takebacks happen only in Practice, only before resignation, at most MAX_TAKEBACKS in a row, and return to the
-      user's turn
+  I5  takebacks happen only in Practice, only before resignation, as often as the player likes (no cap), and return to
+      the user's turn
   I6  a duplicate (same move, same revision) never applies twice
   I7  nothing but a takeback (after mate or draw) is accepted once the game is over
   I8  the exported PGN replays to the same position and carries the same Assisted and Mode headers
@@ -28,7 +28,6 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.core.game import (
-    MAX_TAKEBACKS,
     GameError,
     Mode,
     make_move,
@@ -45,7 +44,7 @@ GARBAGE = ["", "0000", "zzzz", "e2e9", "a1a1", "e2e4e", "O-O", "E2E4", "e7e8x", 
 
 
 def snapshot(g):
-    return (tuple(g.moves), g.revision, g.mode, g.assisted, g.resigned_by, g.takebacks_in_row)
+    return (tuple(g.moves), g.revision, g.mode, g.assisted, g.resigned_by)
 
 
 def reference_outcome(board):
@@ -69,10 +68,16 @@ class Model:
         self.mode = game.mode
         self.assisted = game.assisted
         self.resigned = False
-        self.takebacks_in_row = 0
+        self.takebacks = 0  # how many takebacks happened (for the reach test only; there is no cap)
 
     def over(self):
         return self.resigned or reference_outcome(self.board) is not None
+
+
+def can_undo(model):
+    """Reference rule: there is a move of the user's to take back (the engine's reply goes with it)."""
+    plies = 2 if model.engine and model.board.turn == model.user else 1
+    return len(model.board.move_stack) >= plies
 
 
 def check(game, model, log):
@@ -85,7 +90,7 @@ def check(game, model, log):
         ref = reference_outcome(model.board)
         assert (None if out is None else (out["result"], out["termination"])) == ref, msg  # I3
     assert game.mode == model.mode and game.assisted == model.assisted, msg  # I4
-    assert game.takebacks_in_row == model.takebacks_in_row, msg  # I5
+    assert game.can_take_back == (model.mode is Mode.PRACTICE and not model.resigned and can_undo(model)), msg  # I5
 
 
 def run_sequence(seed):
@@ -161,9 +166,8 @@ def run_sequence(seed):
                 for _ in range(k):
                     model.board.pop()
                 model.assisted = True
-                model.takebacks_in_row += 1
+                model.takebacks += 1
                 assert model.mode is Mode.PRACTICE and not model.resigned, log  # I5
-                assert model.takebacks_in_row <= MAX_TAKEBACKS, log  # I5
                 if engine_level and len(model.board.move_stack) >= 1:
                     assert model.board.turn == user or k == 1, log  # I5: back to the user's turn
             elif action == "resign":
@@ -177,10 +181,6 @@ def run_sequence(seed):
             continue
         if accepted and action in ("move", "resign", "takeback"):
             assert game.revision == rev_before + 1, f"revision jumped on {action}; {log}"  # I2
-        if action == "move":
-            model.takebacks_in_row = 0
-        if action == "dup":
-            model.takebacks_in_row = 0
         check(game, model, log)
 
         # the engine replies when it is its turn and the game is on
@@ -222,7 +222,7 @@ def test_the_sequences_actually_reach_every_kind_of_state():
         seen["resigned"] += model.resigned
         seen["mated_or_drawn"] += reference_outcome(model.board) is not None
         seen["assisted_play"] += game.assisted and game.mode is Mode.PLAY
-        seen["takeback"] += model.takebacks_in_row > 0
+        seen["takeback"] += model.takebacks > 0
     assert seen["takeback"] > 5 and seen["assisted_play"] > 5 and seen["resigned"] > 0, seen
 
 

@@ -48,7 +48,7 @@ def _game_view(game: Game) -> dict:
         "user_color": _color(game.user_color),
         "mode": game.mode.value,
         "assisted": game.assisted,
-        "takebacks_left": game.takebacks_left,
+        "can_take_back": game.can_take_back,
         "engine_level": game.engine_level,
         "outcome": game.outcome(),
         # Legal moves for the user, so the client can highlight targets. The server still

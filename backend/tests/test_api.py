@@ -149,9 +149,9 @@ def test_legal_moves_are_listed_only_on_the_users_turn():
 def test_takeback_api_flow_and_errors():
     gid = client.post("/games", json={"mode": "practice"}).json()["id"]
     r = move(gid, "e2e4", 0, engine_reply=False).json()
-    assert r["takebacks_left"] == 2
+    assert r["can_take_back"] is True
     back = client.post(f"/games/{gid}/takeback").json()
-    assert back["moves"] == [] and back["takebacks_left"] == 0 and back["revision"] > r["revision"]
+    assert back["moves"] == [] and back["can_take_back"] is False and back["revision"] > r["revision"]
     assert move(gid, "e2e4", r["revision"], engine_reply=False).json()["error"] == "revision_conflict"
     play_gid = client.post("/games", json={"mode": "play"}).json()["id"]
     err = client.post(f"/games/{play_gid}/takeback")
