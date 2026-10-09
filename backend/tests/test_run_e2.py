@@ -57,6 +57,10 @@ def test_the_report_states_scoring_coverage(tmp_path):
 def test_an_interrupted_run_keeps_its_finished_items_and_can_resume(tmp_path, monkeypatch):
     import json
 
+    from app import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")  # never read the real usage ledger
+
     m = runner()
     m.ROOT = tmp_path  # keep all output in the temp folder
     set_dir = tmp_path / "evals" / "sets" / "e2_v9"
@@ -82,7 +86,7 @@ def test_an_interrupted_run_keeps_its_finished_items_and_can_resume(tmp_path, mo
 
     monkeypatch.setattr(m, "run_item", fake_run_item)
     monkeypatch.setattr(m, "Engine", FakeEngine)
-    monkeypatch.setattr(m, "AnthropicDrafter", lambda: type("D", (), {"model": "fake"})())
+    monkeypatch.setattr(m, "AnthropicDrafter", lambda **k: type("D", (), {"model": "fake"})())
     import pytest
 
     with pytest.raises(SystemExit) as stop:
@@ -96,3 +100,29 @@ def test_an_interrupted_run_keeps_its_finished_items_and_can_resume(tmp_path, mo
     final = json.loads((out / "results.json").read_text())
     assert [r["id"] for r in final["results"]] == ["e2-001", "e2-002", "e2-003"]
     assert final["meta"]["tokens"]["input"] == 30  # cost of the first part is kept
+
+
+def test_a_run_refuses_to_start_when_the_month_budget_cannot_cover_it(tmp_path, monkeypatch):
+    import json
+
+    import pytest
+
+    from app import config
+    from app.coach import usage
+
+    m = runner()
+    m.ROOT = tmp_path
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setenv("MONTHLY_BUDGET_USD", "0.05")  # a 3-item run needs about 0.12
+    set_dir = tmp_path / "evals" / "sets" / "e2_v9"
+    set_dir.mkdir(parents=True)
+    items = [{"id": f"e2-00{i}", "kind": "good", "fen": "x", "user_color": "white", "move_uci": "e2e4", "move_san": "e4"}
+             for i in (1, 2, 3)]
+    (set_dir / "positions.jsonl").write_text("".join(json.dumps(i) + "\n" for i in items))
+    called = []
+    monkeypatch.setattr(m, "run_item", lambda *a: called.append(1))
+    monkeypatch.setattr(m, "AnthropicDrafter", lambda **k: type("D", (), {"model": "fake"})())
+    with pytest.raises(SystemExit) as stop:
+        m.main(["run", "e2_v9"])
+    assert "before spending anything" in str(stop.value) and called == []
+    assert usage.summary()["spent_usd"] == 0

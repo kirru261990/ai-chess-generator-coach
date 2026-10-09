@@ -65,6 +65,13 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 
 ## Log
 
+### 2026-10-09 · MacBook · Claude Code (session 24)
+- **T36 done: usage ledger and budget guard** (owner asked after the credit ran out mid-eval, about 6.8 dollars of eval runs in two days). `backend/app/coach/usage.py`: every `AnthropicDrafter` call is recorded (model, tokens, estimated dollars, purpose) in `data/usage/usage_YYYY-MM.jsonl` (git-ignored); before each call the guard raises `CoachUnavailable` when the month's recorded spend has reached `MONTHLY_BUDGET_USD` (default 10), so the coach falls back to checked facts instead of failing; `GET /usage`; a spend line under the tabs (warns at 80%, says plainly at 100%); `run_e2.py` prints the month's spend and the run's estimated cost (about 0.04 dollars per position) and **refuses to start if the budget cannot cover it**. `.env.example` now has `MONTHLY_BUDGET_USD` (the unused INR line is gone). 29 new tests including a fake Anthropic client, month rollover, a corrupt ledger line, and the guard sending nothing.
+- **Limits:** dollars are estimates from list prices (unknown models are priced as the most expensive one); the Console is the authority and a spending limit there is the real hard stop (the owner should set one); the check is made before a call so one call can overshoot by its own cost; the ledger knows only calls made through this code. **A local estimate row of 6.80 dollars ("backfill_estimate_before_ledger") was added to the owner's October ledger for spend before the ledger existed**; edit or delete that line in `data/usage/usage_2026-10.jsonl` if the Console shows a different figure.
+- **Process note:** this branch was first cut from `main`, which lacked PR 43's runner changes, so two edits to `run_e2.py` silently did nothing until I noticed; it is now stacked on `feat/verifier-v2` (PR 43). Merge 43 first.
+- **Still blocked:** the final `e2_v2` run needs Anthropic credit. With the ledger it will show what is left of the month's budget before it starts.
+- **Branch / PR:** `feat/usage-budget-guard`, stacked on `feat/verifier-v2`
+
 ### 2026-10-08 · Cloud · Claude Code (session 23)
 - **Docs only:** the T13 "Status" line in `TASKS.md` still said the precision/recall script and report were to do; both were done on 2026-10-06. It now points at the report and names what is left for v2 (the rapid-games sample, ADR 0001 A3). The old `feat/t13-build-real-play-set` branch is fully on `main`; nothing else remains for T13.
 - **Branch / PR:** `docs/t13-status-note`

@@ -30,7 +30,7 @@ import chess
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app.coach import agent, verifier
+from app.coach import agent, usage, verifier
 from app.coach.llm import AnthropicDrafter, CoachUnavailable
 from app.engine.stockfish import Budget, Engine
 
@@ -40,6 +40,7 @@ EXTRACT_PROMPT = (PROMPTS / f"{EXTRACT_VERSION}.md").read_text()
 RAW_PROMPT = (PROMPTS / "raw_v1.md").read_text()
 SCORE_BUDGET = Budget(depth=18)
 CONFIGS = ("raw", "grounded", "verified")
+ESTIMATED_USD_PER_ITEM = 0.04  # measured: about 0.04 dollars per position across all three configs
 MAX_USD = 5.0  # the run aborts if it would cost more than this
 PRICE_PER_MTOK = {"input": 2.0, "output": 10.0}  # claude-sonnet-5-5 list price at the time of writing, USD
 
@@ -181,7 +182,7 @@ def rescore(path):
     data = json.loads(Path(path).read_text())
     set_dir = ROOT / data["meta"]["set"]
     items = {json.loads(line)["id"]: json.loads(line) for line in (set_dir / "positions.jsonl").read_text().splitlines() if line}
-    drafter, tally = AnthropicDrafter(), Tally()
+    drafter, tally = AnthropicDrafter(purpose="eval"), Tally()
     results = []
     with Engine() as engine:
         for old in data["results"]:
@@ -214,7 +215,7 @@ def main(argv):
     nums = [a for a in argv[1:] if a.isdigit()]
     limit = int(nums[0]) if nums else None
     items = items[:limit] if limit else items
-    drafter = AnthropicDrafter()
+    drafter = AnthropicDrafter(purpose="eval")
     tally = Tally()
     resume = Path(argv[argv.index("--resume") + 1]) if "--resume" in argv else None
     tag = "pilot_" if pilot else ("" if set_name == "e2_v1" else f"{set_name[3:]}_")
@@ -230,6 +231,14 @@ def main(argv):
     finished = {r["id"] for r in results}
     if finished:
         print(f"  resuming: {len(finished)} items already done", flush=True)
+    todo = [i for i in items if i["id"] not in finished]
+    month = usage.summary()
+    estimate = ESTIMATED_USD_PER_ITEM * len(todo)
+    print(f"  model spend this month so far ${month['spent_usd']:.2f} of ${month['budget_usd']:.2f}; this run needs about "
+          f"${estimate:.2f} for {len(todo)} items", flush=True)
+    if todo and month["remaining_usd"] < estimate:
+        sys.exit(f"stopped before spending anything: about ${estimate:.2f} is needed but only ${month['remaining_usd']:.2f} "
+                 "of this month's budget is left. Raise MONTHLY_BUDGET_USD in .env if you want to run it.")
     with Engine() as engine:
         for item in items:
             if item["id"] in finished:
