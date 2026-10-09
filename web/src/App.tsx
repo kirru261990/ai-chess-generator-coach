@@ -8,6 +8,7 @@ import {
   boardMarks,
   isUndoKey,
   feedbackIsCurrent,
+  feedbackToShow,
   latestUserPly,
   feedbackKey,
   storeFeedback,
@@ -202,7 +203,7 @@ export default function App() {
   }
 
   const highlights: Record<string, React.CSSProperties> = {}
-  const fb = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedback : null
+  const fb = game ? feedbackToShow(feedback, game) : null // Practice only: nothing here may leak into Play
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
