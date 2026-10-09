@@ -44,7 +44,10 @@ export type Feedback = {
   better_move: { uci: string; from: string; to: string; text: string } | null
   played: { uci: string; text: string }
   fen_before: string // the position the move was played in; the suggested move is only valid there
+  marks: { own_hanging: Mark[]; missed_free: Mark[] } // squares the board can mark (engine-confirmed misses only)
 }
+
+export type Mark = { square: string; piece: string } // piece = FEN letter, so a mark is drawn only while it is still there
 
 /** Index of the user's most recent move in a normal game (White moves on even plies), or null. */
 export function latestUserPly(moves: string[], userColor: 'white' | 'black'): number | null {
@@ -104,4 +107,45 @@ export function whyLabel(status: Why['status']): string {
   return status === 'verified' || status === 'repaired'
     ? 'Every claim in this explanation was checked by the engine and the rules.'
     : 'Limited to facts the engine and rules confirmed.'
+}
+
+/** The FEN letter of the piece on `square` in `fen`, or null when the square is empty or invalid. */
+export function pieceAt(fen: string, square: string): string | null {
+  const rows = fen.split(' ')[0].split('/')
+  const file = square.charCodeAt(0) - 97
+  const rank = Number(square[1])
+  if (rows.length !== 8 || file < 0 || file > 7 || !(rank >= 1 && rank <= 8)) return null
+  let col = 0
+  for (const ch of rows[8 - rank]) {
+    if (/\d/.test(ch)) col += Number(ch)
+    else {
+      if (col === file) return ch
+      col += 1
+    }
+  }
+  return null
+}
+
+/**
+ * Squares to mark on the live board after a suboptimal move: your own pieces that can be taken (red, and still red on the
+ * square where one was taken after the opponent's reply) and free pieces you could have taken (green, only while the same
+ * piece still stands there). Never marked after a good move.
+ */
+export function boardMarks(fen: string, fb: Pick<Feedback, 'verdict' | 'marks'>): { hanging: string[]; missed: string[] } {
+  if (fb.verdict === 'good') return { hanging: [], missed: [] }
+  const sameColour = (a: string, b: string) => (a === a.toUpperCase()) === (b === b.toUpperCase())
+  const hanging = fb.marks.own_hanging
+    .filter((m) => {
+      const now = pieceAt(fen, m.square)
+      return now === m.piece || (now !== null && !sameColour(now, m.piece)) // still there, or taken on this square
+    })
+    .map((m) => m.square)
+  const missed = fb.marks.missed_free.filter((m) => pieceAt(fen, m.square) === m.piece).map((m) => m.square)
+  return { hanging, missed }
+}
+
+/** Left arrow means Undo, unless the player is typing or choosing in a form control, or holds a modifier key. */
+export function isUndoKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }, targetTag: string, editable: boolean): boolean {
+  if (e.key !== 'ArrowLeft' || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false
+  return !editable && !['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag.toUpperCase())
 }
