@@ -69,6 +69,12 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis,
     free = missed_free.detect(board, move, evidence)
 
     right, wrong = [], []
+    # Squares the page can mark on the board (engine-confirmed misses only; piece = FEN letter, so the page can check
+    # the piece is still there when it draws the mark).
+    marks = {
+        "own_hanging": [{"square": h.square, "piece": h.piece} for h in hang.hanging] if hang.outcome == "missed" else [],
+        "missed_free": [{"square": h.square, "piece": h.piece} for h in free.hanging] if free.outcome == "missed" else [],
+    }
     if is_best:
         right.append("It is the engine's first choice.")
     if free.outcome == "taken":
@@ -110,6 +116,7 @@ def judge(board: chess.Board, move: chess.Move, best: Analysis, after: Analysis,
         "right": right,
         "wrong": wrong,
         "better_move": better,
+        "marks": marks,
         "played": {"uci": move.uci(), "text": describe_move(board, move)},
         "evidence": {
             "engine": best.engine,

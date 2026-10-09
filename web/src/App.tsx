@@ -5,6 +5,8 @@ import EvalBar from './EvalBar'
 import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
+  boardMarks,
+  isUndoKey,
   feedbackIsCurrent,
   latestUserPly,
   feedbackKey,
@@ -174,7 +176,7 @@ export default function App() {
   // Click a piece, then click where it should go. The board only ever shows the
   // server-confirmed position; legal targets come from the server's list.
   function onSquareClick({ piece, square }: { piece: { pieceType: string } | null; square: string }) {
-    if (!game || game.outcome || busy || engineToMove) return
+    if (!game || game.outcome || busy || engineToMove || previewing) return
     const mine = piece !== null && piece.pieceType[0] === (game.user_color === 'white' ? 'w' : 'b')
     if (mine) {
       setSelected(square === selected ? null : square)
@@ -201,12 +203,19 @@ export default function App() {
 
   const highlights: Record<string, React.CSSProperties> = {}
   const fb = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedback : null
+  // The hint switches the main board to the position BEFORE the player's last move, with the stronger move drawn on it.
+  // That is the only position the suggestion is valid for. Nothing can be played while it is showing.
+  const previewing = !!(fb?.better_move && showArrow)
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
   }
+  // After a suboptimal move: mark on the board your piece(s) that can be taken (red) and a free piece you missed (green).
+  const marks = game && fb ? boardMarks(game.fen, fb) : { hanging: [], missed: [] }
+  for (const sq of marks.hanging) highlights[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
+  for (const sq of marks.missed) highlights[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
   // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
   // player's move, so it is drawn on that saved position, never on the live board.
   const hintArrows = fb?.better_move
@@ -255,9 +264,32 @@ export default function App() {
   async function undo() {
     if (!game || busy) return
     setEngineFailed(false)
+    setShowArrow(false)
     const g = await call(`/games/${game.id}/takeback`, {})
     if (g) applyGame(g)
   }
+
+  // Esc leaves the hint view and returns to the live game.
+  useEffect(() => {
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowArrow(false)
+    }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [])
+
+  // Left arrow = Undo (Practice only, and not while typing in a box or choosing in a menu).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null
+      if (!isUndoKey(e, el?.tagName ?? '', !!el?.isContentEditable)) return
+      if (!game || game.mode !== 'practice' || !game.can_take_back || busy) return
+      e.preventDefault()
+      void undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   async function resign() {
     if (!game || game.outcome) return
@@ -307,6 +339,12 @@ export default function App() {
       </div>
       {game && (
         <>
+          {previewing && (
+            <p className="preview-banner" role="status">
+              Showing the position before your last move. The green arrow is a stronger move: only a suggestion, play what you
+              like. <button onClick={() => setShowArrow(false)}>Back to my game</button> (or press Esc)
+            </p>
+          )}
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
@@ -317,11 +355,17 @@ export default function App() {
             <div className="board">
             <Chessboard
               options={{
-                position: game.fen,
+                position: previewing && fb ? fb.fen_before : game.fen,
                 boardOrientation: game.user_color,
                 allowDragging: false,
                 onSquareClick,
-                squareStyles: highlights,
+                squareStyles: previewing && fb?.better_move
+                  ? {
+                      [fb.better_move.from]: { background: 'rgba(60, 170, 90, 0.35)' },
+                      [fb.better_move.to]: { background: 'rgba(60, 170, 90, 0.35)' },
+                    }
+                  : highlights,
+                arrows: previewing ? hintArrows : [],
                 id: 'main-board',
               }}
             />
@@ -340,6 +384,12 @@ export default function App() {
                   {fb.wrong.map((t) => (
                     <p key={t} className="fb-wrong">✗ {t}</p>
                   ))}
+                  {(marks.hanging.length > 0 || marks.missed.length > 0) && (
+                    <p className="fb-legend">
+                      {marks.hanging.length > 0 && <span><i className="sw red" /> your piece that can be taken (or was taken here) </span>}
+                      {marks.missed.length > 0 && <span><i className="sw green" /> a free piece you could have taken</span>}
+                    </p>
+                  )}
                   {(() => {
                     const mine = why && why.key === feedbackKey(fb) ? why : null
                     if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
@@ -366,25 +416,6 @@ export default function App() {
                     >
                       💡
                     </button>
-                  )}
-                  {fb.better_move && showArrow && (
-                    <div className="fb-arrow">
-                      <p>
-                        The green arrow shows a stronger move in the position before your last move. It is only a suggestion:
-                        play what you like{game.can_take_back ? ', or Undo to try it' : ''}.
-                      </p>
-                      <div className="hint-board">
-                        <Chessboard
-                          options={{
-                            position: fb.fen_before,
-                            boardOrientation: game.user_color,
-                            allowDragging: false,
-                            arrows: hintArrows,
-                            id: 'hint-board',
-                          }}
-                        />
-                      </div>
-                    </div>
                   )}
                 </>
               ) : (
@@ -413,7 +444,7 @@ export default function App() {
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
             {game.mode === 'practice' && (
-              <button onClick={() => void undo()} disabled={busy || !game.can_take_back}>
+              <button onClick={() => void undo()} disabled={busy || !game.can_take_back} title="Undo (left arrow key)">
                 Undo
               </button>
             )}
