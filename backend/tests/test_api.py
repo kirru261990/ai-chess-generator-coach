@@ -235,6 +235,7 @@ def test_feedback_for_a_practice_move():
     body = fb.json()
     assert body["ply"] == 0 and body["played"]["uci"] == "f2f3"
     assert body["verdict"] in {"good", "slip", "mistake", "blunder"} and body["better_move"]["uci"]
+    assert body["fen_before"].startswith("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w")  # the position the move was played in
     # the opponent's reply is not judged
     move(gid, "e2e4", r["revision"], engine_reply=False)
     assert client.get(f"/games/{gid}/feedback/1").json()["error"] == "invalid_ply"
