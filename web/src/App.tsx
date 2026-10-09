@@ -220,8 +220,17 @@ export default function App() {
   // The badge for the player's last move, drawn on the square it was played to (never on the hint view of the old position).
   const badge = fb && !previewing ? moveBadge(fb.classification.key, fb.classification.opening) : null
   const badgeSquare = fb ? fb.played.uci.slice(2, 4) : null
+  // The board library skips its own square styling when a custom square renderer returns something, so the renderer must
+  // apply the square styles itself (the move dots, the red and green marks, the hint tint). `boardStyles` is the one source.
+  const boardStyles: Record<string, React.CSSProperties> =
+    previewing && fb?.better_move
+      ? {
+          [fb.better_move.from]: { background: 'rgba(60, 170, 90, 0.35)' },
+          [fb.better_move.to]: { background: 'rgba(60, 170, 90, 0.35)' },
+        }
+      : highlights
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', ...boardStyles[square] }}>
       {children}
       {badge && square === badgeSquare && (
         <span className={`move-badge ${badge.tone}`} title={badge.label} aria-label={badge.label}>
@@ -373,12 +382,7 @@ export default function App() {
                 boardOrientation: game.user_color,
                 allowDragging: false,
                 onSquareClick,
-                squareStyles: previewing && fb?.better_move
-                  ? {
-                      [fb.better_move.from]: { background: 'rgba(60, 170, 90, 0.35)' },
-                      [fb.better_move.to]: { background: 'rgba(60, 170, 90, 0.35)' },
-                    }
-                  : highlights,
+                squareStyles: boardStyles,
                 arrows: previewing ? hintArrows : [],
                 squareRenderer,
                 id: 'main-board',
