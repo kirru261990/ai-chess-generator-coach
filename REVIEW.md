@@ -44,6 +44,11 @@ Go through these in order. A finding in sections 1 to 3 is a blocker.
 
 ### 3. Correctness
 
+- **Assistance must not leak into Play.** Switch a game to Play with feedback, marks, a hint view or a badge showing: all of it must
+  disappear and the board must be clickable (ADR 0005). Switch back and check nothing stale returns.
+- **Custom render hooks** (for example a board `squareRenderer`) can silently drop the library's own styling: check the move dots,
+  selection and marks still show.
+
 - Think about concurrency and state: stale revisions, retries that must be idempotent,
   a slow engine finishing after the game changed, two clicks in a row.
 - Edge cases in chess: promotion, en passant, pins, mate versus centipawn scores,
