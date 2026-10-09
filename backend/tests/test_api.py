@@ -373,3 +373,32 @@ def test_intent_facts_include_an_allowed_mate_found_by_the_engine(monkeypatch, t
     r = client.post("/synced-games/888/moments/2/intent", json={"text": "attack"}).json()
     assert r["status"] == "compared"
     assert "Your move allowed a forced checkmate against you." in r["gaps"]
+
+
+def test_eval_is_practice_only_and_404_for_unknown_games():
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    r = client.get(f"/games/{gid}/eval")
+    assert r.status_code == 403 and r.json()["error"] == "feedback_not_allowed"
+    assert client.get("/games/nope/eval").status_code == 404
+
+
+@needs_engine
+def test_eval_of_a_practice_position_comes_from_whites_side():
+    gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
+    r = client.get(f"/games/{gid}/eval").json()
+    assert r["revision"] == 0 and r["mate"] is None and -100 < r["cp"] < 100  # the start is about equal
+    # after 1.f3 e5 2.g4 Black mates in one: White's view is mate with mate_sign -1
+    rev = 0
+    for uci in ("f2f3", "e7e5", "g2g4"):
+        v = client.post(f"/games/{gid}/moves", json={"uci": uci, "expected_revision": rev, "engine_reply": False}).json() \
+            if uci != "e7e5" else None
+        if v:
+            rev = v["revision"]
+        else:  # the engine's side: the opponent's move is made through the core to keep this test deterministic
+            from app.api.store import GAMES
+            from app.core.game import make_move
+
+            make_move(GAMES[gid], uci, rev)
+            rev += 1
+    last = client.get(f"/games/{gid}/eval").json()
+    assert last["mate"] is not None and last["mate_sign"] == -1

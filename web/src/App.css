@@ -39,3 +39,17 @@
 .usage { text-align: center; font-size: 0.75em; margin: 4px 0 0; color: var(--text); }
 .usage.warn { color: #9a6700; }
 .usage.stop { color: #c0392b; font-weight: 600; }
+.board-row { display: flex; gap: 8px; align-items: stretch; max-width: 560px; margin: 0 auto; }
+.board-row .board { flex: 1; min-width: 0; margin: 0; }
+.evalbar { position: relative; width: 22px; flex: none; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; background: #403d39; }
+.evalbar.pending { opacity: 0.5; }
+.evalbar-white { background: #f0f0f0; transition: height 0.4s ease; }
+.evalbar-black { background: #403d39; transition: height 0.4s ease; }
+.evalbar-label { position: absolute; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; line-height: 1; padding: 3px 0; }
+.evalbar-label.bottom { bottom: 0; }
+.evalbar-label.top { top: 0; }
+.evalbar-label.on-white { color: #403d39; }
+.evalbar-label.on-black { color: #f0f0f0; }
+.fb-arrow { font-size: 0.9em; margin: 6px 0; }
+.hint { font-size: 1.1em; line-height: 1; padding: 2px 8px; margin-left: 6px; border-radius: 6px; cursor: pointer; }
+.hint.on { background: #fff3c4; border-color: #e0b030; }
