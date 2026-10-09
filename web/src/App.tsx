@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import './App.css'
+import EvalBar from './EvalBar'
+import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
   feedbackIsCurrent,
@@ -33,7 +35,11 @@ export default function App() {
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
-  const [showBetter, setShowBetter] = useState(false)
+  const [showArrow, setShowArrow] = useState(false) // never proactive: only when the player asks with the hint icon
+  const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
+  const askedEval = useRef('')
+  const evalRetries = useRef(0)
+  const [evalRetry, setEvalRetry] = useState(0)
   const asked = useRef('')
   const [why, setWhy] = useState<{ key: string; loading: boolean; data: Why | null } | null>(null)
   const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
@@ -93,7 +99,6 @@ export default function App() {
       .then((fb) => {
         if (fb && asked.current === key) {
           setFeedback(storeFeedback(fb, game.id, moves))
-          setShowBetter(false)
         }
       })
       .catch(() => {})
@@ -112,6 +117,39 @@ export default function App() {
       })
       .catch(() => {})
   }, [game])
+
+  // Practice only: the evaluation bar follows the position after every move, mine and the opponent's.
+  useEffect(() => {
+    if (!game || game.mode !== 'practice') return
+    const key = `${game.id}:${game.revision}`
+    if (askedEval.current === key) return
+    askedEval.current = key
+    const failed = () => {
+      // Allow one more try a little later; the bar shows "unavailable" meanwhile, never an older position's score.
+      if (askedEval.current !== key) return
+      askedEval.current = ''
+      if (evalRetries.current < 2) {
+        evalRetries.current += 1
+        setTimeout(() => setEvalRetry((n) => n + 1), 3000)
+      }
+    }
+    fetch(`${API}/games/${game.id}/eval`)
+      .then(async (res) => (res.ok ? ((await res.json()) as Evaluation) : null))
+      .then((ev) => {
+        if (ev && askedEval.current === key) {
+          evalRetries.current = 0
+          setEvaluation({ ...ev, gameId: game.id })
+        } else if (!ev) failed()
+      })
+      .catch(failed)
+  }, [game, evalRetry])
+
+  // The hint belongs to one judged move. Hide it whenever that changes (new move, takeback, new game), whether or not a
+  // fresh verdict has arrived yet, so replaying the same move after Undo never shows it without a new click.
+  const judgedKey = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedbackKey(feedback) : null
+  useEffect(() => {
+    setShowArrow(false)
+  }, [judgedKey])
 
   const engineToMove =
     !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
@@ -169,10 +207,11 @@ export default function App() {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
   }
-  if (fb && showBetter && fb.better_move) {
-    highlights[fb.better_move.from] = { background: 'rgba(60, 170, 90, 0.55)' }
-    highlights[fb.better_move.to] = { background: 'rgba(60, 170, 90, 0.55)' }
-  }
+  // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
+  // player's move, so it is drawn on that saved position, never on the live board.
+  const hintArrows = fb?.better_move
+    ? [{ startSquare: fb.better_move.from, endSquare: fb.better_move.to, color: 'rgba(60, 170, 90, 0.85)' }]
+    : []
   if (game && selected) {
     highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
     for (const m of game.legal_moves) {
@@ -268,7 +307,14 @@ export default function App() {
       </div>
       {game && (
         <>
-          <div className="board">
+          <div className="board-row">
+            {game.mode === 'practice' && (
+              <EvalBar
+                evaluation={evalIsCurrent(evaluation, game.id, game.revision) ? evaluation : null} // pending until this position's score arrives
+                orientation={game.user_color}
+              />
+            )}
+            <div className="board">
             <Chessboard
               options={{
                 position: game.fen,
@@ -279,6 +325,7 @@ export default function App() {
                 id: 'main-board',
               }}
             />
+            </div>
           </div>
           {game.mode === 'practice' && (
             <section className={`feedback ${fb ? fb.verdict : ''}`} aria-live="polite">
@@ -293,9 +340,6 @@ export default function App() {
                   {fb.wrong.map((t) => (
                     <p key={t} className="fb-wrong">✗ {t}</p>
                   ))}
-                  {fb.cost_pawns !== null && fb.cost_pawns > 0 && (
-                    <p className="fb-cost">This cost you about {fb.cost_pawns} pawns of advantage.</p>
-                  )}
                   {(() => {
                     const mine = why && why.key === feedbackKey(fb) ? why : null
                     if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
@@ -312,12 +356,36 @@ export default function App() {
                       </button>
                     )
                   })()}{' '}
-                  {fb.better_move &&
-                    (showBetter ? (
-                      <p>Better was: <strong>{fb.better_move.text}</strong> (shown in green on the board)</p>
-                    ) : (
-                      <button onClick={() => setShowBetter(true)}>Show the better move</button>
-                    ))}
+                  {fb.better_move && (
+                    <button
+                      className={`hint ${showArrow ? 'on' : ''}`}
+                      onClick={() => setShowArrow((v) => !v)}
+                      aria-pressed={showArrow}
+                      aria-label="Hint: show what could have been the best move"
+                      title="Hint: what could have been the best move?"
+                    >
+                      💡
+                    </button>
+                  )}
+                  {fb.better_move && showArrow && (
+                    <div className="fb-arrow">
+                      <p>
+                        The green arrow shows a stronger move in the position before your last move. It is only a suggestion:
+                        play what you like{game.takebacks_left > 0 ? ', or Undo to try it' : ''}.
+                      </p>
+                      <div className="hint-board">
+                        <Chessboard
+                          options={{
+                            position: fb.fen_before,
+                            boardOrientation: game.user_color,
+                            allowDragging: false,
+                            arrows: hintArrows,
+                            id: 'hint-board',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="fb-wait">Make a move and I will tell you what was right or wrong with it.</p>

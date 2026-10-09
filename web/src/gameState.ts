@@ -43,6 +43,7 @@ export type Feedback = {
   wrong: string[]
   better_move: { uci: string; from: string; to: string; text: string } | null
   played: { uci: string; text: string }
+  fen_before: string // the position the move was played in; the suggested move is only valid there
 }
 
 /** Index of the user's most recent move in a normal game (White moves on even plies), or null. */

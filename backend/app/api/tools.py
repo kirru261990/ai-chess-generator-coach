@@ -17,7 +17,7 @@ from app.core.game import (
     to_pgn,
 )
 from app.engine.shared import get_engine
-from app.engine.stockfish import MAX_LEVEL
+from app.engine.stockfish import MAX_LEVEL, Budget
 from app.learner.feedback import analyse_move, judge
 from app.learner.threats import threats
 
@@ -165,7 +165,7 @@ def move_feedback(game_id: str, ply: int) -> dict:
     fen, user, uci = _practice_user_move(game_id, ply, "move feedback")
     board, move = chess.Board(fen), chess.Move.from_uci(uci)
     best, after = analyse_move(get_engine(), board, move, user)
-    return {"ply": ply, **judge(board, move, best, after)}
+    return {"ply": ply, "fen_before": fen, **judge(board, move, best, after)}
 
 
 def get_drafter(purpose: str = "coach"):
@@ -190,3 +190,21 @@ def current_threats(game_id: str) -> dict:
         if game.outcome() is not None or board.turn != game.user_color:
             return {"revision": revision, "in_check": False, "threats": [], "detectors": {}}
     return {"revision": revision, **threats(board)}
+
+
+EVAL_BUDGET = Budget(depth=12)
+
+
+def position_eval(game_id: str) -> dict:
+    """The engine's evaluation of the current position, from White's side, for the Practice evaluation bar.
+
+    Practice only: an evaluation is assistance, and Play counts as real evidence (rule 4). The search runs outside the lock;
+    the revision is returned so a client can drop an answer for a position that has since changed."""
+    game = _get(game_id)
+    with game.lock:
+        if game.mode is not Mode.PRACTICE:
+            raise GameError("feedback_not_allowed", "the evaluation bar is only available in Practice mode")
+        board, revision = game.board(), game.revision
+    a = get_engine().analyse(board, EVAL_BUDGET, perspective=chess.WHITE)
+    return {"revision": revision, "cp": a.score.cp, "mate": a.score.mate, "mate_sign": a.score.mate_sign,
+            "depth": a.depth, "engine": a.engine}
