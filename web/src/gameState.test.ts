@@ -193,3 +193,23 @@ describe('moveBadge', () => {
     expect(moveBadge('book').label).toBe('Book move')
   })
 })
+
+import { feedbackToShow } from './gameState'
+
+describe('feedbackToShow', () => {
+  const stored = storeFeedback({ ply: 0, played: { uci: 'e2e4', text: '' }, marks: { own_hanging: [], missed_free: [] } } as unknown as Feedback, 'g1', ['e2e4'])
+  const g = (over: Partial<GameView>) => game({ id: 'g1', moves: ['e2e4'], user_color: 'white', mode: 'practice', ...over })
+
+  it('shows feedback in Practice for the current move', () => {
+    expect(feedbackToShow(stored, g({}))).toBe(stored)
+  })
+
+  it('shows nothing in Play, even though the moves have not changed (no assistance in Play)', () => {
+    expect(feedbackToShow(stored, g({ mode: 'play' }))).toBeNull()
+  })
+
+  it('still hides it after a takeback or in another game', () => {
+    expect(feedbackToShow(stored, g({ moves: [] }))).toBeNull()
+    expect(feedbackToShow(stored, g({ id: 'g2' }))).toBeNull()
+  })
+})
