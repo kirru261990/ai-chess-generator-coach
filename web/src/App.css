@@ -36,3 +36,6 @@
 .game-list button { width: 100%; text-align: left; }
 .moment-board { max-width: 360px; margin: 8px auto; }
 .moment textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; }
+.usage { text-align: center; font-size: 0.75em; margin: 4px 0 0; color: var(--text); }
+.usage.warn { color: #9a6700; }
+.usage.stop { color: #c0392b; font-weight: 600; }

@@ -168,15 +168,15 @@ def move_feedback(game_id: str, ply: int) -> dict:
     return {"ply": ply, **judge(board, move, best, after)}
 
 
-def get_drafter():
-    """The coach model, or None when no credential is configured. Replaced in tests."""
-    return AnthropicDrafter()
+def get_drafter(purpose: str = "coach"):
+    """The coach model; a missing key or an exhausted budget makes it raise CoachUnavailable when used. Replaced in tests."""
+    return AnthropicDrafter(purpose=purpose)
 
 
 def coach_why(game_id: str, ply: int) -> dict:
     """The coach's verified explanation of the user's move at `ply` (T17). Falls back to checked facts."""
     fen, user, uci = _practice_user_move(game_id, ply, "coaching")
-    return {"ply": ply, "played_uci": uci, **explain_move(get_engine(), get_drafter(), fen, user, uci)}
+    return {"ply": ply, "played_uci": uci, **explain_move(get_engine(), get_drafter("coach_why"), fen, user, uci)}
 
 
 def current_threats(game_id: str) -> dict:

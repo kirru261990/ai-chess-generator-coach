@@ -250,7 +250,7 @@ def test_coach_why_is_practice_only_and_falls_back_without_a_model(monkeypatch):
         def draft(self, system, messages):
             raise CoachUnavailable("no key")
 
-    monkeypatch.setattr(tools, "get_drafter", lambda: NoModel())
+    monkeypatch.setattr(tools, "get_drafter", lambda *a: NoModel())
     gid = client.post("/games", json={"mode": "play"}).json()["id"]
     move(gid, "e2e4", 0, engine_reply=False)
     assert client.post(f"/games/{gid}/coach/why", json={"ply": 0}).status_code == 403
@@ -270,7 +270,7 @@ def test_coach_why_returns_checked_facts_when_the_model_is_unavailable(monkeypat
         def draft(self, system, messages):
             raise CoachUnavailable("no key")
 
-    monkeypatch.setattr(tools, "get_drafter", lambda: NoModel())
+    monkeypatch.setattr(tools, "get_drafter", lambda *a: NoModel())
     gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
     move(gid, "f2f3", 0, engine_reply=False)
     r = client.post(f"/games/{gid}/coach/why", json={"ply": 0}).json()
@@ -318,7 +318,7 @@ def test_intent_endpoint_stores_the_answer_as_self_reported_and_builds_gaps_from
             return Draft('{"mentioned": []}', "fake")
 
     _fake_synced(monkeypatch, tmp_path)
-    monkeypatch.setattr(tools, "get_drafter", lambda: Model())
+    monkeypatch.setattr(tools, "get_drafter", lambda *a: Model())
     r = client.post("/synced-games/777/moments/0/intent", json={"text": "I wanted to castle"}).json()
     assert r["status"] == "compared" and r["self_reported"] is True
     assert r["gaps"] == ["A free knight on d5 was there to take."]
@@ -369,7 +369,7 @@ def test_intent_facts_include_an_allowed_mate_found_by_the_engine(monkeypatch, t
 
     monkeypatch.setattr(synced, "_stores", lambda: (Games(), Analyses()))
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(tools, "get_drafter", lambda: Model())
+    monkeypatch.setattr(tools, "get_drafter", lambda *a: Model())
     r = client.post("/synced-games/888/moments/2/intent", json={"text": "attack"}).json()
     assert r["status"] == "compared"
     assert "Your move allowed a forced checkmate against you." in r["gaps"]

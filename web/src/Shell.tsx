@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import App from './App'
 import BlindSpots from './BlindSpots'
 import ReviewPage from './Review'
+import { usageLabel, type Usage } from './usageLabel'
+
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 type Tab = 'play' | 'spots' | 'review'
 
 export default function Shell() {
   const [tab, setTab] = useState<Tab>('play')
+  const [usage, setUsage] = useState<Usage | null>(null)
+
+  // Refresh the spend line when the tab changes (a coach call may have happened since).
+  useEffect(() => {
+    fetch(`${API}/usage`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((u: Usage | null) => setUsage(u))
+      .catch(() => setUsage(null))
+  }, [tab])
+  const spend = usage ? usageLabel(usage) : null
+
   return (
     <>
       <nav className="tabs">
@@ -20,6 +34,7 @@ export default function Shell() {
           Blind spots
         </button>
       </nav>
+      {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
         <App />
