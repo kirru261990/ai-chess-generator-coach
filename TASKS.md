@@ -76,7 +76,8 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 
 ## Next (proposed order for the next session)
-1. **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such
+1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)
+   Original scope: **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such
 2. **Owner's open questions** (ADR 0005): arrow after a suboptimal move, +0.3 start evaluation, opening list download (T43)
 3. **T37** E2 follow-ups; **T45** MCP tools usable from a chat (a board image works in any client; an interactive board only where the client supports MCP interactive UI): spec Week 3
 4. **T23** CI with Stockfish, **T30** Postgres persistence, the demo clip (owner)
@@ -90,3 +91,5 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T27 (Month 2) Miss-likelihood model: P(a player at rating R misses a free piece / hangs a piece) in a given position. Data: Lichess games (labels from our detectors) and ChessBench (Stockfish values; code Apache-2.0, data CC0 + CC-BY 4.0, attribute CC-BY); Maia-2 (MIT) as features or baseline. Read the Maia group's published work first and state what is new; evaluate on a held-out month and report calibration, not just accuracy
 - [ ] T28 (V1.1) Maia-2 opponent at the user's rating band, with Stockfish skill levels as the fallback; label strength by Maia band, not as an Elo claim. First check its lowest supported rating band against users under 1000 (spec A2); record the model and weights version
 - [ ] T29 (optional; the licence is now decided) Board and client upgrades: chessground (GPL-3.0) for arrows and mobile, chessops for client-side hints (the backend stays authoritative), stockfish-web for in-browser analysis. Not needed now
+
+- **T46 (done 2026-10-10): stepped hint ladder in Practice.** `GET /games/{id}/hint?level=1..4` (scan prompt, kind of move, which piece, the move); `backend/app/learner/hints.py`; hints counted per position (`hints_used` in the game view). Next: store hints per game permanently for the progress page, and fade the scan prompt.

@@ -67,6 +67,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-10 · MacBook · Claude Code (session 24, part 12): the hint ladder (T46)
+- **Owner's question:** "to beat Stockfish I needed many hints; how do we teach users?" Answer given in chat (a per-move routine: what did their move attack, free material, check the landing square, checks/captures/threats, improve the worst piece; opening principles; as Black aim for equal and wait). Owner said yes to building stepped hints.
+- **Built on `feat/hint-ladder`:** the 💡 Hint is now four steps, one per press, never early: (1) a fixed habit prompt, (2) the *kind* of move (get out of check, castle, capture, check, danger, centre, develop, improve), from rules on the engine's best move and the `hanging_own` detector, (3) which piece (square tint + its move dots), (4) the move (arrow). `GET /games/{id}/hint?level=n` (Practice only, your turn, 403 in Play); the server returns only steps up to `n`. `Game.hints` records the highest step per position; `hints_used` (positions hinted) is in the game view and shown under the board. No LLM, no API spend. `/eval` still returns `best_move` but the page no longer uses it.
+- **Tests:** backend 648 (1 skipped), web 48, ruff and tsc clean. Checked live: all four steps and the arrow on the start position.
+- **Not done:** hints are not saved after the game (memory only), no "hints per game over time" page, the scan prompt does not fade yet, cue wording is basic.
+
 ### 2026-10-09 · MacBook · Claude Code (session 24, part 10)
 - **PRs 51, 52 and 53 reviewed and merged (T40 to T42).** The GPT review had two P2 findings, both the same rule-4 problem: Practice-only help staying visible after switching to Play (#51: the red and green board marks; #52: the hint view, which also blocked clicks in Play). Both reproduced and fixed at the source: every coaching visual (verdict, board marks, hint view, move badge) now goes through `feedbackToShow` in `web/src/gameState.ts`, which returns nothing unless the game is in Practice and the feedback is for the latest move of this game; `switchMode` also clears the hint view. The move badge (#53) is covered by the same gate. Tests: backend 641, web 44.
 - **`main` now contains everything the owner practises with:** unlimited Undo, left arrow = Undo, evaluation bar, the 💡 hint on the main board, red/green board marks, move badges with the starter opening book. The practice page can sit on `main`.

@@ -11,6 +11,7 @@ export type GameView = {
   legal_moves: string[]
   moves: string[]
   can_take_back: boolean
+  hints_used: number
 }
 
 /**
@@ -204,4 +205,13 @@ export function gameEndBanner(game: Pick<GameView, 'outcome' | 'user_color'>): {
     return { text: won ? 'Opponent resigned' : 'You resigned', celebrate: false }
   }
   return { text: won ? 'You win' : 'You lose', celebrate: false }
+}
+
+export type HintStep = { level: number; kind: string; text: string; from?: string; to?: string; uci?: string }
+export type Hint = { gameId: string; revision: number; level: number; steps: HintStep[]; hintsUsed: number }
+
+/** The hint ladder is Practice-only help for the position on the board: show it for nothing else (rule 4). */
+export function hintToShow(hint: Hint | null, game: Pick<GameView, 'id' | 'revision' | 'mode' | 'outcome'>): Hint | null {
+  if (!hint || game.mode !== 'practice' || game.outcome) return null
+  return hint.gameId === game.id && hint.revision === game.revision ? hint : null
 }

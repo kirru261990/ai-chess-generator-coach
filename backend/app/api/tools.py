@@ -20,6 +20,7 @@ from app.core.openings import book_name
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL, Budget
 from app.learner.feedback import analyse_move, judge
+from app.learner.hints import ladder
 from app.learner.threats import threats
 
 
@@ -49,6 +50,7 @@ def _game_view(game: Game) -> dict:
         "user_color": _color(game.user_color),
         "mode": game.mode.value,
         "assisted": game.assisted,
+        "hints_used": len(game.hints),
         "can_take_back": game.can_take_back,
         "engine_level": game.engine_level,
         "outcome": game.outcome(),
@@ -212,3 +214,26 @@ def position_eval(game_id: str) -> dict:
     a = get_engine().analyse(board, EVAL_BUDGET, perspective=chess.WHITE)
     return {"revision": revision, "cp": a.score.cp, "mate": a.score.mate, "mate_sign": a.score.mate_sign,
             "best_move": a.best_move, "depth": a.depth, "engine": a.engine}
+
+
+def hint(game_id: str, level: int) -> dict:
+    """The hint ladder for the position on the board: steps 1..level (Practice only; the user's turn, game still on).
+    The highest step asked for in each position is recorded, so the page can show how many hints a game needed."""
+    game = _get(game_id)
+    with game.lock:
+        if game.mode is not Mode.PRACTICE:
+            raise GameError("feedback_not_allowed", "hints are only available in Practice mode")
+        board, revision = game.board(), game.revision
+        if game.outcome() is not None or board.turn != game.user_color:
+            raise GameError("no_hint", "a hint is only available on your turn in a game still being played")
+    best = get_engine().analyse(board, EVAL_BUDGET).best_move
+    if best is None:
+        raise GameError("no_hint", "there is no legal move to suggest")
+    result = ladder(board, best, level)
+    with game.lock:
+        if game.revision == revision:  # only count the position that was asked about
+            game.hints[revision] = max(game.hints.get(revision, 0), result["level"])
+            hints_used = len(game.hints)
+        else:
+            hints_used = len(game.hints)
+    return {"revision": revision, "hints_used": hints_used, **result}

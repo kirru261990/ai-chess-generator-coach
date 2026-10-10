@@ -405,3 +405,23 @@ def test_eval_of_a_practice_position_comes_from_whites_side():
             rev += 1
     last = client.get(f"/games/{gid}/eval").json()
     assert last["mate"] is not None and last["mate_sign"] == -1
+
+
+def test_hint_is_practice_only():
+    gid = client.post("/games", json={"mode": "play"}).json()["id"]
+    r = client.get(f"/games/{gid}/hint?level=1")
+    assert r.status_code == 403 and r.json()["error"] == "feedback_not_allowed"
+    assert client.get("/games/nope/hint?level=1").status_code == 404
+
+
+@needs_engine
+def test_hint_ladder_reveals_step_by_step_and_counts_positions():
+    gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
+    assert client.get(f"/games/{gid}").json()["hints_used"] == 0
+    one = client.get(f"/games/{gid}/hint?level=1").json()
+    assert [s["level"] for s in one["steps"]] == [1] and one["hints_used"] == 1
+    four = client.get(f"/games/{gid}/hint?level=4").json()
+    assert four["hints_used"] == 1  # same position: still one position hinted
+    move = chess.Move.from_uci(four["steps"][3]["uci"])
+    assert move in chess.Board().legal_moves
+    assert client.get(f"/games/{gid}").json()["hints_used"] == 1
