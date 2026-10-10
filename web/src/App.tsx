@@ -364,12 +364,6 @@ export default function App() {
       </div>
       {game && (
         <>
-          {previewing && (
-            <p className="preview-banner" role="status">
-              Showing the position before your last move. The green arrow is a stronger move: only a suggestion, play what you
-              like. <button onClick={() => setShowArrow(false)}>Back to my game</button> (or press Esc)
-            </p>
-          )}
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
