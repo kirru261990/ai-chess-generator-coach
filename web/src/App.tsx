@@ -224,10 +224,6 @@ export default function App() {
   const badgeSquare = fb ? fb.played.uci.slice(2, 4) : null
   // The board library skips its own square styling when a custom square renderer returns something, so the renderer must
   // apply the square styles itself (the move dots, the red and green marks, the hint tint). `boardStyles` is the one source.
-  const boardStyles: Record<string, React.CSSProperties> =
-    hintUci
-      ? { ...highlights, [hintUci.slice(0, 2)]: { background: 'rgba(60, 170, 90, 0.35)' }, [hintUci.slice(2, 4)]: { background: 'rgba(60, 170, 90, 0.35)' } }
-      : highlights
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...boardStyles[square] }}>
       {children}
@@ -251,6 +247,14 @@ export default function App() {
         }
       }
     }
+  }
+  const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
+  const boardStyles: Record<string, React.CSSProperties> = { ...highlights }
+  if (hintUci) {
+    // The hinted piece gets its own move dots, and the suggested move is tinted green.
+    for (const m of game?.legal_moves ?? []) if (m.startsWith(hintUci.slice(0, 2))) boardStyles[m.slice(2, 4)] = { background: DOT }
+    boardStyles[hintUci.slice(0, 2)] = { background: 'rgba(60, 170, 90, 0.35)' }
+    boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
   }
 
   async function switchMode(next: 'play' | 'practice') {
