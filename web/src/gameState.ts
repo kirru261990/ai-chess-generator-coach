@@ -179,11 +179,29 @@ export function moveBadge(key: MoveClass, opening?: string | null): { symbol: st
   return table[key]
 }
 
-/** What to print on the board when the game ends by checkmate: confetti only if the player won. */
-export function checkmateBanner(game: Pick<GameView, 'outcome' | 'user_color'>): { text: string; celebrate: boolean } | null {
-  if (!game.outcome || game.outcome.termination !== 'checkmate') return null
-  const winner = game.outcome.result === '1-0' ? 'white' : 'black'
-  return winner === game.user_color
-    ? { text: 'Checkmate! You win', celebrate: true }
-    : { text: 'Checkmated', celebrate: false }
+const DRAW_REASONS: Record<string, string> = {
+  stalemate: 'stalemate',
+  insufficient_material: 'insufficient material',
+  threefold_repetition: 'repetition',
+  fivefold_repetition: 'repetition',
+  fifty_moves: 'the 50-move rule',
+  seventyfive_moves: 'the 75-move rule',
+}
+
+/** What to print on the board when the game ends; confetti only if the player won by checkmate. */
+export function gameEndBanner(game: Pick<GameView, 'outcome' | 'user_color'>): { text: string; celebrate: boolean } | null {
+  const o = game.outcome
+  if (!o) return null
+  if (o.result === '1/2-1/2') {
+    const why = DRAW_REASONS[o.termination]
+    return { text: why ? `Draw by ${why}` : 'Draw', celebrate: false }
+  }
+  const won = (o.result === '1-0' ? 'white' : 'black') === game.user_color
+  if (o.termination === 'checkmate') {
+    return won ? { text: 'Checkmate! You win', celebrate: true } : { text: 'Checkmated', celebrate: false }
+  }
+  if (o.termination === 'resignation') {
+    return { text: won ? 'Opponent resigned' : 'You resigned', celebrate: false }
+  }
+  return { text: won ? 'You win' : 'You lose', celebrate: false }
 }

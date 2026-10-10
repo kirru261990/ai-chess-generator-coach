@@ -214,14 +214,20 @@ describe('feedbackToShow', () => {
   })
 })
 
-import { checkmateBanner } from './gameState'
-describe('checkmateBanner', () => {
+import { gameEndBanner } from './gameState'
+describe('gameEndBanner', () => {
+  const b = (result: string, termination: string, user_color: 'white' | 'black' = 'white') =>
+    gameEndBanner({ outcome: { result, termination }, user_color })
   it('celebrates only when the player delivers mate', () => {
-    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'checkmate' }, user_color: 'white' })).toEqual({ text: 'Checkmate! You win', celebrate: true })
-    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'checkmate' }, user_color: 'black' })).toEqual({ text: 'Checkmated', celebrate: false })
+    expect(b('1-0', 'checkmate')).toEqual({ text: 'Checkmate! You win', celebrate: true })
+    expect(b('1-0', 'checkmate', 'black')).toEqual({ text: 'Checkmated', celebrate: false })
   })
-  it('stays silent for other endings', () => {
-    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'resignation' }, user_color: 'white' })).toBeNull()
-    expect(checkmateBanner({ outcome: null, user_color: 'white' })).toBeNull()
+  it('shows resignation and draws without confetti', () => {
+    expect(b('0-1', 'resignation')).toEqual({ text: 'You resigned', celebrate: false })
+    expect(b('1/2-1/2', 'stalemate')).toEqual({ text: 'Draw by stalemate', celebrate: false })
+    expect(b('1/2-1/2', 'fifty_moves')?.text).toBe('Draw by the 50-move rule')
+  })
+  it('shows nothing while the game is on', () => {
+    expect(gameEndBanner({ outcome: null, user_color: 'white' })).toBeNull()
   })
 })

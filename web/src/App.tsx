@@ -6,7 +6,7 @@ import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
   boardMarks,
-  checkmateBanner,
+  gameEndBanner,
   isUndoKey,
   moveBadge,
   feedbackIsCurrent,
@@ -325,7 +325,7 @@ export default function App() {
     if (g) applyGame(g)
   }
 
-  const mate = game ? checkmateBanner(game) : null
+  const mate = game ? gameEndBanner(game) : null
   const status = !game
     ? ''
     : game.outcome
