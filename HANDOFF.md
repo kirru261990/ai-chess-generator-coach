@@ -67,6 +67,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-10 · MacBook · Claude Code (session 24, part 13): practice-first page layout
+- **Owner's request:** Practice as the default, the hint steps easier to find, a more intuitive page, Review and Blind spots hidden for now. (No design skill is installed here, so this follows plain usability rules.)
+- **Done on `feat/practice-layout` (stacked on PR 58):** new games start in **Practice**; the board is on the left and everything you act on sits **beside it** (status, a **Need help?** card, the last-move feedback, warnings, Undo/Resign/PGN), stacking under the board on narrow screens. The hint card shows all four steps up front (**1 Think, 2 Idea, 3 Piece, 4 Move**) as a progress strip, a green button for the next step, revealed steps listed, and "used on N positions". The Review and Blind spots tabs are hidden by one flag, `SHOW_ANALYSIS_TABS` in `web/src/Shell.tsx` (code and routes untouched).
+- **Not done:** no browser tests; phone width only checked by the stacking rule; Play is reached via the Mode dropdown or "Switch to Play".
+
 ### 2026-10-10 · MacBook · Claude Code (session 24, part 12): the hint ladder (T46)
 - **Owner's question:** "to beat Stockfish I needed many hints; how do we teach users?" Answer given in chat (a per-move routine: what did their move attack, free material, check the landing square, checks/captures/threats, improve the worst piece; opening principles; as Black aim for equal and wait). Owner said yes to building stepped hints.
 - **Built on `feat/hint-ladder`:** the 💡 Hint is now four steps, one per press, never early: (1) a fixed habit prompt, (2) the *kind* of move (get out of check, castle, capture, check, danger, centre, develop, improve), from rules on the engine's best move and the `hanging_own` detector, (3) which piece (square tint + its move dots), (4) the move (arrow). `GET /games/{id}/hint?level=n` (Practice only, your turn, 403 in Play); the server returns only steps up to `n`. `Game.hints` records the highest step per position; `hints_used` (positions hinted) is in the game view and shown under the board. No LLM, no API spend. `/eval` still returns `best_move` but the page no longer uses it.

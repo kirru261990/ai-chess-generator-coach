@@ -8,6 +8,9 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 type Tab = 'play' | 'spots' | 'review'
 
+// Review and Blind spots are built but hidden for now, to keep the page simple while practising. Flip to show them again.
+const SHOW_ANALYSIS_TABS = false
+
 export default function Shell() {
   const [tab, setTab] = useState<Tab>('play')
   const [usage, setUsage] = useState<Usage | null>(null)
@@ -23,6 +26,7 @@ export default function Shell() {
 
   return (
     <>
+      {SHOW_ANALYSIS_TABS && (
       <nav className="tabs">
         <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')}>
           Play
@@ -34,6 +38,7 @@ export default function Shell() {
           Blind spots
         </button>
       </nav>
+      )}
       {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
