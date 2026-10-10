@@ -31,6 +31,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
 
+const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
 const CONFETTI = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#ffd166', '#9b5de5']
 
 export default function App() {
@@ -40,7 +41,7 @@ export default function App() {
   const [engineFailed, setEngineFailed] = useState(false)
   const [color, setColor] = useState<'white' | 'black'>('white')
   const [level, setLevel] = useState(3)
-  const [mode, setMode] = useState<'play' | 'practice'>('play')
+  const [mode, setMode] = useState<'play' | 'practice'>('practice') // Practice first: that is where the coaching is
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
@@ -394,7 +395,8 @@ export default function App() {
         </button>
       </div>
       {game && (
-        <>
+        <div className="play-layout">
+          <div className="board-col">
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
@@ -429,25 +431,45 @@ export default function App() {
             />
             </div>
           </div>
+          </div>
+          <aside className="side-col">
+          <p className="status-line">
+            <strong>{status}</strong> · {game.mode === 'play' ? 'Play' : 'Practice'}
+            {game.assisted && <span className="badge"> assisted</span>}
+          </p>
           {canHint && (
-            <section className="hint-panel" aria-live="polite">
+            <section className="hint-card" aria-live="polite">
+              <h3>
+                Need help? <span className="hint-count">{game.hints_used > 0 ? `used on ${game.hints_used} position${game.hints_used === 1 ? '' : 's'}` : 'try it yourself first'}</span>
+              </h3>
+              <ol className="stepper" aria-label="Hint steps">
+                {HINT_STEPS.map((label, i) => {
+                  const n = i + 1
+                  const reached = (shownHint?.level ?? 0) >= n
+                  return (
+                    <li key={label} className={reached ? 'done' : n === (shownHint?.level ?? 0) + 1 ? 'next' : ''}>
+                      <span>{n}</span> {label}
+                    </li>
+                  )
+                })}
+              </ol>
               {shownHint && (
-                <ol className="hint-steps">
+                <ul className="hint-steps">
                   {shownHint.steps.map((st) => (
-                    <li key={st.level}>{st.text}</li>
+                    <li key={st.level}>
+                      <b>{HINT_STEPS[st.level - 1]}:</b> {st.text}
+                    </li>
                   ))}
-                </ol>
+                </ul>
               )}
-              <button
-                className={`hint ${shownHint ? 'on' : ''}`}
-                onClick={() => void askHint((shownHint?.level ?? 0) + 1)}
-                disabled={hintBusy || (!!shownHint && shownHint.level >= shownHint.maxLevel)}
-                title="Hints come one step at a time: a habit prompt, the kind of move, the piece, what it does, then the move"
-              >
-                {shownHint ? `💡 Next hint (${shownHint.level} of ${shownHint.maxLevel} shown)` : '💡 Hint'}
-              </button>
-              {shownHint && <button onClick={() => setHint(null)}>Hide</button>}
-              {game.hints_used > 0 && <span className="hint-count"> Positions hinted this game: {game.hints_used}</span>}
+              <div className="hint-actions">
+                {(shownHint?.level ?? 0) < HINT_STEPS.length && (
+                  <button className="primary" onClick={() => void askHint((shownHint?.level ?? 0) + 1)} disabled={hintBusy}>
+                    {shownHint ? `Show step ${shownHint.level + 1}: ${HINT_STEPS[shownHint.level]}` : '💡 Give me a hint'}
+                  </button>
+                )}
+                {shownHint && <button onClick={() => setHint(null)}>Hide</button>}
+              </div>
               {hintError && (
                 <p role="alert" className="error">
                   {hintError}
@@ -505,10 +527,6 @@ export default function App() {
               ))}
             </section>
           )}
-          <p>
-            {status} · {game.mode === 'play' ? 'Play' : 'Practice'}
-            {game.assisted && <span className="badge"> assisted</span>}
-          </p>
           <div className="controls">
             <button
               onClick={() => void switchMode(game.mode === 'play' ? 'practice' : 'play')}
@@ -528,7 +546,8 @@ export default function App() {
               Download PGN
             </a>
           </div>
-        </>
+          </aside>
+        </div>
       )}
       {error && (
         <p role="alert" className="error">

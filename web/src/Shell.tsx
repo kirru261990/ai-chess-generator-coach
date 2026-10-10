@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { showAnalysisTabs } from './analysisTabs'
 import App from './App'
 import BlindSpots from './BlindSpots'
 import ReviewPage from './Review'
@@ -7,6 +8,9 @@ import { usageLabel, type Usage } from './usageLabel'
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 type Tab = 'play' | 'spots' | 'review'
+
+// Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
+const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
 
 export default function Shell() {
   const [tab, setTab] = useState<Tab>('play')
@@ -23,6 +27,7 @@ export default function Shell() {
 
   return (
     <>
+      {SHOW_ANALYSIS_TABS && (
       <nav className="tabs">
         <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')}>
           Play
@@ -34,6 +39,7 @@ export default function Shell() {
           Blind spots
         </button>
       </nav>
+      )}
       {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>

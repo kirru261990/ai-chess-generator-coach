@@ -76,3 +76,25 @@
 .hint-panel { max-width: 560px; margin: 8px auto; text-align: left; font-size: 0.9em; }
 .hint-steps { margin: 4px 0 8px; padding-left: 22px; }
 .hint-count { color: #666; margin-left: 8px; }
+
+/* Practice layout: board on the left, everything you act on beside it (no scrolling down for hints or feedback). */
+.app { max-width: 1000px; }
+.play-layout { display: grid; grid-template-columns: minmax(0, 560px) minmax(260px, 1fr); gap: 20px; align-items: start; text-align: left; }
+.side-col { display: flex; flex-direction: column; gap: 10px; }
+.side-col > * { margin: 0; }
+.status-line { font-size: 1.05em; }
+@media (max-width: 860px) { .play-layout { grid-template-columns: 1fr; } .app { max-width: 560px; } }
+.hint-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.hint-card h3 { margin: 0 0 8px; font-size: 1em; color: var(--text-h); }
+.hint-count { font-weight: 400; font-size: 0.8em; color: var(--text); margin-left: 6px; }
+.stepper { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 8px; font-size: 0.8em; }
+.stepper li { flex: 1; text-align: center; border: 1px solid var(--border); border-radius: 14px; padding: 3px 4px; opacity: 0.6; }
+.stepper li span { font-weight: 700; }
+.stepper li.next { opacity: 1; border-color: #e0b030; }
+.stepper li.done { opacity: 1; background: #fff3c4; border-color: #e0b030; color: #3a2e00; }
+.hint-steps { margin: 6px 0; padding-left: 18px; font-size: 0.9em; }
+.hint-steps li { margin: 4px 0; }
+.hint-actions { display: flex; gap: 8px; align-items: center; }
+button.primary { background: #3caa5a; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+button.primary:disabled { opacity: 0.5; cursor: default; }
+.side-col .controls { justify-content: flex-start; flex-wrap: wrap; margin: 0; }
