@@ -35,6 +35,7 @@ _STATUS = {
     "not_your_turn": 409,
     "takeback_not_allowed": 409,
     "nothing_to_take_back": 409,
+    "no_hint": 409,
 }
 
 
@@ -107,6 +108,11 @@ def coach_why(game_id: str, body: WhyIn):
 @app.get("/games/{game_id}/eval")
 def position_eval(game_id: str):
     return tools.position_eval(game_id)
+
+
+@app.get("/games/{game_id}/hint")
+def hint(game_id: str, level: int = 1):
+    return tools.hint(game_id, level)
 
 
 @app.get("/games/{game_id}/threats")

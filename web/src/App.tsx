@@ -3,6 +3,7 @@ import { Chessboard } from 'react-chessboard'
 import './App.css'
 import EvalBar from './EvalBar'
 import { evalIsCurrent, type Evaluation } from './evaluation'
+import { requestHint } from './hintRequest'
 import {
   acceptGame,
   boardMarks,
@@ -10,6 +11,8 @@ import {
   isUndoKey,
   moveBadge,
   feedbackToShow,
+  hintToShow,
+  type Hint,
   latestUserPly,
   feedbackKey,
   storeFeedback,
@@ -41,7 +44,9 @@ export default function App() {
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
-  const [showArrow, setShowArrow] = useState(false) // never proactive: only when the player asks with the hint icon
+  const [hint, setHint] = useState<Hint | null>(null) // never proactive: only when the player asks; one more step per press
+  const [hintBusy, setHintBusy] = useState(false)
+  const [hintError, setHintError] = useState<string | null>(null) // a failed hint request, shown next to the button to retry
   const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
   const askedEval = useRef('')
   const evalRetries = useRef(0)
@@ -154,7 +159,8 @@ export default function App() {
   // never shown for a position it was not asked for.
   const positionKey = game ? `${game.id}:${game.revision}` : null
   useEffect(() => {
-    setShowArrow(false)
+    setHint(null)
+    setHintError(null)
   }, [positionKey])
 
   const engineToMove =
@@ -209,9 +215,10 @@ export default function App() {
   const fb = game ? feedbackToShow(feedback, game) : null // Practice only: nothing here may leak into Play
   // The hint is the engine's best move for the position on the board now (the next move). To fix an earlier move, Undo
   // first and then ask. It is only a suggestion; the player can play anything.
-  const currentEval = game && evalIsCurrent(evaluation, game.id, game.revision) ? evaluation : null
   const canHint = !!game && game.mode === 'practice' && !game.outcome && !engineToMove
-  const hintUci = canHint && showArrow ? (currentEval?.best_move ?? null) : null
+  const shownHint = game && canHint ? hintToShow(hint, game) : null
+  const hintFrom = shownHint?.steps.find((st) => st.kind === 'piece')?.from ?? null // step 3: which piece
+  const hintUci = shownHint?.steps.find((st) => st.kind === 'move')?.uci ?? null // last step: the move itself
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
@@ -253,11 +260,11 @@ export default function App() {
   }
   const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
   const boardStyles: Record<string, React.CSSProperties> = { ...highlights }
-  if (hintUci) {
+  if (hintFrom) {
     // The hinted piece gets its own move dots, and the suggested move is tinted green.
-    for (const m of game?.legal_moves ?? []) if (m.startsWith(hintUci.slice(0, 2))) boardStyles[m.slice(2, 4)] = { background: DOT }
-    boardStyles[hintUci.slice(0, 2)] = { background: 'rgba(60, 170, 90, 0.35)' }
-    boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
+    for (const m of game?.legal_moves ?? []) if (m.startsWith(hintFrom)) boardStyles[m.slice(2, 4)] = { background: DOT }
+    boardStyles[hintFrom] = { background: 'rgba(60, 170, 90, 0.35)' }
+    if (hintUci) boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
   }
 
   async function switchMode(next: 'play' | 'practice') {
@@ -269,7 +276,7 @@ export default function App() {
       )
     )
       return
-    setShowArrow(false) // leave the hint view whenever the mode changes
+    setHint(null) // leave the hint view whenever the mode changes
     const g = await call(`/games/${game.id}/mode`, { mode: next })
     if (g) applyGame(g)
   }
@@ -290,18 +297,37 @@ export default function App() {
     }
   }
 
+  async function askHint(level: number) {
+    if (!game || hintBusy) return
+    const g = game
+    setHintBusy(true)
+    setHintError(null)
+    try {
+      const r = await requestHint(API, g.id, level)
+      if (!r.ok) {
+        setHintError(r.message)
+        return
+      }
+      const data = r.data
+      setHint({ gameId: g.id, revision: data.revision, level: data.level, maxLevel: data.max_level, steps: data.steps, hintsUsed: data.hints_used })
+      setGame((cur) => (cur && cur.id === g.id && cur.revision === data.revision ? { ...cur, hints_used: data.hints_used } : cur))
+    } finally {
+      setHintBusy(false)
+    }
+  }
+
   async function undo() {
     if (!game || busy) return
     setEngineFailed(false)
-    setShowArrow(false)
+    setHint(null)
     const g = await call(`/games/${game.id}/takeback`, {})
     if (g) applyGame(g)
   }
 
-  // Esc hides the hint arrow.
+  // Esc hides the hint.
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
-      if (e.key === 'Escape') setShowArrow(false)
+      if (e.key === 'Escape') setHint(null)
     }
     window.addEventListener('keydown', onEsc)
     return () => window.removeEventListener('keydown', onEsc)
@@ -404,15 +430,30 @@ export default function App() {
             </div>
           </div>
           {canHint && (
-            <button
-              className={`hint ${showArrow ? 'on' : ''}`}
-              onClick={() => setShowArrow((v) => !v)}
-              aria-pressed={showArrow}
-              aria-label="Hint: show the best move for this position"
-              title="Hint: show the best move for the next move"
-            >
-              💡 Hint
-            </button>
+            <section className="hint-panel" aria-live="polite">
+              {shownHint && (
+                <ol className="hint-steps">
+                  {shownHint.steps.map((st) => (
+                    <li key={st.level}>{st.text}</li>
+                  ))}
+                </ol>
+              )}
+              <button
+                className={`hint ${shownHint ? 'on' : ''}`}
+                onClick={() => void askHint((shownHint?.level ?? 0) + 1)}
+                disabled={hintBusy || (!!shownHint && shownHint.level >= shownHint.maxLevel)}
+                title="Hints come one step at a time: a habit prompt, the kind of move, the piece, what it does, then the move"
+              >
+                {shownHint ? `💡 Next hint (${shownHint.level} of ${shownHint.maxLevel} shown)` : '💡 Hint'}
+              </button>
+              {shownHint && <button onClick={() => setHint(null)}>Hide</button>}
+              {game.hints_used > 0 && <span className="hint-count"> Positions hinted this game: {game.hints_used}</span>}
+              {hintError && (
+                <p role="alert" className="error">
+                  {hintError}
+                </p>
+              )}
+            </section>
           )}
           {game.mode === 'practice' && (
             <section className={`feedback ${fb ? fb.verdict : ''}`} aria-live="polite">

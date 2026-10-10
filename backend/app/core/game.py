@@ -39,6 +39,8 @@ class Game:
     # Counts every state change (move, resignation, takeback). It only ever goes up, so a
     # stale client revision can never match a position that was reached after an undo.
     revision: int = 0
+    # Practice hint ladder: position revision -> highest step revealed there. Its size is the number of positions hinted.
+    hints: dict[int, int] = field(default_factory=dict)
     # Every state change validates and mutates under this lock, so two requests can never
     # both pass the same revision check. Reentrant: callers may hold it across several steps.
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)

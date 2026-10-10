@@ -14,6 +14,7 @@ const game = (over: Partial<GameView> = {}): GameView => ({
   legal_moves: [],
   moves: [],
   can_take_back: false,
+  hints_used: 0,
   ...over,
 })
 
@@ -229,5 +230,19 @@ describe('gameEndBanner', () => {
   })
   it('shows nothing while the game is on', () => {
     expect(gameEndBanner({ outcome: null, user_color: 'white' })).toBeNull()
+  })
+})
+
+import { hintToShow, type Hint } from './gameState'
+describe('hintToShow', () => {
+  const hint: Hint = { gameId: 'g1', revision: 3, level: 2, maxLevel: 5, steps: [], hintsUsed: 1 }
+  const g = (over = {}) => ({ id: 'g1', revision: 3, mode: 'practice', outcome: null, ...over })
+  it('shows only for this position in Practice', () => {
+    expect(hintToShow(hint, g())).toBe(hint)
+    expect(hintToShow(hint, g({ revision: 4 }))).toBeNull() // the board has moved on
+    expect(hintToShow(hint, g({ id: 'g2' }))).toBeNull()
+    expect(hintToShow(hint, g({ mode: 'play' }))).toBeNull()
+    expect(hintToShow(hint, g({ outcome: { result: '1-0', termination: 'checkmate' } }))).toBeNull()
+    expect(hintToShow(null, g())).toBeNull()
   })
 })
