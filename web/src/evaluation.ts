@@ -1,6 +1,6 @@
 // The evaluation bar. Numbers come from the engine (via the backend); this file only turns them into a bar and a label.
 
-export type Evaluation = { revision: number; cp: number | null; mate: number | null; mate_sign: number | null }
+export type Evaluation = { revision: number; cp: number | null; mate: number | null; mate_sign: number | null; best_move?: string | null }
 
 /** Share of the bar that belongs to White, 0..1. Logistic in centipawns; a mate fills the bar for the side that mates. */
 export function whiteShare(e: Pick<Evaluation, 'cp' | 'mate' | 'mate_sign'>): number {
