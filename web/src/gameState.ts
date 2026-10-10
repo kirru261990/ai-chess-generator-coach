@@ -178,3 +178,12 @@ export function moveBadge(key: MoveClass, opening?: string | null): { symbol: st
   }
   return table[key]
 }
+
+/** What to print on the board when the game ends by checkmate: confetti only if the player won. */
+export function checkmateBanner(game: Pick<GameView, 'outcome' | 'user_color'>): { text: string; celebrate: boolean } | null {
+  if (!game.outcome || game.outcome.termination !== 'checkmate') return null
+  const winner = game.outcome.result === '1-0' ? 'white' : 'black'
+  return winner === game.user_color
+    ? { text: 'Checkmate! You win', celebrate: true }
+    : { text: 'Checkmated', celebrate: false }
+}

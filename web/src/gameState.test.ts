@@ -213,3 +213,15 @@ describe('feedbackToShow', () => {
     expect(feedbackToShow(stored, g({ id: 'g2' }))).toBeNull()
   })
 })
+
+import { checkmateBanner } from './gameState'
+describe('checkmateBanner', () => {
+  it('celebrates only when the player delivers mate', () => {
+    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'checkmate' }, user_color: 'white' })).toEqual({ text: 'Checkmate! You win', celebrate: true })
+    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'checkmate' }, user_color: 'black' })).toEqual({ text: 'Checkmated', celebrate: false })
+  })
+  it('stays silent for other endings', () => {
+    expect(checkmateBanner({ outcome: { result: '1-0', termination: 'resignation' }, user_color: 'white' })).toBeNull()
+    expect(checkmateBanner({ outcome: null, user_color: 'white' })).toBeNull()
+  })
+})
