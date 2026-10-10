@@ -6,6 +6,7 @@ import { evalIsCurrent, type Evaluation } from './evaluation'
 import {
   acceptGame,
   boardMarks,
+  gameEndBanner,
   isUndoKey,
   moveBadge,
   feedbackIsCurrent,
@@ -27,6 +28,8 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 // Show its reply no sooner than this after the player's move.
 const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
+
+const CONFETTI = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#ffd166', '#9b5de5']
 
 export default function App() {
   const [game, setGame] = useState<GameView | null>(null)
@@ -322,6 +325,7 @@ export default function App() {
     if (g) applyGame(g)
   }
 
+  const mate = game ? gameEndBanner(game) : null
   const status = !game
     ? ''
     : game.outcome
@@ -378,6 +382,18 @@ export default function App() {
               />
             )}
             <div className="board">
+            {mate && (
+              <div className={`mate-banner ${mate.celebrate ? 'win' : 'loss'}`} role="status">
+                {mate.text}
+                {mate.celebrate && (
+                  <span className="confetti" aria-hidden="true">
+                    {Array.from({ length: 40 }, (_, i) => (
+                      <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 10) * 0.12}s`, background: CONFETTI[i % CONFETTI.length] }} />
+                    ))}
+                  </span>
+                )}
+              </div>
+            )}
             <Chessboard
               options={{
                 position: previewing && fb ? fb.fen_before : game.fen,
