@@ -9,7 +9,6 @@ import {
   gameEndBanner,
   isUndoKey,
   moveBadge,
-  feedbackIsCurrent,
   feedbackToShow,
   latestUserPly,
   feedbackKey,
@@ -151,12 +150,12 @@ export default function App() {
       .catch(failed)
   }, [game, evalRetry])
 
-  // The hint belongs to one judged move. Hide it whenever that changes (new move, takeback, new game), whether or not a
-  // fresh verdict has arrived yet, so replaying the same move after Undo never shows it without a new click.
-  const judgedKey = game && feedbackIsCurrent(feedback, game.id, game.moves, game.user_color) ? feedbackKey(feedback) : null
+  // The hint is for the position on the board. Hide it whenever that changes (any move, takeback, new game), so it is
+  // never shown for a position it was not asked for.
+  const positionKey = game ? `${game.id}:${game.revision}` : null
   useEffect(() => {
     setShowArrow(false)
-  }, [judgedKey])
+  }, [positionKey])
 
   const engineToMove =
     !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
@@ -181,7 +180,7 @@ export default function App() {
   // Click a piece, then click where it should go. The board only ever shows the
   // server-confirmed position; legal targets come from the server's list.
   function onSquareClick({ piece, square }: { piece: { pieceType: string } | null; square: string }) {
-    if (!game || game.outcome || busy || engineToMove || previewing) return
+    if (!game || game.outcome || busy || engineToMove) return
     const mine = piece !== null && piece.pieceType[0] === (game.user_color === 'white' ? 'w' : 'b')
     if (mine) {
       setSelected(square === selected ? null : square)
@@ -208,9 +207,11 @@ export default function App() {
 
   const highlights: Record<string, React.CSSProperties> = {}
   const fb = game ? feedbackToShow(feedback, game) : null // Practice only: nothing here may leak into Play
-  // The hint switches the main board to the position BEFORE the player's last move, with the stronger move drawn on it.
-  // That is the only position the suggestion is valid for. Nothing can be played while it is showing.
-  const previewing = !!(fb?.better_move && showArrow)
+  // The hint is the engine's best move for the position on the board now (the next move). To fix an earlier move, Undo
+  // first and then ask. It is only a suggestion; the player can play anything.
+  const currentEval = game && evalIsCurrent(evaluation, game.id, game.revision) ? evaluation : null
+  const canHint = !!game && game.mode === 'practice' && !game.outcome && !engineToMove
+  const hintUci = canHint && showArrow ? (currentEval?.best_move ?? null) : null
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
@@ -221,18 +222,11 @@ export default function App() {
   const marks = game && fb ? boardMarks(game.fen, fb) : { hanging: [], missed: [] }
   for (const sq of marks.hanging) highlights[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
   for (const sq of marks.missed) highlights[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
-  // The badge for the player's last move, drawn on the square it was played to (never on the hint view of the old position).
-  const badge = fb && !previewing ? moveBadge(fb.classification.key, fb.classification.opening) : null
+  // The badge for the player's last move, drawn on the square it was played to.
+  const badge = fb ? moveBadge(fb.classification.key, fb.classification.opening) : null
   const badgeSquare = fb ? fb.played.uci.slice(2, 4) : null
   // The board library skips its own square styling when a custom square renderer returns something, so the renderer must
   // apply the square styles itself (the move dots, the red and green marks, the hint tint). `boardStyles` is the one source.
-  const boardStyles: Record<string, React.CSSProperties> =
-    previewing && fb?.better_move
-      ? {
-          [fb.better_move.from]: { background: 'rgba(60, 170, 90, 0.35)' },
-          [fb.better_move.to]: { background: 'rgba(60, 170, 90, 0.35)' },
-        }
-      : highlights
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...boardStyles[square] }}>
       {children}
@@ -243,10 +237,9 @@ export default function App() {
       )}
     </div>
   )
-  // A suggestion only: nothing stops the player from playing anything. It was computed for the position before the
-  // player's move, so it is drawn on that saved position, never on the live board.
-  const hintArrows = fb?.better_move
-    ? [{ startSquare: fb.better_move.from, endSquare: fb.better_move.to, color: 'rgba(60, 170, 90, 0.85)' }]
+  // A suggestion only: nothing stops the player from playing anything.
+  const hintArrows = hintUci
+    ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }]
     : []
   if (game && selected) {
     highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
@@ -257,6 +250,14 @@ export default function App() {
         }
       }
     }
+  }
+  const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
+  const boardStyles: Record<string, React.CSSProperties> = { ...highlights }
+  if (hintUci) {
+    // The hinted piece gets its own move dots, and the suggested move is tinted green.
+    for (const m of game?.legal_moves ?? []) if (m.startsWith(hintUci.slice(0, 2))) boardStyles[m.slice(2, 4)] = { background: DOT }
+    boardStyles[hintUci.slice(0, 2)] = { background: 'rgba(60, 170, 90, 0.35)' }
+    boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
   }
 
   async function switchMode(next: 'play' | 'practice') {
@@ -297,7 +298,7 @@ export default function App() {
     if (g) applyGame(g)
   }
 
-  // Esc leaves the hint view and returns to the live game.
+  // Esc hides the hint arrow.
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
       if (e.key === 'Escape') setShowArrow(false)
@@ -368,12 +369,6 @@ export default function App() {
       </div>
       {game && (
         <>
-          {previewing && (
-            <p className="preview-banner" role="status">
-              Showing the position before your last move. The green arrow is a stronger move: only a suggestion, play what you
-              like. <button onClick={() => setShowArrow(false)}>Back to my game</button> (or press Esc)
-            </p>
-          )}
           <div className="board-row">
             {game.mode === 'practice' && (
               <EvalBar
@@ -396,18 +391,29 @@ export default function App() {
             )}
             <Chessboard
               options={{
-                position: previewing && fb ? fb.fen_before : game.fen,
+                position: game.fen,
                 boardOrientation: game.user_color,
                 allowDragging: false,
                 onSquareClick,
                 squareStyles: boardStyles,
-                arrows: previewing ? hintArrows : [],
+                arrows: hintArrows,
                 squareRenderer,
                 id: 'main-board',
               }}
             />
             </div>
           </div>
+          {canHint && (
+            <button
+              className={`hint ${showArrow ? 'on' : ''}`}
+              onClick={() => setShowArrow((v) => !v)}
+              aria-pressed={showArrow}
+              aria-label="Hint: show the best move for this position"
+              title="Hint: show the best move for the next move"
+            >
+              💡 Hint
+            </button>
+          )}
           {game.mode === 'practice' && (
             <section className={`feedback ${fb ? fb.verdict : ''}`} aria-live="polite">
               {fb ? (
@@ -443,17 +449,6 @@ export default function App() {
                       </button>
                     )
                   })()}{' '}
-                  {fb.better_move && (
-                    <button
-                      className={`hint ${showArrow ? 'on' : ''}`}
-                      onClick={() => setShowArrow((v) => !v)}
-                      aria-pressed={showArrow}
-                      aria-label="Hint: show what could have been the best move"
-                      title="Hint: what could have been the best move?"
-                    >
-                      💡
-                    </button>
-                  )}
                 </>
               ) : (
                 <p className="fb-wait">Make a move and I will tell you what was right or wrong with it.</p>

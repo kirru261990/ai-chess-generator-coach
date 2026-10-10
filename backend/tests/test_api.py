@@ -388,6 +388,8 @@ def test_eval_of_a_practice_position_comes_from_whites_side():
     gid = client.post("/games", json={"mode": "practice", "level": 1}).json()["id"]
     r = client.get(f"/games/{gid}/eval").json()
     assert r["revision"] == 0 and r["mate"] is None and -100 < r["cp"] < 100  # the start is about equal
+    import chess
+    assert chess.Move.from_uci(r["best_move"]) in chess.Board().legal_moves  # the hint arrow's move is legal here
     # after 1.f3 e5 2.g4 Black mates in one: White's view is mate with mate_sign -1
     rev = 0
     for uci in ("f2f3", "e7e5", "g2g4"):

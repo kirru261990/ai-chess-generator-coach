@@ -200,7 +200,7 @@ EVAL_BUDGET = Budget(depth=12)
 
 
 def position_eval(game_id: str) -> dict:
-    """The engine's evaluation of the current position, from White's side, for the Practice evaluation bar.
+    """The engine's evaluation of the current position, from White's side, for the Practice evaluation bar. `best_move` (UCI, the side to move's best) feeds the hint arrow.
 
     Practice only: an evaluation is assistance, and Play counts as real evidence (rule 4). The search runs outside the lock;
     the revision is returned so a client can drop an answer for a position that has since changed."""
@@ -211,4 +211,4 @@ def position_eval(game_id: str) -> dict:
         board, revision = game.board(), game.revision
     a = get_engine().analyse(board, EVAL_BUDGET, perspective=chess.WHITE)
     return {"revision": revision, "cp": a.score.cp, "mate": a.score.mate, "mate_sign": a.score.mate_sign,
-            "depth": a.depth, "engine": a.engine}
+            "best_move": a.best_move, "depth": a.depth, "engine": a.engine}
