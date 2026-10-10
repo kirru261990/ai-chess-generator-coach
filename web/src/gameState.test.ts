@@ -235,7 +235,7 @@ describe('gameEndBanner', () => {
 
 import { hintToShow, type Hint } from './gameState'
 describe('hintToShow', () => {
-  const hint: Hint = { gameId: 'g1', revision: 3, level: 2, steps: [], hintsUsed: 1 }
+  const hint: Hint = { gameId: 'g1', revision: 3, level: 2, maxLevel: 5, steps: [], hintsUsed: 1 }
   const g = (over = {}) => ({ id: 'g1', revision: 3, mode: 'practice', outcome: null, ...over })
   it('shows only for this position in Practice', () => {
     expect(hintToShow(hint, g())).toBe(hint)

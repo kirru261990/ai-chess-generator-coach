@@ -1,5 +1,7 @@
 """Tool layer shared by the web API and the MCP server (spec §06)."""
 
+import threading
+
 import chess
 
 from app.api.store import GAMES
@@ -18,7 +20,7 @@ from app.core.game import (
 )
 from app.core.openings import book_name
 from app.engine.shared import get_engine
-from app.engine.stockfish import MAX_LEVEL, Budget
+from app.engine.stockfish import MAX_LEVEL, Analysis, Budget
 from app.learner.feedback import analyse_move, judge
 from app.learner.hints import ladder
 from app.learner.threats import threats
@@ -200,6 +202,26 @@ def current_threats(game_id: str) -> dict:
 
 EVAL_BUDGET = Budget(depth=12)
 
+# The last EVAL_BUDGET search per game, as (revision, analysis). A revision only ever goes up, so it names one position:
+# the evaluation bar and every hint step in that position share one search, and any state change makes it stale.
+_ANALYSIS: dict[str, tuple[int, Analysis]] = {}
+_ANALYSIS_LOCK = threading.Lock()
+
+
+def _analyse_position(game_id: str, board: chess.Board, revision: int) -> Analysis:
+    """The EVAL_BUDGET analysis of `board` (game `game_id` at `revision`), searched at most once per revision.
+    The score is from White's side; `best_move` is the side to move's best whatever the perspective."""
+    with _ANALYSIS_LOCK:
+        hit = _ANALYSIS.get(game_id)
+    if hit is not None and hit[0] == revision:
+        return hit[1]
+    a = get_engine().analyse(board, EVAL_BUDGET, perspective=chess.WHITE)
+    with _ANALYSIS_LOCK:
+        current = _ANALYSIS.get(game_id)
+        if current is None or current[0] <= revision:  # never overwrite a newer position with an older one
+            _ANALYSIS[game_id] = (revision, a)
+    return a
+
 
 def position_eval(game_id: str) -> dict:
     """The engine's evaluation of the current position, from White's side, for the Practice evaluation bar. `best_move` (UCI, the side to move's best) feeds the hint arrow.
@@ -211,13 +233,13 @@ def position_eval(game_id: str) -> dict:
         if game.mode is not Mode.PRACTICE:
             raise GameError("feedback_not_allowed", "the evaluation bar is only available in Practice mode")
         board, revision = game.board(), game.revision
-    a = get_engine().analyse(board, EVAL_BUDGET, perspective=chess.WHITE)
+    a = _analyse_position(game_id, board, revision)
     return {"revision": revision, "cp": a.score.cp, "mate": a.score.mate, "mate_sign": a.score.mate_sign,
             "best_move": a.best_move, "depth": a.depth, "engine": a.engine}
 
 
 def hint(game_id: str, level: int) -> dict:
-    """The hint ladder for the position on the board: steps 1..level (Practice only; the user's turn, game still on).
+    """The hint ladder (spec D4) for the position on the board: steps 1..level (Practice only; the user's turn, game still on).
     The highest step asked for in each position is recorded, so the page can show how many hints a game needed."""
     game = _get(game_id)
     with game.lock:
@@ -226,14 +248,14 @@ def hint(game_id: str, level: int) -> dict:
         board, revision = game.board(), game.revision
         if game.outcome() is not None or board.turn != game.user_color:
             raise GameError("no_hint", "a hint is only available on your turn in a game still being played")
-    best = get_engine().analyse(board, EVAL_BUDGET).best_move
-    if best is None:
-        raise GameError("no_hint", "there is no legal move to suggest")
+    best = None
+    if level >= 2:  # the habit prompt (step 1) is fixed text: no search for it
+        best = _analyse_position(game_id, board, revision).best_move
+        if best is None:
+            raise GameError("no_hint", "there is no legal move to suggest")
     result = ladder(board, best, level)
     with game.lock:
         if game.revision == revision:  # only count the position that was asked about
             game.hints[revision] = max(game.hints.get(revision, 0), result["level"])
-            hints_used = len(game.hints)
-        else:
-            hints_used = len(game.hints)
+        hints_used = len(game.hints)
     return {"revision": revision, "hints_used": hints_used, **result}

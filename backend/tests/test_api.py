@@ -420,8 +420,43 @@ def test_hint_ladder_reveals_step_by_step_and_counts_positions():
     assert client.get(f"/games/{gid}").json()["hints_used"] == 0
     one = client.get(f"/games/{gid}/hint?level=1").json()
     assert [s["level"] for s in one["steps"]] == [1] and one["hints_used"] == 1
-    four = client.get(f"/games/{gid}/hint?level=4").json()
-    assert four["hints_used"] == 1  # same position: still one position hinted
-    move = chess.Move.from_uci(four["steps"][3]["uci"])
+    five = client.get(f"/games/{gid}/hint?level=5").json()
+    assert five["hints_used"] == 1  # same position: still one position hinted
+    assert [s["kind"] for s in five["steps"]][3:] == ["consequence", "move"]
+    move = chess.Move.from_uci(five["steps"][4]["uci"])
     assert move in chess.Board().legal_moves
     assert client.get(f"/games/{gid}").json()["hints_used"] == 1
+
+
+class CountingEngine:
+    """Answers every search with e2e4 / d7d5 and counts the searches."""
+
+    def __init__(self):
+        self.searches = 0
+
+    def analyse(self, board, budget=None, perspective=None):
+        from app.engine.stockfish import Analysis, Score
+        self.searches += 1
+        best = "e2e4" if board.turn == chess.WHITE else "d7d5"
+        return Analysis(best, Score(perspective if perspective is not None else board.turn, cp=20), (best,), 12,
+                        "fake", tools.EVAL_BUDGET)
+
+
+def test_hints_search_once_per_position_and_never_for_the_first_step(monkeypatch):
+    engine = CountingEngine()
+    monkeypatch.setattr(tools, "get_engine", lambda: engine)
+    gid = client.post("/games", json={"mode": "practice"}).json()["id"]
+    assert client.get(f"/games/{gid}/hint?level=1").status_code == 200
+    assert engine.searches == 0  # the habit prompt is fixed text
+    for level in (2, 3, 4, 5):
+        assert client.get(f"/games/{gid}/hint?level={level}").json()["level"] == level
+    assert client.get(f"/games/{gid}/eval").json()["best_move"] == "e2e4"
+    assert engine.searches == 1  # every step and the evaluation bar share one search
+    # any state change is a new position, even one that looks the same after an undo
+    rev = move(gid, "e2e4", 0, engine_reply=False).json()["revision"]
+    assert client.get(f"/games/{gid}/hint?level=2").json()["error"] == "no_hint"  # not the user's turn
+    client.post(f"/games/{gid}/takeback", json={})
+    assert client.get(f"/games/{gid}").json()["revision"] > rev
+    assert client.get(f"/games/{gid}/hint?level=3").json()["steps"][2]["from"] == "e2"
+    assert engine.searches == 2
+    assert client.get(f"/games/{gid}").json()["hints_used"] == 2

@@ -208,7 +208,7 @@ export function gameEndBanner(game: Pick<GameView, 'outcome' | 'user_color'>): {
 }
 
 export type HintStep = { level: number; kind: string; text: string; from?: string; to?: string; uci?: string }
-export type Hint = { gameId: string; revision: number; level: number; steps: HintStep[]; hintsUsed: number }
+export type Hint = { gameId: string; revision: number; level: number; maxLevel: number; steps: HintStep[]; hintsUsed: number }
 
 /** The hint ladder is Practice-only help for the position on the board: show it for nothing else (rule 4). */
 export function hintToShow(hint: Hint | null, game: Pick<GameView, 'id' | 'revision' | 'mode' | 'outcome'>): Hint | null {
