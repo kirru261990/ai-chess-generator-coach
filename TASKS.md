@@ -64,7 +64,6 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T38 Practice UI (owner's first requests, 2026-10-09): a vertical evaluation bar beside the board (Practice only; `GET /games/{id}/eval`) replaces the "cost in pawns" sentence; the better move is a green arrow on the board instead of words, **never shown unless the player clicks the 💡 hint icon** (owner: don't be proactive), a suggestion that can be toggled off, drawn on a small board of the position before the move (review fix 2026-10-09)
 
 - [x] T39 Unlimited Undo in Practice (owner, 2026-10-09: "let the user undo any number of moves"): the two-in-a-row cap is removed; Undo works back to the start of the game; the API field `takebacks_left` is replaced by `can_take_back`; error code `takeback_limit` is gone
-- [x] T38 Practice UI (owner's first requests, 2026-10-09): a vertical evaluation bar beside the board (Practice only; `GET /games/{id}/eval`) replaces the "cost in pawns" sentence; the better move is a green arrow on the board instead of words, **never shown unless the player clicks the 💡 hint icon** (owner: don't be proactive), a suggestion that can be toggled off and that disappears when it no longer fits the board
 - [ ] T37 E2 follow-ups from the v2 notes: claim types `gives_check` and forced-reply, let the extractor express harness-provided facts, a person reads 15-20 extractions, a GPT raw baseline; any change is a new version and a run on a new set
 - [x] T36 Model spend ledger and monthly budget guard (2026-10-09): every API call recorded in `data/usage/` with tokens and estimated dollars; calls stop at `MONTHLY_BUDGET_USD` (default 10); `GET /usage`; a spend line in the app; eval runs print the month's spend and refuse to start if the budget cannot cover them
 - [ ] T23 GitHub Actions CI: install Stockfish, run `uv run pytest` (no engine skips), `ruff check`, and `pnpm exec tsc -b`
@@ -75,6 +74,12 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] T35 (2026-10-09: verifier v2, `why_v2`, `extract_v2`, frozen `e2_v2`, final run: `verified` 110/110, target met as a point estimate; see `evals/reports/e2_v2_2026-10-09_notes.md`; still open as T37: a person reading a sample of extractions, a GPT raw baseline, more claim types) E2 follow-ups from the notes: sequence check in the verifier (v2), `extract_v2` that never infers bands, a person reads a sample of extractions, decide on unverifiable statements (`why_v2`), a GPT raw baseline; then E2 v2 run
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
 - [ ] T32 Cache reviews (each call re-runs the deep check)
+
+## Next (proposed order for the next session)
+1. **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such
+2. **Owner's open questions** (ADR 0005): arrow after a suboptimal move, +0.3 start evaluation, opening list download (T43)
+3. **T37** E2 follow-ups; **T45** MCP tools usable from a chat (a board image works in any client; an interactive board only where the client supports MCP interactive UI): spec Week 3
+4. **T23** CI with Stockfish, **T30** Postgres persistence, the demo clip (owner)
 
 ## Week 2 additions
 - [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games

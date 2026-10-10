@@ -6,42 +6,40 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Start here (new session)
 
-1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4). Open decisions: `docs/decisions/0001-open-source-reuse.md`.
-2. **No feature PRs are open** (T14-T19, T33, T34, T35, T36, T38 and the review fixes are merged). Work from `main`: `git checkout main && git pull`.
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` should pass with clean lint (**278 passed** on 2026-10-07; the count grows as tests are added). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b`.
-4. Take the next task from "Next up" below, on a branch `feat/<name>` or `fix/<name>`, one task per PR.
+1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4, with the Practice changes in `docs/decisions/0005-practice-assistance.md`). Decisions: `docs/decisions/`.
+2. `git checkout main && git pull`. **`main` holds everything the owner practises with**; check `gh pr list` for anything open (the docs PR `docs/handoff-51-53` may still be waiting for the owner to say merge).
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**641 passed, 1 skipped** on 2026-10-09; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**44 tests**; `oxlint` has 3 known warnings in `App.tsx`).
+4. Ask the owner what to do first (see "Next up" and "Decisions waiting on the owner"), take one task per branch `feat/<name>` or `fix/<name>`, one PR each. **Do not switch branches in the folder the owner's dev server serves while they practise**: use `git worktree add`.
 
 ## Current state
 
-- **Phase:** Week 1 is built through Day 6: detectors, baseline (frozen, with results), blind-spot map, Practice feedback, threat warnings, verifier, coach harness (`why_move`), "What were you considering?". **Not yet:** Day 7 evals (T20 E2 raw vs grounded vs verified, T21 E1 rules suite), README and demo (T22), training sessions and hint ladder, MCP tools beyond `get_game`. First usable version due 12 Oct 2026.
-- **Branches:** everything is on `main`.
-- **Coach:** needs `ANTHROPIC_API_KEY` in the git-ignored repo-root `.env` (never in `.env.example`; a key was once committed there by mistake on 2026-10-07 and had to be revoked; the history still holds the revoked key). Without a key the Why? button and the Review comparison fall back to checked facts. Model: `COACH_MODEL` (default `claude-sonnet-5-5`). Turn on GitHub secret scanning and push protection for the repo if it is not already on.
+- **Phase:** the first usable version (spec date 12 Oct 2026) is built and being practised by the owner: play vs Stockfish, Practice with assistance, review and blind-spot pages, coach explanations behind a verifier, and the E1/E2 evals. **Not yet:** training sessions and the hint ladder (spec D3 to D5), MCP tools beyond `get_game`, Lichess sync, PGN import, Postgres, sign-in, CI, the demo clip.
+- **Branches:** everything is merged to `main`.
+- **What exists (web app, tabs Play / Review / Blind spots):** Play vs Stockfish (Level 1-10, click to move, resign, PGN). **Practice** (always `assisted`): unlimited Undo (button and left arrow), an evaluation bar, a verdict and badge after each move (📖 book, ★ best, 👍 good, ?! / ? / ?? for slip, mistake, blunder), what was right or wrong, red and green marks on the board (your piece that can be taken; a free piece you missed), a "Watch out" threat box, a 💡 hint that shows the position before your move with a green arrow, and **Why?** (coach explanation checked by the verifier). **Review:** key moments of a synced game and "What were you considering?". **Blind spots:** the frozen 100-game baseline per time control. Backend: FastAPI + shared tool layer, MCP `get_game` skeleton, Chess.com sync, fast pass and review, detectors `hanging_own` v2 and `missed_free` v2, coach harness with verifier v2 (`why_v2`), usage ledger and monthly budget guard. All assistance is Practice-only (ADR 0005).
+- **What does not exist yet:** training sessions and hint ladder, practice bank (T25), MCP tools for chat clients, Lichess sync and PGN import, peer benchmark (T14b), Postgres persistence (games live in memory and vanish on restart), sign-in and per-user data, CI, Maia-2, fork and pin detectors, a full opening book (a starter list of about 60 lines is used), Brilliant/Great badges, the demo clip.
+- **Coach, key and spend:** needs `ANTHROPIC_API_KEY` in the git-ignored repo-root `.env` (never in `.env.example`; a key was committed there by mistake on 2026-10-07 and the owner deleted it on 2026-10-08; the old key survives only in history, harmless). Without a key (or when the monthly budget is spent) Why? and the Review comparison show checked facts only. Model `COACH_MODEL` (default `claude-sonnet-5-5`). **Spend is logged in `data/usage/`; `MONTHLY_BUDGET_USD` defaults to 10 and 8.85 was recorded for October on 2026-10-09 (includes a 6.80 estimate row for spend before the ledger); raise it before any paid run and set a spending limit in the Anthropic Console too.** A full E2 run costs about 2 dollars.
+- **Evals:** E1 (rules and state, randomized, zero violations; cross-user access is a visible skip until sign-in exists). E2 (explanation correctness) v2 on the fresh frozen set `e2_v2`: raw 78%, grounded 97%, verified 110/110 (interval 97 to 100%); target 98% met as a point estimate only; read `evals/reports/e2_v2_2026-10-09_notes.md` before quoting. E2 v1 (93%) is kept for comparison. The scorer is not independent of the verifier and no human has reviewed items or extractions.
 - **Detector versions (report them with any number):** `hanging_own` v2, `missed_free` v2 (both use legal captures and legal recaptures). Analysis record schema: 2 (`engine/batch.py`). Engine: Stockfish 19.
 - **Baseline window frozen?** **Yes (2026-10-07)**: the 100 most recent case-study games, as two lists (50 at 10|0, 50 at 15|10). sha256: whole `87217baf...aa7b`, 10|0 `7ac385a0...c4c2`, 15|10 `01b8d1cb...1aad` (full values in `docs/decisions/0002-baseline-window.md`). Ids live only in `data/baseline/baseline_window_v1.json` (git-ignored, read-only). **Baseline results frozen (T15, 2026-10-07):** `data/baseline/baseline_results_v1.json`, read-only, sha256 `bbbd9babac37731925005d5ffbed7d8f2e88feee35972a5f1f58261c60952c3e` (detectors `hanging_own` v2 and `missed_free` v2, Stockfish 19 depth 10). Check with `sha256sum`. The coach may now be used on these 100 games. Do not use the coach on these 100 games until the results are frozen (T15).
 - **Frozen eval sets:** `evals/sets/real_play_v1` (frozen 2026-10-06; full hashes in its `FROZEN.md`; a test fails if they change). The older `hanging_own_v1` and `missed_free_v1` are superseded drafts (easy, engine-labelled, unreviewed): do not score or quote them.
 - **First scores:** `evals/reports/real_play_v1_2026-10-06.md` (+ `.json`, `_notes.md`). Read the notes before quoting anything.
-- **What exists:** play vs Stockfish in the web app (click to move, Level 1-10, resign, PGN, Play/Practice with Undo, 1 s reply pause); FastAPI + shared tool layer; MCP `get_game` skeleton; Chess.com sync; batch fast pass + post-game review (`GET /synced-games/{id}/review`); detectors `hanging_own` and `missed_free`; eval tooling (`evals/tools/`).
-- **What does not exist yet:** the pattern layer that applies the detectors to real games (T14), blind-spot map page (T16), coach agent and verifier (T17-T19), training sessions, Postgres persistence (games live in memory and vanish on restart), sign-in, Lichess sync, Maia-2.
 - **Machine facts (this MacBook):** repo at `~/Projects/ai-chess-generator-coach`. Installed via Homebrew: `uv`, `pnpm`, `stockfish` (`/opt/homebrew/bin/stockfish`). **Docker is not installed.** `.env` (git-ignored) holds the Chess.com username (`karry261990`), the contact email for the User-Agent, `STOCKFISH_PATH`, case-study time controls `600,900+10`.
 - **Local data (git-ignored, never commit):** `data/games/chesscom_karry261990.jsonl` (450 case-study games: 253 at 10|0, 197 at 15|10, 4 Jul to 5 Oct 2026); `data/analysis/chesscom_karry261990.jsonl` (fast pass for all 450, schema 2, depth 10); `data/lichess/lichess_db_puzzle.csv.zst` (293 MB, CC0). No Lichess games file has been downloaded (one month is about 28 GB; stream and cut off; ask first).
-- **Run the app:** `cd backend && uv run uvicorn app.api.main:app --port 8000` (no `--reload`, restart after code changes) and `cd web && pnpm dev`.
+- **Second machine:** the repo also lives on a second Mac (no Homebrew, `uv`, `pnpm` or Stockfish there; use `npx pnpm`; `gh` has two accounts and the repo owner's `kirru261990` must be active to push). `main` was force-pushed once on 2026-10-09 (author fix, owner approved); if a clone looks diverged, `git fetch && git reset --hard origin/main` on a clean tree.
+- **Run the app (Practice):** `cd backend && uv run uvicorn app.api.main:app --port 8000` (no auto-reload, restart after backend changes) and `cd web && pnpm dev` (then `http://localhost:5173`). To run a second copy: another API port plus `VITE_API_URL=http://localhost:<port> pnpm dev --port <port2>`. A local, untracked `.claude/launch.json` starts the agent's copy on 8001 and 5174.
 
-## Next up
+## Next up (proposed; the owner chooses)
 
-**T14a. Baseline window: DONE** (frozen 2026-10-07, ADR 0002). Verify with `cd backend && uv run python -m app.learner.baseline verify`.
-
-**T14. The pattern layer: DONE** (`backend/app/learner/patterns.py`, 10 tests; run `cd backend && uv run python -m app.learner.patterns baseline`; output `data/patterns/baseline_patterns_v1.json`, git-ignored, not frozen). Original spec kept below for reference. For each user move in each game: board before the move, the move, `Evidence(best_cp, after_cp)` built from the stored fast-pass positions (White's view; use `learner.review.rank_for_mover` for the mover's side), then `detectors.hanging_own.detect` and `detectors.missed_free.detect`. Record opportunity -> taken / missed / uncertain / not_applicable per move. Metrics:
-- `hanging_own`: misses **per 100 moves** (its opportunity held in about 81% of 445 weak-engine self-play positions, so missed/available is not meaningful; re-measure on real games)
-- `missed_free`: missed / available, and per 100 moves
-- uncertain results are excluded from numerator and denominator (AGENTS rule 5) and reported separately
-- **per time control only** (owner decision 2026-10-07: keep 10|0 and 15|10 separate for now; no pooled figure; ADR 0002); show sample sizes; label tentative (at least 3 misses across at least 2 games) versus established (at least 8 opportunities) per spec C3; report detector versions, denominators and intervals
-- **Expect** misses made in already-lopsided positions to appear as `uncertain` (T13 finding: the engine under-reports a hung piece when a position is already won or lost)
-
-Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games; ask before downloading), T23 CI with Stockfish, T30 Postgres persistence, T31 fast-pass uncertainty flag. Details in `TASKS.md`.
+1. **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), a staged hint ladder (scan prompt, concept cue, piece or square, consequence, answer on request), fading scan prompts; needs the practice bank (T25, Lichess puzzles, CC0). No API spend. Assisted results stay labelled.
+2. **The owner's open questions** (ADR 0005): should the best-move arrow also appear automatically after a suboptimal move? Show the +0.3 start evaluation as equal? Download the CC0 opening tables (about 0.5 MB) for a full book (T43)?
+3. **T37** E2 follow-ups (a `gives_check` claim type, a forced-reply check, a person reading 15 to 20 extractions, a GPT raw baseline) and **T45** MCP tools usable from Claude or ChatGPT (spec Week 3).
+4. **T23** CI with Stockfish, **T30** Postgres persistence, **T14b** peer benchmark (needs a Lichess games file; ask first), the **demo clip** (the owner records it; blur opponent names).
 
 ## Decisions waiting on the owner
 
+- The three open questions in "Next up" item 2.
 - Whether to download a Lichess games sample for T14b (ask first; about 28 GB a month).
+- Raising `MONTHLY_BUDGET_USD` (and setting a Console limit) before the next paid run.
 
 ## Working agreement with the owner (observed; follow it)
 
@@ -50,20 +48,31 @@ Then T16 (blind-spot map page). Later: T14b peer benchmark (needs Lichess games;
 - **Communication:** the owner is rated under 1000 and finds chess notation and abstract wording hard. Use plain words, short steps, concrete examples, no jargon. For anything the owner must judge, give a visual page with Yes / No / Can't tell (the hand-check page is the model).
 - **Honesty:** never quote the eval numbers as real-play performance; state what a number does not show; report failures and your own mistakes openly; do not move goalposts after seeing results (if a step is added late, say so in the record).
 - **Reviews:** GPT reviews PRs following `REVIEW.md` and leaves inline comments. Reproduce each finding first, fix it, reply in the thread, then resolve the thread. Update the PR's "Reviewed by" section.
+- **Practising:** the owner tests changes by playing and reports what he sees; verify in the browser pane before reporting a UI change, and keep the served folder on `main` (or the branch he is testing). Two regressions on 2026-10-09 came from switching branches under the dev server and from a custom board renderer dropping styles.
+- **Money:** say the month's running total before any paid run; the budget guard refuses runs it cannot cover.
 - **Privacy:** the repo is public. Nothing from `.env`, `data/`, the owner's games, or the contact email goes into a commit.
 
 ## Blockers / open questions
 
-- Fast-pass evaluations are not flagged uncertain when unstable (spec B2); needs a second-depth comparison.
-- Reviews are not cached; each call re-runs the deep check (a few seconds).
-- Games are held in memory only; the per-game lock is in-process only (several workers would need a database guard). Docker/Postgres are not set up.
-- Web has unit tests for the response-ordering rule but no component or browser tests.
+- Fast-pass evaluations are not flagged uncertain when unstable (spec B2, T31); needs a second-depth comparison.
+- Reviews are not cached; each call re-runs the deep check (a few seconds) (T32).
+- Games are held in memory only; the per-game lock is in-process only (several workers would need a database guard). Docker/Postgres are not set up (T30).
+- Web has unit tests (44) but no component or browser tests; two UI regressions on 2026-10-09 were found by the owner playing. A browser test setup would be worth adding.
 - Draws end only when reached; players cannot claim a draw yet.
-- `real_play_v1` labels have had limited review (82 of 202 items; a checker under 1000 and GPT; no strong human player). `missed_free` has no real missed examples in it, so its recall on real ignored free pieces is unmeasured.
+- `real_play_v1` labels have had limited review (82 of 202 items; no strong human player). `missed_free` has no real missed examples in it, so its recall on real ignored free pieces is unmeasured.
+- E2 measures correctness of checkable claims only; about 0.6 unverifiable statements per explanation remain, and the coach's closing tips are not checked.
+- The coach prompt (`why_v2`) and verifier (v2) were tuned on `e2_v1` and measured on `e2_v2`; any further change needs a new version and a run on a new set.
 
 ---
 
 ## Log
+
+### 2026-10-09 · MacBook · Claude Code (session 24, part 10)
+- **PRs 51, 52 and 53 reviewed and merged (T40 to T42).** The GPT review had two P2 findings, both the same rule-4 problem: Practice-only help staying visible after switching to Play (#51: the red and green board marks; #52: the hint view, which also blocked clicks in Play). Both reproduced and fixed at the source: every coaching visual (verdict, board marks, hint view, move badge) now goes through `feedbackToShow` in `web/src/gameState.ts`, which returns nothing unless the game is in Practice and the feedback is for the latest move of this game; `switchMode` also clears the hint view. The move badge (#53) is covered by the same gate. Tests: backend 641, web 44.
+- **`main` now contains everything the owner practises with:** unlimited Undo, left arrow = Undo, evaluation bar, the 💡 hint on the main board, red/green board marks, move badges with the starter opening book. The practice page can sit on `main`.
+- **Process:** work that must not disturb the folder the owner's dev server is serving goes in a `git worktree` (done for these fixes); a worktree cannot check out a branch that the main folder has checked out.
+- **Open from the owner:** whether the best-move arrow should show automatically after a suboptimal move (it stays behind the 💡); whether to treat the +0.3 start evaluation as equal; permission to download the CC0 opening tables (T43). Unchanged next steps: training sessions and hint ladder, T37, MCP tools, the demo clip.
+- **Branch / PR:** `docs/handoff-51-53`
 
 ### 2026-10-09 · MacBook · Claude Code (session 24, part 9)
 - **Two regressions of mine, found by the owner while practising, both fixed on `feat/move-badges` (PR 53).** (1) **Left arrow stopped undoing:** after opening PR 53 I switched the working folder back to `main`, which the practice page serves, and `main` does not yet contain the left arrow, board marks, hint view or badges (they are in the unmerged PRs 51 to 53), so the page lost them live. Lesson: **do not switch branches in the folder that a running dev server serves while the owner is practising**; use a `git worktree` for other work, and merge the stack so `main` has everything. (2) **The dotted move lines disappeared:** `react-chessboard` skips its own square styling (move dots, red and green marks, hint tint) when a custom `squareRenderer` returns an element; the badge renderer in PR 53 did, so the styles were lost. The renderer now applies the shared `boardStyles` itself, with a small source guard test (`appGuards.test.ts`) because there are no browser tests. Checked live: dots, selection and the badge all show.

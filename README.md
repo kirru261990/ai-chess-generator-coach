@@ -37,7 +37,7 @@ the engine and rules confirmed, with a note.
 | Works | Not yet |
 |---|---|
 | Play vs Stockfish (click to move, Level 1-10, resign, PGN download) | Training sessions and hint ladder |
-| Practice mode: Undo, an evaluation bar beside the board, a verdict after each move (good / slip / mistake / blunder), what was right or wrong, a badge on the square you moved to (📖 book, ★ best, 👍 good, ?! / ? / ?? for slips, mistakes and blunders), a 💡 hint that shows the position before your move on the main board with a green arrow for a stronger move, only when you ask (a suggestion only), "Watch out" threat warnings; always marked assisted; left arrow is Undo; after a suboptimal move your hanging piece (red) and a missed free piece (green) are marked on the board | Lichess sync, PGN import, Maia-2 opponent |
+| Practice mode: unlimited Undo (button or left arrow), an evaluation bar beside the board, a verdict after each move (good / slip / mistake / blunder), what was right or wrong, a badge on the square you moved to (📖 book, ★ best, 👍 good, ?! / ? / ?? for slips, mistakes and blunders), a 💡 hint that shows the position before your move on the main board with a green arrow for a stronger move, only when you ask (a suggestion only), "Watch out" threat warnings; always marked assisted; left arrow is Undo; after a suboptimal move your hanging piece (red) and a missed free piece (green) are marked on the board | Lichess sync, PGN import, Maia-2 opponent |
 | Chess.com sync, batch engine analysis, post-game review (up to 3 key moments) | Postgres persistence (games live in memory), sign-in, other users |
 | Review tab: say what you were thinking at a key moment and see what was really on the board (your words saved as written) | Peer benchmark (needs a Lichess games sample) |
 | Detectors `hanging_own` and `missed_free` (versioned), run over a frozen 100-game baseline; a Blind spots page with 10\|0 and 15\|10 side by side | Forks and pins; recency windows and example links on the map |
@@ -68,7 +68,7 @@ Why? and Review comparison show checked facts only. Docker/Postgres is not neede
 - How to review a pull request: [`REVIEW.md`](REVIEW.md)
 - Product spec: [`docs/spec.md`](docs/spec.md)
 - Agent instructions: [`AGENTS.md`](AGENTS.md)
-- Decisions: [`docs/decisions/`](docs/decisions/)
+- Decisions: [`docs/decisions/`](docs/decisions/) (0003 and 0004 the E2 eval, 0005 what Practice may help with)
 
 ## Licence
 

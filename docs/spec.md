@@ -51,7 +51,7 @@ This product plays, analyses, finds the learner's recurring misses, coaches them
 |---|---|---|
 | A1 | Play a full game in the web app | Colour choice; legal moves only; promotion, check, mate, stalemate, draws, resign; PGN export. |
 | A2 | Opponent strength | V1: Stockfish with a limited skill level (labelled "Level n", not Elo). Increment: **Maia-2** (MIT licence) as a human-like opponent set near my rating, if its lowest supported rating band works for under 1000. |
-| A3 | Play modes | **Play** (no hints, counts as real evidence) and **Practice** (hints, scan prompts, takebacks; always marked assisted). Switching mid-game marks the game assisted permanently. |
+| A3 | Play modes | **Play** (no hints, counts as real evidence) and **Practice** (hints, scan prompts, takebacks, feedback; always marked assisted). Switching mid-game marks the game assisted permanently. Takebacks are unlimited and all assistance is Practice-only (ADR 0005). |
 | A4 | Start from my critical positions | Practice can start from any position in my analysed games, so I can replay my mistakes. |
 | A5 | Time control (optional) | Simple clock for Play mode so the habits trained resemble real rapid games. |
 
