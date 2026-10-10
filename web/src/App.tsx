@@ -3,6 +3,7 @@ import { Chessboard } from 'react-chessboard'
 import './App.css'
 import EvalBar from './EvalBar'
 import { evalIsCurrent, type Evaluation } from './evaluation'
+import { requestHint } from './hintRequest'
 import {
   acceptGame,
   boardMarks,
@@ -12,7 +13,6 @@ import {
   feedbackToShow,
   hintToShow,
   type Hint,
-  type HintStep,
   latestUserPly,
   feedbackKey,
   storeFeedback,
@@ -31,7 +31,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
 
-const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Move']
+const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
 const CONFETTI = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#ffd166', '#9b5de5']
 
 export default function App() {
@@ -47,6 +47,7 @@ export default function App() {
   const [feedback, setFeedback] = useState<StoredFeedback | null>(null)
   const [hint, setHint] = useState<Hint | null>(null) // never proactive: only when the player asks; one more step per press
   const [hintBusy, setHintBusy] = useState(false)
+  const [hintError, setHintError] = useState<string | null>(null) // a failed hint request, shown next to the button to retry
   const [evaluation, setEvaluation] = useState<(Evaluation & { gameId: string }) | null>(null)
   const askedEval = useRef('')
   const evalRetries = useRef(0)
@@ -160,6 +161,7 @@ export default function App() {
   const positionKey = game ? `${game.id}:${game.revision}` : null
   useEffect(() => {
     setHint(null)
+    setHintError(null)
   }, [positionKey])
 
   const engineToMove =
@@ -216,8 +218,8 @@ export default function App() {
   // first and then ask. It is only a suggestion; the player can play anything.
   const canHint = !!game && game.mode === 'practice' && !game.outcome && !engineToMove
   const shownHint = game && canHint ? hintToShow(hint, game) : null
-  const hintFrom = shownHint?.steps.find((st) => st.level === 3)?.from ?? null // step 3: which piece
-  const hintUci = shownHint?.steps.find((st) => st.level === 4)?.uci ?? null // step 4: the move itself
+  const hintFrom = shownHint?.steps.find((st) => st.kind === 'piece')?.from ?? null // step 3: which piece
+  const hintUci = shownHint?.steps.find((st) => st.kind === 'move')?.uci ?? null // last step: the move itself
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
   if (warn) {
     for (const t of warn.threats) {
@@ -300,11 +302,15 @@ export default function App() {
     if (!game || hintBusy) return
     const g = game
     setHintBusy(true)
+    setHintError(null)
     try {
-      const res = await fetch(`${API}/games/${g.id}/hint?level=${level}`)
-      if (!res.ok) return
-      const data = (await res.json()) as { revision: number; level: number; steps: HintStep[]; hints_used: number }
-      setHint({ gameId: g.id, revision: data.revision, level: data.level, steps: data.steps, hintsUsed: data.hints_used })
+      const r = await requestHint(API, g.id, level)
+      if (!r.ok) {
+        setHintError(r.message)
+        return
+      }
+      const data = r.data
+      setHint({ gameId: g.id, revision: data.revision, level: data.level, maxLevel: data.max_level, steps: data.steps, hintsUsed: data.hints_used })
       setGame((cur) => (cur && cur.id === g.id && cur.revision === data.revision ? { ...cur, hints_used: data.hints_used } : cur))
     } finally {
       setHintBusy(false)
@@ -457,13 +463,18 @@ export default function App() {
                 </ul>
               )}
               <div className="hint-actions">
-                {(shownHint?.level ?? 0) < 4 && (
+                {(shownHint?.level ?? 0) < HINT_STEPS.length && (
                   <button className="primary" onClick={() => void askHint((shownHint?.level ?? 0) + 1)} disabled={hintBusy}>
                     {shownHint ? `Show step ${shownHint.level + 1}: ${HINT_STEPS[shownHint.level]}` : '💡 Give me a hint'}
                   </button>
                 )}
                 {shownHint && <button onClick={() => setHint(null)}>Hide</button>}
               </div>
+              {hintError && (
+                <p role="alert" className="error">
+                  {hintError}
+                </p>
+              )}
             </section>
           )}
           {game.mode === 'practice' && (

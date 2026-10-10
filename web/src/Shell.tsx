@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { showAnalysisTabs } from './analysisTabs'
 import App from './App'
 import BlindSpots from './BlindSpots'
 import ReviewPage from './Review'
@@ -8,8 +9,8 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 type Tab = 'play' | 'spots' | 'review'
 
-// Review and Blind spots are built but hidden for now, to keep the page simple while practising. Flip to show them again.
-const SHOW_ANALYSIS_TABS = false
+// Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
+const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
 
 export default function Shell() {
   const [tab, setTab] = useState<Tab>('play')

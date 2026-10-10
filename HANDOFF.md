@@ -67,10 +67,18 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-10 · cloud · Claude Code (session 24, part 13b): review fix on PR 59, merged with the PR 58 fixes
+- **GPT finding (Review and Blind spots unreachable):** confirmed, nothing in the page led to them. Hidden by default is the owner's request, so it stays; they are now reachable with **`?analysis=1`** in the page address (`web/src/analysisTabs.ts`, tested).
+- **Merged `feat/hint-ladder` (now five steps):** the hint card shows **1 Think, 2 Idea, 3 Piece, 4 Why, 5 Move**, and a failed hint request shows a message under the button to retry.
+- **Tests:** backend 658 (1 skipped), web 55, ruff and tsc clean.
+
 ### 2026-10-10 · MacBook · Claude Code (session 24, part 13): practice-first page layout
 - **Owner's request:** Practice as the default, the hint steps easier to find, a more intuitive page, Review and Blind spots hidden for now. (No design skill is installed here, so this follows plain usability rules.)
 - **Done on `feat/practice-layout` (stacked on PR 58):** new games start in **Practice**; the board is on the left and everything you act on sits **beside it** (status, a **Need help?** card, the last-move feedback, warnings, Undo/Resign/PGN), stacking under the board on narrow screens. The hint card shows all four steps up front (**1 Think, 2 Idea, 3 Piece, 4 Move**) as a progress strip, a green button for the next step, revealed steps listed, and "used on N positions". The Review and Blind spots tabs are hidden by one flag, `SHOW_ANALYSIS_TABS` in `web/src/Shell.tsx` (code and routes untouched).
 - **Not done:** no browser tests; phone width only checked by the stacking rule; Play is reached via the Mode dropdown or "Switch to Play".
+### 2026-10-10 · cloud · Claude Code (session 24, part 12b): review fixes on PR 58 (hint ladder)
+- **GPT review, four findings, all confirmed and fixed:** (1) every hint step ran its own depth-12 search, step 1 included: step 1 now needs no engine, and the hint and the evaluation bar share one cached search per game revision (`_analyse_position` in `api/tools.py`; any state change is a new revision, so the cache never serves an old position). (2) cue wording claimed things nothing checked: "No tactic is on. Improve your least active piece" was given to any quiet move, a quiet promotion included, and "develop" never checked that the piece had not moved. Now a `promote` cue, `develop` only for a knight or bishop on its home square that no move of the game touched, and a neutral `quiet` cue ("not a capture or a check"). (3) a failed hint request was silent (and a network error an unhandled rejection): `web/src/hintRequest.ts` turns every failure into a message shown in the hint panel, next to the button to retry. (4) spec D4 has a consequence step before the answer: added as step 4 ("what it does": takes, promotes, checks, saves a loose piece, stops a mate threat, attacks a loose piece, threatens mate, or "a quiet move"), each a python-chess or `hanging_own` fact. The ladder is now **five** steps; hints `VERSION` 2.
+- **Tests:** backend 658 (1 skipped) with Stockfish 16, web 53, ruff and tsc clean; a fuzz over about 23,000 random positions found no crash in the consequence step.
 
 ### 2026-10-10 · MacBook · Claude Code (session 24, part 12): the hint ladder (T46)
 - **Owner's question:** "to beat Stockfish I needed many hints; how do we teach users?" Answer given in chat (a per-move routine: what did their move attack, free material, check the landing square, checks/captures/threats, improve the worst piece; opening principles; as Black aim for equal and wait). Owner said yes to building stepped hints.
