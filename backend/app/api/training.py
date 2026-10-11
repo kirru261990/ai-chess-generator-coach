@@ -5,7 +5,7 @@ from app.engine.stockfish import Budget
 from app.learner.training import TRAINER
 
 TRAINER.engine_getter = get_engine
-TRAINER.budget = Budget(depth=10)
+TRAINER.budget = Budget(depth=14)
 
 
 def start(motif: str) -> dict:

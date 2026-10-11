@@ -337,3 +337,27 @@ def test_the_api_runs_a_session_end_to_end(tmp_path, monkeypatch):
     assert c.post(f"/training/sessions/{sid}/items/0/attempt", json={"uci": "e2e4"}).status_code == 409
     assert c.post("/training/sessions", json={"motif": "forks"}).status_code == 409
     assert c.get("/training/progress").json()["by_motif"]["hanging_own"]["practice_first_tries"] == 1
+
+
+def test_the_same_move_is_judged_once_so_a_noisy_search_cannot_flip_the_verdict(tmp_path):
+    (tmp_path / "bank").mkdir()
+    (tmp_path / "bank" / "bank_v1.json").write_text(json.dumps(make_bank()))
+    calls = []
+
+    class Flaky:
+        def analyse(self, board, budget, perspective=None):
+            calls.append(board.fen())
+
+            class A:
+                pass
+
+            a = A()
+            a.score = Score(perspective, cp=-150 if len(calls) == 2 else 0)  # the first judgement says -150; a re-run would say 0
+            return a
+
+    t = Trainer(tmp_path, engine_getter=Flaky)
+    sid = t.start("hanging_own")["id"]
+    first = t.attempt(sid, 0, "d2d4")
+    n = len(calls)
+    second = t.attempt(sid, 0, "d2d4")
+    assert not first["correct"] and len(calls) == n and first["correct"] == second["correct"]

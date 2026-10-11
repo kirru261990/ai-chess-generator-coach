@@ -60,6 +60,7 @@ class Trainer:
         self.now = now or (lambda: datetime.now(UTC))
         self.budget = budget
         self.sessions: dict[str, dict] = {}
+        self._loss_cache: dict[tuple[str, str], int] = {}  # one engine verdict per (position, move): a shallow search is noisy
         self.lock = threading.Lock()
         self._bank: dict | None = None
 
@@ -156,10 +157,14 @@ class Trainer:
             raise GameError("illegal_move", f"{uci} is not a legal move here")
         loss = None
         if uci != item["answer"] and self.engine_getter is not None:
-            try:  # an engine problem must not turn a good move into a wrong one: only the stored answer counts then
-                loss = engine_loss(self.engine_getter(), board, move, self.budget)
-            except Exception:  # noqa: BLE001
-                loss = None
+            key = (item["fen"], uci)
+            loss = self._loss_cache.get(key)
+            if loss is None:
+                try:  # an engine problem must not turn a good move into a wrong one: only the stored answer counts then
+                    loss = engine_loss(self.engine_getter(), board, move, self.budget)
+                    self._loss_cache[key] = loss
+                except Exception:  # noqa: BLE001
+                    loss = None
         verdict = bank_mod.check_move(item, uci, loss)
         hints_used = session["hints"].get(index, 0)
         record = {
