@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from app.api import blind_spots, synced, tools
+from app.api import blind_spots, synced, tools, training
 from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
@@ -36,6 +36,9 @@ _STATUS = {
     "takeback_not_allowed": 409,
     "nothing_to_take_back": 409,
     "no_hint": 409,
+    "hint_not_allowed": 403,
+    "item_done": 409,
+    "bank_too_small": 409,
 }
 
 
@@ -162,3 +165,36 @@ def resign(game_id: str):
 @app.get("/games/{game_id}/pgn", response_class=PlainTextResponse)
 def pgn(game_id: str):
     return tools.export_pgn(game_id)
+
+
+class SessionIn(BaseModel):
+    motif: str = "hanging_own"
+
+
+class AttemptIn(BaseModel):
+    uci: str
+
+
+@app.post("/training/sessions")
+def start_training(body: SessionIn):
+    return training.start(body.motif)
+
+
+@app.get("/training/sessions/{sid}/items/{index}/hint")
+def training_hint(sid: str, index: int, level: int = 1):
+    return training.hint(sid, index, level)
+
+
+@app.post("/training/sessions/{sid}/items/{index}/attempt")
+def training_attempt(sid: str, index: int, body: AttemptIn):
+    return training.attempt(sid, index, body.uci)
+
+
+@app.post("/training/sessions/{sid}/items/{index}/give-up")
+def training_give_up(sid: str, index: int):
+    return training.give_up(sid, index)
+
+
+@app.get("/training/progress")
+def training_progress():
+    return training.progress()

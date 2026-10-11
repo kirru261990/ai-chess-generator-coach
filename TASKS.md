@@ -76,14 +76,14 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 
 ## Next (proposed order for the next session)
-1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)
+1. **T44 Training sessions** (built 2026-10-11 on `feat/training-sessions`: bank, sessions, held-out test, Train tab; open: a wrong-answer button, an ADR for the bank rules)
    Original scope: **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such
 2. **Owner's open questions** (ADR 0005): arrow after a suboptimal move, +0.3 start evaluation, opening list download (T43)
 3. **T37** E2 follow-ups; **T45** MCP tools usable from a chat (a board image works in any client; an interactive board only where the client supports MCP interactive UI): spec Week 3
 4. **T23** CI with Stockfish, **T30** Postgres persistence, the demo clip (owner)
 
 ## Week 2 additions
-- [ ] T25 Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games
+- [x] T25 (2026-10-11, `app/learner/bank.py`; sessions use it) Practice bank from the Lichess puzzle database (CC0), filtered by theme and rating, mixed with positions from my own games
   - ADR 0001 §3: theme matches the user's active pattern, rating within ±200 of the user's level; mix per session: 2 from own games, 2 curated Lichess puzzles, 1 held-out test (spec D3), and held-out items never appear in practice or coaching context; store puzzle IDs and the dataset snapshot date, not copies of the CSV
 - [ ] T26 Blind-spot map shows my rate next to the peer band from T14b
 

@@ -3,11 +3,12 @@ import { showAnalysisTabs } from './analysisTabs'
 import App from './App'
 import BlindSpots from './BlindSpots'
 import ReviewPage from './Review'
+import Train from './Train'
 import { usageLabel, type Usage } from './usageLabel'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
-type Tab = 'play' | 'spots' | 'review'
+type Tab = 'play' | 'train' | 'spots' | 'review'
 
 // Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
 const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
@@ -27,24 +28,30 @@ export default function Shell() {
 
   return (
     <>
-      {SHOW_ANALYSIS_TABS && (
       <nav className="tabs">
         <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')}>
           Play
         </button>
-        <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
-          Review
+        <button className={tab === 'train' ? 'on' : ''} onClick={() => setTab('train')}>
+          Train
         </button>
-        <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
-          Blind spots
-        </button>
+        {SHOW_ANALYSIS_TABS && (
+          <>
+            <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
+              Review
+            </button>
+            <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
+              Blind spots
+            </button>
+          </>
+        )}
       </nav>
-      )}
       {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
         <App />
       </div>
+      <div hidden={tab !== 'train'}>{tab === 'train' && <Train />}</div>
       <div hidden={tab !== 'review'}>{tab === 'review' && <ReviewPage />}</div>
       <div hidden={tab !== 'spots'}>{tab === 'spots' && <BlindSpots />}</div>
     </>
