@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import './App.css'
+import Rapid from './Rapid'
 import {
   KIND_LABEL,
   summarise,
@@ -10,6 +11,7 @@ import {
   type AttemptResult,
   type ItemOutcome,
   type Motif,
+  type RapidView,
   type Session,
 } from './trainState'
 
@@ -20,6 +22,7 @@ type HintStep = { level: number; kind: string; text: string; from?: string; to?:
 type Progress = {
   sessions: number
   retest_due: number
+  rapid?: { sessions: number; attempts: number }
   by_motif: Record<
     Motif,
     {
@@ -62,11 +65,25 @@ export default function Train() {
   const [hintedItems, setHintedItems] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [rapid, setRapid] = useState<RapidView | null>(null)
 
   useEffect(() => {
     if (session) return
     void call<Progress>('/training/progress').then((r) => setProgress(r.ok ? r.data : null))
   }, [session])
+
+  async function startRapid() {
+    setBusy(true)
+    setError(null)
+    const r = await call<RapidView>('/training/rapid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit_s: 10 }),
+    })
+    setBusy(false)
+    if (!r.ok) return setError(r.message)
+    setRapid(r.data)
+  }
 
   async function start(motif: Motif) {
     setBusy(true)
@@ -160,6 +177,7 @@ export default function Train() {
   }
 
   // ---------------------------------------------------------------- screens
+  if (rapid) return <Rapid view={rapid} onExit={() => setRapid(null)} />
   if (!session) {
     return (
       <main className="train">
@@ -186,6 +204,19 @@ export default function Train() {
             </section>
           )
         })}
+        <section className="hint-card">
+          <h3>Rapid drill</h3>
+          <p>
+            Twelve positions from your own games, 10 seconds each, one try, no labels. Some need a move, some need nothing, like a
+            real game. You see their last move arrive first.
+          </p>
+          {progress?.rapid && progress.rapid.attempts > 0 && (
+            <p className="hint-count">{progress.rapid.sessions} drill(s) so far, {progress.rapid.attempts} positions played</p>
+          )}
+          <button className="primary" disabled={busy} onClick={() => void startRapid()}>
+            Start a rapid drill
+          </button>
+        </section>
         {progress && progress.retest_due > 0 && <p>{progress.retest_due} position(s) you missed a week or more ago are due for a retest.</p>}
         {error && <p role="alert">{error}</p>}
       </main>

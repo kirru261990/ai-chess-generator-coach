@@ -39,12 +39,17 @@ from app import config
 from app.detectors import missed_free
 from app.engine.batch import SCHEMA, game_id
 from app.learner import patterns
+from app.learner.review import rank_for_mover
 
-BANK_VERSION = 1
+BANK_VERSION = 2  # v2: own items carry the opponent's last move (lead-in); a `calm` pool of positions where nothing needed doing
 HELD_OUT_SHARE = 5  # 1 in 5 puzzle IDs is held out
 DEFAULT_THEMES = ("hangingPiece",)
 RATING_RANGE = (400, 1100)  # Lichess puzzle rating; the player is 500-700 on Chess.com
 PRACTICE_PER_POOL = 200
+CALM_MAX_LOSS_CP = 20  # a calm position: the player's own move lost at most this much
+CALM_MIN_PLY = 10  # skip the first moves, which the opening list covers
+CALM_MAX_ABS_CP = 600  # skip positions that were already decided
+CALM_POOL = 300
 HELD_OUT_PER_POOL = 60
 OWN_MOTIFS = ("hanging_own", "missed_free")
 MOTIF_LABEL = {
@@ -165,6 +170,7 @@ def own_miss_items(games: list[dict], analyses: dict[str, dict]) -> list[dict]:
                 items.append({
                     "id": f"own:{gid}:{ply}:{motif}",
                     "source": "own",
+                    **_lead_in(analysis, ply),
                     "fen": board.fen(),
                     "answer": best,
                     "line": [best],
@@ -179,7 +185,53 @@ def own_miss_items(games: list[dict], analyses: dict[str, dict]) -> list[dict]:
     return items
 
 
-def build_bank(own: list[dict], puzzles: list[dict], snapshot: dict) -> dict:
+def _lead_in(analysis: dict, ply: int) -> dict:
+    """The opponent's last move, so a drill can show it arriving: the position before it and the move (UCI)."""
+    if ply < 1:
+        return {}
+    return {"prev_fen": analysis["positions"][ply - 1]["fen"], "prev_move": analysis["moves"][ply - 1]}
+
+
+def calm_items(games: list[dict], analyses: dict[str, dict], pool: int = CALM_POOL) -> list[dict]:
+    """Decoys for the rapid drill: positions from the player's games where there was nothing to find.
+
+    Both detectors say `not_applicable` (no piece of the player's could be won, no free piece to take), the player's own
+    move cost at most CALM_MAX_LOSS_CP by the stored fast pass, and the game was not already decided. The answer is the
+    move the player actually played. In the drill these look like every other position, so noticing "nothing is wrong"
+    is trained as well as noticing a threat. At most `pool` positions, spread evenly over the games.
+    """
+    found = []
+    for game in games:
+        analysis = analyses.get(game["source_id"])
+        if analysis is None or analysis.get("schema") != SCHEMA:
+            continue
+        gid = game_id(game["source_id"])
+        white = game["user_color"] == "white"
+        for ply, board, move, evidence in patterns.user_moves(analysis, game["user_color"]):
+            if ply < CALM_MIN_PLY:
+                continue
+            before, after = analysis["positions"][ply], analysis["positions"][ply + 1]
+            if before.get("mate") is not None or after.get("mate") is not None:
+                continue
+            rank_before, rank_after = rank_for_mover(before, white), rank_for_mover(after, white)
+            if abs(rank_before) > CALM_MAX_ABS_CP or rank_before - rank_after > CALM_MAX_LOSS_CP:
+                continue
+            if any(d.detect(board, move, evidence).outcome != "not_applicable" for d in patterns.DETECTORS.values()):
+                continue
+            item_id = f"own:{gid}:{ply}:calm"
+            found.append({
+                "id": item_id, "source": "own", "motif": "calm", **_lead_in(analysis, ply), "fen": board.fen(),
+                "answer": move.uci(), "line": [move.uci()], "played": move.uci(), "game": gid, "ply": ply,
+                "time_control": game.get("time_control"), "held_out": is_held_out(item_id),
+            })
+    found.sort(key=lambda i: (i["game"], i["ply"]))
+    if len(found) > pool:
+        step = len(found) / pool
+        found = [found[int(k * step)] for k in range(pool)]
+    return found
+
+
+def build_bank(own: list[dict], puzzles: list[dict], snapshot: dict, calm: list[dict] | None = None) -> dict:
     """The stored bank. `snapshot` says which dataset the puzzles came from (size and date, never a copy)."""
     return {
         "bank_version": BANK_VERSION,
@@ -191,13 +243,14 @@ def build_bank(own: list[dict], puzzles: list[dict], snapshot: dict) -> dict:
         },
         "puzzle_snapshot": snapshot,
         "own": own,
+        "calm": calm or [],
         "puzzles": puzzles,
     }
 
 
 def validate(bank: dict) -> None:
     """Fail closed on a bank that would break a rule: a held-out puzzle outside the hash rule, or a bad answer."""
-    for item in bank["own"] + bank["puzzles"]:
+    for item in bank["own"] + bank.get("calm", []) + bank["puzzles"]:
         board = chess.Board(item["fen"])
         if chess.Move.from_uci(item["answer"]) not in board.legal_moves:
             raise BankError(f"{item['id']}: the answer is not legal")
@@ -205,6 +258,11 @@ def validate(bank: dict) -> None:
             raise BankError(f"{item['id']}: held-out flag disagrees with the hash rule")
         if item["source"] == "own" and item["held_out"] != is_held_out(item["id"]):
             raise BankError(f"{item['id']}: held-out flag disagrees with the hash rule")
+        if item.get("prev_fen"):
+            prev = chess.Board(item["prev_fen"])
+            prev.push(chess.Move.from_uci(item["prev_move"]))  # raises if not legal
+            if prev.board_fen() != board.board_fen():
+                raise BankError(f"{item['id']}: the lead-in move does not lead to the position")
 
 
 # ---------------------------------------------------------------- sessions
@@ -266,6 +324,67 @@ def new_session(bank: dict, motif: str, seed: int, avoid: frozenset[str] = froze
     return items
 
 
+RAPID_PLAN = (("hang", 5), ("free", 2), ("calm", 3), ("test", 2))  # 12 positions; the player is not told which is which
+RAPID_LABEL = {
+    "hang": "a piece of yours could be taken",
+    "free": "a free piece was there to take",
+    "calm": "nothing needed doing",
+    "test": "a test position",
+}
+
+
+def new_rapid(bank: dict, seed: int, avoid: frozenset[str] = frozenset()) -> list[dict]:
+    """Twelve positions from the player's own games, in random order, with no label shown while playing:
+    5 where they hung a piece, 2 where they missed a free one, 3 calm decoys (nothing to find), and 2 held-out tests
+    (one of each motif). Items in `avoid` are skipped while others exist.
+
+    Held-out items appear only here as tests, never as the practice kinds. Raises BankError if the bank cannot fill the
+    plan (an old bank without a `calm` pool, for instance).
+    """
+    rng = random.Random(seed)
+    own = bank["own"]
+    held = [i for i in own if i["held_out"]]
+    pools = {
+        "hang": [i for i in own if i["motif"] == "hanging_own" and not i["held_out"]],
+        "free": [i for i in own if i["motif"] == "missed_free" and not i["held_out"]],
+        "calm": [i for i in bank.get("calm", []) if not i["held_out"]],
+    }
+
+    def ordered(pool: list[dict]) -> list[dict]:
+        """Items not seen recently first (shuffled), then the rest: a thin pool tops up instead of shrinking."""
+        new = [i for i in pool if i["id"] not in avoid]
+        old = [i for i in pool if i["id"] in avoid]
+        rng.shuffle(new)
+        rng.shuffle(old)
+        return new + old
+
+    chosen: list[dict] = []
+    for kind, n in RAPID_PLAN:
+        if kind == "test":
+            group = [ordered(pool)[0] for pool in ([i for i in held if i["motif"] == m] for m in OWN_MOTIFS) if pool]
+        else:
+            pool = ordered(pools[kind])
+            group, games = [], set()
+            for i in pool:  # different games first, so one game does not fill the drill
+                if len(group) < n and i["game"] not in games:
+                    group.append(i)
+                    games.add(i["game"])
+            group += [i for i in pool if i not in group][: n - len(group)]
+        if len(group) < n:
+            raise BankError(f"the bank is too small for a rapid drill: {kind} has {len(group)} of {n}")
+        chosen += [{**i, "kind": kind} for i in group]
+    rng.shuffle(chosen)
+    return chosen
+
+
+def public_rapid_item(index: int, item: dict) -> dict:
+    """What the page may see while playing a rapid position: no kind, no answer. The lead-in move is shown if known."""
+    out = {"index": index, "fen": item["fen"], "side": side_to_move(item["fen"])}
+    if item.get("prev_fen") and item.get("prev_move"):
+        out["lead_in"] = {"fen": item["prev_fen"], "uci": item["prev_move"]}
+    return out
+
+
 def side_to_move(fen: str) -> str:
     return "white" if chess.Board(fen).turn == chess.WHITE else "black"
 
@@ -322,14 +441,15 @@ def main(argv: list[str]) -> None:
     puzzles = select_puzzles(_puzzle_rows(puzzle_path))
     stat = puzzle_path.stat()
     snapshot = {"file": puzzle_path.name, "bytes": stat.st_size, "modified": datetime.fromtimestamp(stat.st_mtime, UTC).date().isoformat()}
-    bank = build_bank(own, puzzles, snapshot)
+    calm = calm_items(games, analyses)
+    bank = build_bank(own, puzzles, snapshot, calm)
     validate(bank)
     out = config.DATA_DIR / "bank" / "bank_v1.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(bank, indent=1) + "\n")
     held = sum(1 for p in puzzles if p["held_out"])
     by_motif = {m: sum(1 for i in own if i["motif"] == m) for m in OWN_MOTIFS}
-    print(f"bank written to {out}\n  own positions: {len(own)} {by_motif}\n  puzzles: {len(puzzles)} ({held} held out)")
+    print(f"bank written to {out}\n  own positions: {len(own)} {by_motif}\n  calm positions: {len(calm)}\n  puzzles: {len(puzzles)} ({held} held out)")
 
 
 if __name__ == "__main__":

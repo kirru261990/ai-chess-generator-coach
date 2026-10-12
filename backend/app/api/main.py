@@ -198,3 +198,22 @@ def training_give_up(sid: str, index: int):
 @app.get("/training/progress")
 def training_progress():
     return training.progress()
+
+
+class RapidIn(BaseModel):
+    limit_s: int = 10
+
+
+class RapidAttemptIn(BaseModel):
+    uci: str | None = None  # None: the clock ran out
+    elapsed_ms: int
+
+
+@app.post("/training/rapid")
+def start_rapid(body: RapidIn):
+    return training.start_rapid(body.limit_s)
+
+
+@app.post("/training/rapid/{sid}/items/{index}/attempt")
+def rapid_attempt(sid: str, index: int, body: RapidAttemptIn):
+    return training.rapid_attempt(sid, index, body.uci, body.elapsed_ms)

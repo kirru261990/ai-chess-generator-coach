@@ -36,9 +36,10 @@ def make_bank(own=12, held=4, puzzles=8):
     for motif in bank.OWN_MOTIFS:
         items += [make_item(f"{motif}{i}", motif=motif) for i in range(own)]
         items += [make_item(f"{motif}H{i}", motif=motif, held_out=True) for i in range(held)]
+    calm = [make_item(f"calm{i}", motif="calm") for i in range(6)]
     pz = [{**make_item(f"p{i}", source="lichess", motif="missed_free"), "rating": 800} for i in range(puzzles)]
     pz += [{**make_item(f"pH{i}", source="lichess", motif="missed_free", held_out=True), "rating": 800} for i in range(3)]
-    return {"bank_version": 1, "own": items, "puzzles": pz}
+    return {"bank_version": 2, "own": items, "calm": calm, "puzzles": pz}
 
 
 def test_held_out_split_depends_on_the_id_alone_and_is_about_a_fifth():
@@ -361,3 +362,152 @@ def test_the_same_move_is_judged_once_so_a_noisy_search_cannot_flip_the_verdict(
     n = len(calls)
     second = t.attempt(sid, 0, "d2d4")
     assert not first["correct"] and len(calls) == n and first["correct"] == second["correct"]
+
+
+# ---------------------------------------------------------------- rapid drill
+
+
+def test_rapid_has_twelve_positions_in_the_planned_mix_and_held_out_only_as_tests():
+    b = make_bank()
+    held = {i["id"] for i in b["own"] if i["held_out"]}
+    for seed in range(40):
+        items = bank.new_rapid(b, seed)
+        kinds = [i["kind"] for i in items]
+        assert len(items) == 12 and {k: kinds.count(k) for k in set(kinds)} == {"hang": 5, "free": 2, "calm": 3, "test": 2}
+        assert all((i["id"] in held) == (i["kind"] == "test") for i in items)
+        assert len({i["id"] for i in items}) == 12
+
+
+def test_rapid_players_are_not_told_what_kind_of_position_it_is():
+    item = {**bank.new_rapid(make_bank(), 1)[0], "prev_fen": chess.STARTING_FEN, "prev_move": "e2e4"}
+    shown = bank.public_rapid_item(0, item)
+    text = json.dumps(shown)
+    assert set(shown) == {"index", "fen", "side", "lead_in"} and "kind" not in text and "answer" not in text
+    assert "lead_in" not in bank.public_rapid_item(0, {k: v for k, v in item.items() if k != "prev_fen"})
+
+
+def test_rapid_needs_the_calm_pool():
+    b = make_bank()
+    b["calm"] = []
+    with pytest.raises(bank.BankError):
+        bank.new_rapid(b, 1)
+
+
+def start_rapid(trainer, **kw):
+    r = trainer.start_rapid(**kw)
+    return r["id"], r
+
+
+def test_a_rapid_try_is_one_shot_and_a_timeout_counts(trainer):
+    sid, view = start_rapid(trainer)
+    assert len(view["items"]) == 12 and view["limit_s"] == 10 and "answer" not in json.dumps(view)
+    r = trainer.rapid_attempt(sid, 0, "e2e4", 4000)
+    assert r["correct"] and not r["timed_out"] and r["kind_label"]
+    with pytest.raises(GameError) as e:
+        trainer.rapid_attempt(sid, 0, "e2e4", 4000)
+    assert e.value.code == "item_done"
+    slow = trainer.rapid_attempt(sid, 1, "e2e4", 10_000 + 1500 + 1)
+    assert slow["timed_out"] and not slow["correct"] and slow["answer"]["san"]
+    gone = trainer.rapid_attempt(sid, 2, None, 10_000)
+    assert gone["timed_out"] and not gone["correct"]
+
+
+def test_an_illegal_click_in_rapid_is_not_a_try(trainer):
+    sid, _ = start_rapid(trainer)
+    with pytest.raises(GameError) as e:
+        trainer.rapid_attempt(sid, 0, "a1a1", 1000)
+    assert e.value.code == "illegal_move"
+    assert trainer.rapid_attempt(sid, 0, "e2e4", 1000)["correct"]
+
+
+def test_finishing_rapid_returns_a_summary_by_kind_with_counts(trainer):
+    sid, _ = start_rapid(trainer)
+    last = None
+    for n in range(12):
+        last = trainer.rapid_attempt(sid, n, "e2e4" if n % 2 == 0 else "a2a3", 3000 + n)
+    summary = last["summary"]
+    assert summary["attempts"] == 12 and sum(k["attempts"] for k in summary["by_kind"].values()) == 12
+    assert all(k["median_seconds"] is not None for k in summary["by_kind"].values() if k["attempts"])
+    assert "summary" not in trainer.rapid_attempt(start_rapid(trainer)[0], 0, "e2e4", 1000)
+
+
+def test_rapid_stays_out_of_the_practice_numbers_and_the_retest(trainer):
+    sid, _ = start_rapid(trainer)
+    trainer.rapid_attempt(sid, 0, "a2a3", 1000)  # a miss
+    p = trainer.progress()
+    assert p["by_motif"]["hanging_own"]["practice_first_tries"] == 0 and p["sessions"] == 0
+    assert p["rapid"]["attempts"] == 1 and p["rapid"]["sessions"] == 1
+    later = Trainer(trainer.data_dir, now=lambda: datetime(2026, 11, 1, tzinfo=UTC))
+    assert later.progress()["retest_due"] == 0
+
+
+def test_the_scan_prompt_fades_after_three_drills(trainer):
+    flags = [trainer.start_rapid()["prompted"] for _ in range(5)]
+    assert flags == [True, True, True, False, False]
+    assert trainer.start_rapid()["scan_prompt"] is None
+
+
+def test_a_move_that_hangs_a_piece_is_marked_careless(trainer):
+    sid, _ = start_rapid(trainer)
+    item = trainer.sessions[sid]["items"][0]
+    item["fen"] = "4k3/8/8/8/3q4/8/8/R3K3 w - - 0 1"
+    item["answer"], item["played"] = "e1d1", None
+    trainer._loss_cache[(item["fen"], "a1a4")] = 900  # the engine's verdict: the rook is lost
+    r = trainer.rapid_attempt(sid, 0, "a1a4", 2000)  # the rook walks into the queen
+    assert r["careless"] and not r["correct"] and any("rook on a4" in f for f in r["facts"])
+
+
+def test_the_rapid_api_runs_end_to_end(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    (tmp_path / "bank").mkdir()
+    (tmp_path / "bank" / "bank_v1.json").write_text(json.dumps(make_bank()))
+    t = Trainer(tmp_path)
+    monkeypatch.setattr("app.api.training.TRAINER", t)
+    c = TestClient(app)
+    v = c.post("/training/rapid", json={"limit_s": 8}).json()
+    assert v["limit_s"] == 8 and len(v["items"]) == 12
+    r = c.post(f"/training/rapid/{v['id']}/items/0/attempt", json={"uci": "e2e4", "elapsed_ms": 2500}).json()
+    assert r["correct"]
+    assert c.post(f"/training/rapid/{v['id']}/items/1/attempt", json={"uci": None, "elapsed_ms": 8000}).json()["timed_out"]
+
+
+def test_validate_checks_the_lead_in_move_and_the_calm_pool():
+    b = make_bank()
+    board = chess.Board()
+    board.push_uci("e2e4")
+    b["calm"][0].update(fen=board.fen(), answer="e7e5", line=["e7e5"], prev_fen=chess.STARTING_FEN, prev_move="e2e4")
+    bank.validate(b)
+    b["calm"][0]["prev_move"] = "d2d4"
+    with pytest.raises(bank.BankError):
+        bank.validate(b)
+
+
+def test_calm_items_keep_only_quiet_positions_where_the_move_cost_nothing(monkeypatch):
+    class Stub:
+        def __init__(self, outcome):
+            self.outcome = outcome
+
+        def detect(self, board, move, evidence):
+            return type("R", (), {"outcome": self.outcome})()
+
+    moves = ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "d2d3", "f8c5", "c2c3", "d7d6", "b1d2", "c8e6", "c4e6", "f7e6"]
+    board, positions = chess.Board(), []
+    for k, uci in enumerate(moves + [None]):
+        positions.append({"ply": k, "fen": board.fen(), "cp": 10, "mate": None, "best": uci})
+        if uci:
+            board.push_uci(uci)
+    analysis = {"schema": 2, "moves": moves, "positions": positions}
+    game = {"source_id": "https://www.chess.com/game/live/777", "user_color": "white", "time_control": "600"}
+    monkeypatch.setattr("app.learner.patterns.DETECTORS", {"a": Stub("not_applicable"), "b": Stub("not_applicable")})
+    out = bank.calm_items([game], {game["source_id"]: analysis})
+    assert out and all(i["ply"] >= bank.CALM_MIN_PLY and i["motif"] == "calm" and i["answer"] == moves[i["ply"]] for i in out)
+    assert all(i.get("prev_move") == moves[i["ply"] - 1] for i in out)
+    monkeypatch.setattr("app.learner.patterns.DETECTORS", {"a": Stub("not_applicable"), "b": Stub("missed")})
+    assert bank.calm_items([game], {game["source_id"]: analysis}) == []
+    for p in positions:
+        p["cp"] = 10 if p["ply"] % 2 == 0 else -200  # White's move gives up 210 cp: not calm
+    monkeypatch.setattr("app.learner.patterns.DETECTORS", {"a": Stub("not_applicable")})
+    assert bank.calm_items([game], {game["source_id"]: analysis}) == []

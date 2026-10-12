@@ -53,3 +53,47 @@ export function summaryLines(s: ReturnType<typeof summarise>): string[] {
   lines.push(`Test position: ${s.heldOut}`)
   return lines
 }
+
+// ---------------------------------------------------------------- rapid drill
+
+export type RapidKind = 'hang' | 'free' | 'calm' | 'test'
+export type RapidItem = { index: number; fen: string; side: 'white' | 'black'; lead_in?: { fen: string; uci: string } }
+export type RapidView = { id: string; limit_s: number; prompted: boolean; scan_prompt: string | null; items: RapidItem[] }
+export type RapidKindStats = { attempts: number; correct: number; timed_out: number; careless: number; median_seconds: number | null }
+export type RapidSummary = { attempts: number; by_kind: Record<RapidKind, RapidKindStats> }
+export type RapidResult = {
+  index: number
+  correct: boolean
+  timed_out: boolean
+  careless: boolean
+  kind: RapidKind
+  kind_label: string
+  answer: Answer | null
+  facts: string[]
+  summary?: RapidSummary
+}
+
+export const RAPID_KIND_NAME: Record<RapidKind, string> = {
+  hang: 'A piece of yours could be taken',
+  free: 'A free piece to take',
+  calm: 'Nothing needed doing',
+  test: 'Test positions',
+}
+
+export function remainingMs(limitS: number, elapsedMs: number): number {
+  return Math.max(0, limitS * 1000 - elapsedMs)
+}
+
+/** One line per kind of position, as counts with their denominators. Kinds not met are left out. */
+export function rapidLines(s: RapidSummary): string[] {
+  const order: RapidKind[] = ['hang', 'free', 'calm', 'test']
+  return order
+    .filter((k) => s.by_kind[k].attempts > 0)
+    .map((k) => {
+      const x = s.by_kind[k]
+      const parts = [`${x.correct} of ${x.attempts} right`]
+      if (x.timed_out > 0) parts.push(`${x.timed_out} out of time`)
+      if (x.median_seconds !== null) parts.push(`median ${x.median_seconds.toFixed(1)} s`)
+      return `${RAPID_KIND_NAME[k]}: ${parts.join(', ')}`
+    })
+}

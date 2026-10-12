@@ -32,3 +32,28 @@ describe('summarise', () => {
   })
   it('says not tried when the test was skipped', () => expect(summarise([o({})]).heldOut).toBe('not tried'))
 })
+
+import { rapidLines, remainingMs, type RapidSummary } from './trainState'
+
+describe('rapid helpers', () => {
+  it('counts the time left and never goes below zero', () => {
+    expect(remainingMs(10, 2500)).toBe(7500)
+    expect(remainingMs(10, 12000)).toBe(0)
+  })
+  it('summarises by kind with counts, leaving out kinds not met', () => {
+    const zero = { attempts: 0, correct: 0, timed_out: 0, careless: 0, median_seconds: null }
+    const s: RapidSummary = {
+      attempts: 7,
+      by_kind: {
+        hang: { attempts: 5, correct: 2, timed_out: 1, careless: 1, median_seconds: 6.04 },
+        free: zero,
+        calm: { attempts: 2, correct: 2, timed_out: 0, careless: 0, median_seconds: 3.5 },
+        test: zero,
+      },
+    }
+    expect(rapidLines(s)).toEqual([
+      'A piece of yours could be taken: 2 of 5 right, 1 out of time, median 6.0 s',
+      'Nothing needed doing: 2 of 2 right, median 3.5 s',
+    ])
+  })
+})

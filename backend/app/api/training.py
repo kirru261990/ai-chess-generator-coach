@@ -26,3 +26,11 @@ def give_up(sid: str, index: int) -> dict:
 
 def progress() -> dict:
     return TRAINER.progress()
+
+
+def start_rapid(limit_s: int) -> dict:
+    return TRAINER.start_rapid(limit_s)
+
+
+def rapid_attempt(sid: str, index: int, uci: str | None, elapsed_ms: int) -> dict:
+    return TRAINER.rapid_attempt(sid, index, uci, elapsed_ms)
