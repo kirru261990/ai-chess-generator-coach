@@ -75,6 +75,16 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] T31 Flag fast-pass evaluations as uncertain when unstable (spec B2): compare a second depth
 - [ ] T32 Cache reviews (each call re-runs the deep check)
 
+## PRD v2 (ADR 0006; replaces T44 and T25 as scoped)
+- [x] P0 Step 0 audit (`docs/audit.md`), owner approved 2026-10-13
+- [x] P1a SQLite store with the PRD rules enforced by the database; pinned evidence engine (Stockfish 19, depth 18, MultiPV 3) with recorded config and a (FEN, config) cache
+- [ ] P1b `hanging_own` v3 (M1), `missed_free` v3 (M2), sound-move validator, CLEAN selector, evidence records, run over all synced games
+- [ ] P1c Hand-check 30 flagged positions (gate: at least 27 real); record calibrated thresholds in ADR 0006
+- [ ] P2 Pools, baseline assessment, scoring with random-guess rates, PRD real-game windows
+- [ ] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, feedback with the output check, resume)
+- [ ] P4 Delayed assessments, results reveal, Progress screen, real-game rates with floors
+- [ ] P5 MCP tools over the same service layer
+
 ## Next (proposed order for the next session)
 1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)
    Original scope: **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such

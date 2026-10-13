@@ -22,7 +22,7 @@ An AI chess coach for players rated under ~1200. It **plays** games, **analyses*
 |---|---|
 | Backend | Python 3.12, FastAPI, `python-chess`, pytest; packages via `uv` |
 | Engine | Stockfish binary (path in `STOCKFISH_PATH`); Maia-2 later |
-| Database | Postgres (docker compose) |
+| Database | SQLite (stdlib `sqlite3`, `data/coach.sqlite3`) for PRD v2 data, ADR 0006; Postgres later (T30) |
 | Web | TypeScript, Vite + React, `react-chessboard` (MIT); packages via `pnpm` |
 | Coach LLM | Claude Sonnet-class via Anthropic API (`COACH_MODEL`); every call is logged and stops at `MONTHLY_BUDGET_USD` |
 | Eval baseline | GPT model, no tools, evals only (`BASELINE_MODEL`) |
@@ -34,7 +34,8 @@ An AI chess coach for players rated under ~1200. It **plays** games, **analyses*
 backend/
   app/
     core/        # rules, game state, branches, PGN/FEN (no LLM imports here)
-    engine/      # Stockfish wrapper, score normalisation, budgets
+    engine/      # Stockfish wrapper, score normalisation, budgets, pinned evidence engine + cache
+    db/          # SQLite schema; the PRD v2 rules the database enforces (ADR 0006)
     detectors/   # versioned motif detectors (hanging_own, missed_free, threat, fork)
     learner/     # evidence, patterns, attempts, progress windows
     sync/        # Chess.com / Lichess / PGN import, dedupe
@@ -69,8 +70,7 @@ pnpm dev                                                       # VITE_API_URL=ht
 pnpm test
 pnpm exec tsc -b
 
-# database (Docker is not installed on the owner's Mac yet; games are in memory today)
-docker compose up -d db
+# database: SQLite file data/coach.sqlite3, created on first use (live Practice games are still in memory)
 
 # data and evals (run from backend/; needs .env and Stockfish)
 uv run python -m app.sync                                      # sync Chess.com games into data/ (serial, with a contact User-Agent)
