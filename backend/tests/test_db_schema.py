@@ -34,6 +34,21 @@ def add_position(conn, game_id, pool, kind="MISTAKE", mistake_type="M1", ply=10)
     return cur.lastrowid
 
 
+def new_assessment(conn, mistake_type="M1"):
+    return conn.execute(
+        "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
+        " VALUES ('owner', ?, 'BASELINE', ?, ?, 'pending')",
+        (mistake_type, NOW, NOW),
+    ).lastrowid
+
+
+def allocate(conn, assessment_id, position_id, ord_=0):
+    conn.execute(
+        "INSERT INTO assessment_position (assessment_id, position_id, ord) VALUES (?, ?, ?)",
+        (assessment_id, position_id, ord_),
+    )
+
+
 def test_creates_schema_once_and_records_version(tmp_path):
     path = tmp_path / "store.sqlite3"
     connect(path).close()
@@ -97,27 +112,78 @@ def test_practice_never_uses_a_heldout_position(db):
     )
     with pytest.raises(sqlite3.IntegrityError, match="never uses a held-out"):
         db.execute(insert, (sid, heldout, NOW))
-    db.execute(insert, (sid, practice, NOW))
+    attempt = db.execute(insert, (sid, practice, NOW)).lastrowid
+    # Review finding (PR 61): an existing attempt could be pointed at a held-out position afterwards.
+    with pytest.raises(sqlite3.IntegrityError, match="never uses a held-out"):
+        db.execute("UPDATE practice_attempt SET position_id = ? WHERE id = ?", (heldout, attempt))
 
 
-def test_assessments_only_use_heldout_positions(db):
+def test_assessments_only_allocate_unseen_heldout_positions(db):
     heldout = add_position(db, "g-heldout", "HELDOUT")
     practice = add_position(db, "g-practice", "PRACTICE", ply=12)
-    aid = db.execute(
-        "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, position_ids_json)"
-        " VALUES ('owner', 'M1', 'BASELINE', ?, ?, 'pending', '[]')",
-        (NOW, NOW),
-    ).lastrowid
+    excluded = add_position(db, "g-heldout", "HELDOUT", ply=14)
+    db.execute("UPDATE position SET excluded_reason = 'hand-checked' WHERE id = ?", (excluded,))
+    aid = new_assessment(db)
+    with pytest.raises(sqlite3.IntegrityError, match="unseen held-out"):
+        allocate(db, aid, practice)
+    with pytest.raises(sqlite3.IntegrityError, match="unseen held-out"):
+        allocate(db, aid, excluded)
+    allocate(db, aid, heldout)
+    with pytest.raises(sqlite3.IntegrityError, match="never changed"):
+        db.execute("UPDATE assessment_position SET position_id = ? WHERE assessment_id = ?", (practice, aid))
+
+
+def test_results_only_answer_allocated_positions(db):
+    heldout = add_position(db, "g-heldout", "HELDOUT")
+    other = add_position(db, "g-heldout", "HELDOUT", ply=12)
+    practice = add_position(db, "g-practice", "PRACTICE", ply=12)
+    aid = new_assessment(db)
+    allocate(db, aid, heldout)
     insert = "INSERT INTO assessment_result (assessment_id, position_id) VALUES (?, ?)"
-    with pytest.raises(sqlite3.IntegrityError, match="only use held-out"):
-        db.execute(insert, (aid, practice))
-    db.execute(insert, (aid, heldout))
+    for not_allocated in (practice, other):
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(insert, (aid, not_allocated))
+    result = db.execute(insert, (aid, heldout)).lastrowid
+    # Review finding (PR 61): a result could be redirected to a practice position afterwards.
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute("UPDATE assessment_result SET position_id = ? WHERE id = ?", (practice, result))
+
+
+def test_a_tested_position_is_never_assessed_again(db):
+    """Review finding (PR 61): a TESTED position could be answered in a second assessment."""
+    heldout = add_position(db, "g-heldout", "HELDOUT")
+    first = new_assessment(db)
+    allocate(db, first, heldout)
+    db.execute("INSERT INTO assessment_result (assessment_id, position_id) VALUES (?, ?)", (first, heldout))
+    db.execute("UPDATE assessment SET status = 'submitted' WHERE id = ?", (first,))
+    db.execute("UPDATE position SET exposure_status = 'TESTED' WHERE id = ?", (heldout,))
+    second = new_assessment(db)
+    with pytest.raises(sqlite3.IntegrityError):
+        allocate(db, second, heldout)
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute("INSERT INTO assessment_result (assessment_id, position_id) VALUES (?, ?)", (second, heldout))
+
+
+def test_a_position_is_allocated_to_one_assessment_only(db):
+    """A CLEAN position fits both mistake types; two open assessments must not share it."""
+    clean = add_position(db, "g-heldout", "HELDOUT", kind="CLEAN", mistake_type=None)
+    allocate(db, new_assessment(db, "M1"), clean)
+    with pytest.raises(sqlite3.IntegrityError):
+        allocate(db, new_assessment(db, "M2"), clean)
+
+
+def test_clean_positions_are_stored_once(db):
+    """Review finding (PR 61): NULL mistake types made the plain UNIQUE constraint let duplicates in."""
+    add_position(db, "g-heldout", "HELDOUT", kind="CLEAN", mistake_type=None, ply=30)
+    with pytest.raises(sqlite3.IntegrityError):
+        add_position(db, "g-heldout", "HELDOUT", kind="CLEAN", mistake_type=None, ply=30)
+    add_position(db, "g-heldout", "HELDOUT", kind="MISTAKE", mistake_type="M1", ply=30)  # a different kind is fine
 
 
 def test_one_open_assessment_per_mistake_type(db):
     insert = (
-        "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, position_ids_json)"
-        " VALUES ('owner', ?, 'BASELINE', ?, ?, ?, '[]')"
+        "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
+        " VALUES ('owner', ?, 'BASELINE', ?, ?, ?)"
     )
     first = db.execute(insert, ("M1", NOW, NOW, "pending")).lastrowid
     with pytest.raises(sqlite3.IntegrityError):
@@ -130,19 +196,16 @@ def test_one_open_assessment_per_mistake_type(db):
 def test_delayed_assessment_needs_its_session(db):
     with pytest.raises(sqlite3.IntegrityError):
         db.execute(
-            "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, position_ids_json)"
-            " VALUES ('owner', 'M1', 'DELAYED', ?, ?, 'pending', '[]')",
+            "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
+            " VALUES ('owner', 'M1', 'DELAYED', ?, ?, 'pending')",
             (NOW, NOW),
         )
 
 
 def test_assessment_time_is_capped(db):
     heldout = add_position(db, "g-heldout", "HELDOUT")
-    aid = db.execute(
-        "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, position_ids_json)"
-        " VALUES ('owner', 'M1', 'BASELINE', ?, ?, 'pending', '[]')",
-        (NOW, NOW),
-    ).lastrowid
+    aid = new_assessment(db)
+    allocate(db, aid, heldout)
     with pytest.raises(sqlite3.IntegrityError):
         db.execute(
             "INSERT INTO assessment_result (assessment_id, position_id, elapsed_ms) VALUES (?, ?, 300001)",

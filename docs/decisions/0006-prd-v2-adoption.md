@@ -25,7 +25,8 @@ The seven audit decisions, all accepted as recommended:
 - **Pin:** `Stockfish 19` with network `nn-1a298aa575a0.nnue`. `open_evidence` refuses anything else (`engine_not_pinned`).
   The binary's sha256 is recorded and is part of the config id (this Mac: `dc2f18c3…c251f`, Homebrew bottle).
 - **Config:** depth 18, MultiPV 3, hash 64 MB, 1 thread, scores from White's side. The stability check runs at depth 14.
-  The hash is cleared before every search, so the same position and config always give the same answer (tested).
+  The hash is cleared before every search, and the engine sees the position alone (no move history, which can turn a
+  position into a repetition draw), so the same FEN and config always give the same answer (tested).
 - **Cache:** `engine_analysis`, keyed by (FEN, config id). A config change means re-analysis, never reuse.
 - **Cost measured 2026-10-13:** about 2 s per position at depth 18 (1.2 to 2.7 s over 6 middlegame positions) and 0.4 s at
   depth 14. A MISTAKE candidate needs about 4 searches (before and after the move, at both depths), so about 5 s. Step 1b will
@@ -33,10 +34,7 @@ The seven audit decisions, all accepted as recommended:
   reproducible. An on-demand sound-move check in the app costs about 2 s.
 
 ## Database rules enforced by SQLite itself (`app/db/schema.py`)
-A game's pool never changes. A position takes its game's pool and never changes it. PRACTICED only in PRACTICE, TESTED only in
-HELDOUT, and TESTED is final. Practice attempts only use PRACTICE positions, assessment results only HELDOUT positions. At most one
-unsubmitted assessment per type. Assessment time is capped at 300 s. A DELAYED assessment needs its source session. A frozen
-`baseline_window` cannot be edited or deleted. Each rule has a test (`tests/test_db_schema.py`).
+A game's pool never changes. A position takes its game's pool and never changes it, and is stored once per (game, ply, kind, mistake type, config, detector version), CLEAN included. PRACTICED only in PRACTICE, TESTED only in HELDOUT, and TESTED is final. Practice attempts only use PRACTICE positions (on insert and on update). Assessments allocate positions through `assessment_position` (the PRD's `position_ids`): only unseen, not-excluded HELDOUT positions, each **once ever**, and an answer must be for a position allocated to its assessment. At most one unsubmitted assessment per type. Assessment time is capped at 300 s. A DELAYED assessment needs its source session. A frozen `baseline_window` cannot be edited or deleted. Each rule has a test (`tests/test_db_schema.py`).
 
 ## Calibrated thresholds (PRD §4.2)
 Filled in after the Step 1 hand-check. Until then the PRD defaults apply unchanged.

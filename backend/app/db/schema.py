@@ -5,7 +5,10 @@ be broken are enforced by the database itself, not only by the code that writes 
 
 - a game's pool is set once and never changes; a position's pool equals its game's pool and never changes
 - PRACTICED is only possible in the PRACTICE pool, TESTED only in the HELDOUT pool, and TESTED is final
-- practice attempts only use PRACTICE positions, assessment results only HELDOUT positions
+- practice attempts only use PRACTICE positions, also when an attempt is later changed
+- a held-out position is allocated to at most one assessment, ever; a TESTED or excluded position is never allocated;
+  an assessment result must answer a position allocated to that assessment
+- a game-derived position is stored once per (game, ply, kind, mistake type, config, detector version), CLEAN included
 - at most one unsubmitted assessment per user and mistake type
 - a frozen real-game baseline window is never edited or deleted
 
@@ -83,9 +86,13 @@ CREATE TABLE position (
     CHECK ((kind = 'MISTAKE') = (mistake_type IS NOT NULL)),
     CHECK (exposure_status = 'UNSEEN'
            OR (exposure_status = 'PRACTICED' AND pool = 'PRACTICE')
-           OR (exposure_status = 'TESTED' AND pool = 'HELDOUT')),
-    UNIQUE (game_id, ply, kind, mistake_type, engine_config_id, detector_version)
+           OR (exposure_status = 'TESTED' AND pool = 'HELDOUT'))
 ) STRICT;
+
+-- NULL-safe: CLEAN positions have no mistake type, and a plain UNIQUE treats NULLs as distinct.
+CREATE UNIQUE INDEX position_once_per_analysis
+ON position (game_id, ply, kind, IFNULL(mistake_type, ''), engine_config_id, detector_version)
+WHERE game_id IS NOT NULL;
 
 CREATE TRIGGER position_pool_matches_game BEFORE INSERT ON position
 WHEN NEW.game_id IS NOT NULL AND NEW.pool IS NOT (SELECT pool FROM game WHERE id = NEW.game_id)
@@ -126,6 +133,10 @@ CREATE TRIGGER practice_uses_practice_pool BEFORE INSERT ON practice_attempt
 WHEN (SELECT pool FROM position WHERE id = NEW.position_id) IS NOT 'PRACTICE'
 BEGIN SELECT RAISE(ABORT, 'practice never uses a held-out position'); END;
 
+CREATE TRIGGER practice_uses_practice_pool_on_update BEFORE UPDATE OF position_id ON practice_attempt
+WHEN (SELECT pool FROM position WHERE id = NEW.position_id) IS NOT 'PRACTICE'
+BEGIN SELECT RAISE(ABORT, 'practice never uses a held-out position'); END;
+
 CREATE TABLE assessment (
     id                INTEGER PRIMARY KEY,
     user              TEXT NOT NULL,
@@ -135,13 +146,29 @@ CREATE TABLE assessment (
     created_at        TEXT NOT NULL,
     due_at            TEXT NOT NULL,
     status            TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'submitted')),
-    position_ids_json TEXT NOT NULL,
     submitted_at      TEXT,
     CHECK ((kind = 'DELAYED') = (source_session_id IS NOT NULL))
 ) STRICT;
 
 CREATE UNIQUE INDEX one_open_assessment_per_type
 ON assessment (user, mistake_type) WHERE status <> 'submitted';
+
+-- The positions allocated to an assessment (PRD §10 `position_ids`), in the order shown. A position is allocated once, ever.
+CREATE TABLE assessment_position (
+    assessment_id INTEGER NOT NULL REFERENCES assessment(id),
+    position_id   INTEGER NOT NULL UNIQUE REFERENCES position(id),
+    ord           INTEGER NOT NULL CHECK (ord >= 0),
+    PRIMARY KEY (assessment_id, position_id),
+    UNIQUE (assessment_id, ord)
+) STRICT;
+
+CREATE TRIGGER assessment_allocates_unseen_heldout BEFORE INSERT ON assessment_position
+WHEN (SELECT pool IS NOT 'HELDOUT' OR exposure_status = 'TESTED' OR excluded_reason IS NOT NULL
+      FROM position WHERE id = NEW.position_id)
+BEGIN SELECT RAISE(ABORT, 'assessments only use unseen held-out positions'); END;
+
+CREATE TRIGGER assessment_position_is_final BEFORE UPDATE ON assessment_position
+BEGIN SELECT RAISE(ABORT, 'an allocation is never changed'); END;
 
 CREATE TABLE assessment_result (
     id                   INTEGER PRIMARY KEY,
@@ -153,12 +180,10 @@ CREATE TABLE assessment_result (
     move_sound           INTEGER CHECK (move_sound IN (0, 1)),
     elapsed_ms           INTEGER CHECK (elapsed_ms BETWEEN 0 AND 300000),
     interrupted          INTEGER NOT NULL DEFAULT 0 CHECK (interrupted IN (0, 1)),
-    UNIQUE (assessment_id, position_id)
+    UNIQUE (assessment_id, position_id),
+    -- the answer must be for a position allocated to this assessment (which is held-out, unseen and not excluded)
+    FOREIGN KEY (assessment_id, position_id) REFERENCES assessment_position (assessment_id, position_id)
 ) STRICT;
-
-CREATE TRIGGER assessment_uses_heldout_pool BEFORE INSERT ON assessment_result
-WHEN (SELECT pool FROM position WHERE id = NEW.position_id) IS NOT 'HELDOUT'
-BEGIN SELECT RAISE(ABORT, 'assessments only use held-out positions'); END;
 
 CREATE TABLE baseline_window (
     id           INTEGER PRIMARY KEY,

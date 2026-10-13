@@ -99,6 +99,26 @@ def test_a_different_config_never_reads_another_configs_results():
     assert len(engine.calls) == 1
 
 
+def test_search_never_sees_move_history():
+    """Review finding (PR 61): the cache key is the FEN, so the search must not depend on the game's history."""
+    conn = connect(":memory:")
+    engine = FakeEngine()
+    seen = []
+    original = engine.analyse_multi
+
+    def spy(board, *args, **kwargs):
+        seen.append(len(board.move_stack))
+        return original(board, *args, **kwargs)
+
+    engine.analyse_multi = spy
+    board = chess.Board("4k3/8/8/7q/8/8/8/4K3 w - - 0 1")
+    for _ in range(2):
+        for uci in ("e1f1", "e8f8", "f1e1", "f8e8"):
+            board.push_uci(uci)
+    EvidenceAnalyser(engine, CFG, conn).analyse(board)
+    assert seen == [0]
+
+
 def test_no_search_when_there_are_no_legal_moves():
     conn = connect(":memory:")
     engine = FakeEngine()

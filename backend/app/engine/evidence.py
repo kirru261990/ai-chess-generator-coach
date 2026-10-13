@@ -8,7 +8,7 @@ searches the live Practice game uses (depth 10 to 16), and its results are never
 - **Recorded:** version, network, binary hash, depth, MultiPV, hash size, threads and score perspective make up an
   `EngineConfig`; its id is a hash of those fields and every cached result and position stores it.
 - **Reproducible:** one thread, a fixed hash size, and the hash cleared before each search (`ucinewgame`).
-- **Cached:** results are stored by (FEN, config id). A different config never reads another config's results;
+- **Cached:** results are stored by (FEN, config id), and the search always sees that FEN alone (no move history). A different config never reads another config's results;
   changing any field means re-analysis (PRD §4.1).
 
 Changing the pin or a default here is an ADR-level change: it invalidates every stored position.
@@ -120,6 +120,9 @@ class EvidenceAnalyser:
         if depth is not None:
             register_config(self.conn, cfg)
         fen = board.fen()
+        # Search the position on its own, never with the game's move history: the cache key is the FEN, and history
+        # changes the answer (a repetition scores as a draw). PRD positions are shown without history too.
+        board = chess.Board(fen)
         cached = cached_analysis(self.conn, fen, cfg.id)
         if cached is not None:
             return cached
