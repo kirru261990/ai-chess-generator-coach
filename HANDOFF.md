@@ -68,6 +68,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-13 · MacBook · Claude Code (session 25): PRD v2 Step 0 audit
+- **The owner gave PRD v2** (Replay My Mistakes + unassisted assessments, two mistake types, held-out pool, baseline before practice). Copied unchanged to `docs/prd-v2.md`. The PRD says: no feature code before the owner approves the audit.
+- **Done:** `docs/audit.md`: what exists, what falls short, what is missing, conflicts, and 7 decisions for the owner (SQLite, ADR folder, detector v3, keep the 7 Oct baseline as history, exclude hand-checked positions from held-out tests, a fix for a CLEAN-position gap in the PRD, small readings). Backend tests 658 passed, 1 skipped.
+- **Next:** the owner answers section 6 of the audit. Then Step 1a (ADR 0006, SQLite, pinned engine config, position cache), built in a worktree.
+- **Branch / PR:** `docs/audit-prd-v2`
+
 ### 2026-10-10 · cloud · Claude Code (session 24, part 13b): review fix on PR 59, merged with the PR 58 fixes
 - **GPT finding (Review and Blind spots unreachable):** confirmed, nothing in the page led to them. Hidden by default is the owner's request, so it stays; they are now reachable with **`?analysis=1`** in the page address (`web/src/analysisTabs.ts`, tested).
 - **Merged `feat/hint-ladder` (now five steps):** the hint card shows **1 Think, 2 Idea, 3 Piece, 4 Why, 5 Move**, and a failed hint request shows a message under the button to retry.
