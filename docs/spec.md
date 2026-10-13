@@ -81,9 +81,9 @@ This product plays, analyses, finds the learner's recurring misses, coaches them
 |---|---|---|
 | D1 | Ask "why?" | On any position or branch: short explanation plus an optional verified line. Every tactical claim is checked before it's shown. |
 | D2 | Intent first (skippable) | At key moments, ask "What were you considering?", then compare my answer with the verified threats and name the specific gap. My answer is stored as self-reported, never inferred. |
-| D3 | Training sessions | Five positions per session: two from my games, two curated on the same motif, one held-out test. Equivalent good moves are accepted. |
-| D4 | Hint ladder | Stage 0 scan prompt ("Checks, captures, threats?") → concept cue → piece/square → consequence → answer on request. Assistance is recorded. |
-| D5 | Fading scan prompts | In Practice games, scan prompts appear with a probability that drops as my **real-game** miss rate for the active pattern improves. |
+| D3 | Training sessions (**replaced by PRD v2**, ADR 0006) | Five positions per session: two from my games, two curated on the same motif, one held-out test. Equivalent good moves are accepted. |
+| D4 | Hint ladder (live game only; **PRD v2 §6.3** for Replay sessions, ADR 0006) | Stage 0 scan prompt ("Checks, captures, threats?") → concept cue → piece/square → consequence → answer on request. Assistance is recorded. |
+| D5 | Fading scan prompts (**dropped from v1 by PRD v2**, ADR 0006) | In Practice games, scan prompts appear with a probability that drops as my **real-game** miss rate for the active pattern improves. |
 | D6 | Coach plan | One focus at a time, explained with my examples; I can change it. |
 | D7 | Monthly progress | Compare a baseline window with the latest window of real Chess.com 10|0 and 15|10 games (per time control and combined, with game mix): missed/available per motif, rate per 100 moves, sample size, and an "early signal" label below the minimum sample. No rating-gain claims. |
 

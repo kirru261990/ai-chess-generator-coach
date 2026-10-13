@@ -109,8 +109,14 @@ def find_stockfish() -> str:
 class Engine:
     """Context manager around one Stockfish process."""
 
-    def __init__(self, path: str | None = None, default_budget: Budget | None = None):
+    def __init__(
+        self,
+        path: str | None = None,
+        default_budget: Budget | None = None,
+        options: dict[str, int | str] | None = None,
+    ):
         self._path = path or find_stockfish()
+        self._options = dict(options or {})  # UCI options set once at start (Hash, Threads)
         self.default_budget = default_budget or Budget(
             depth=int(os.environ.get("ENGINE_DEFAULT_DEPTH", DEFAULT_DEPTH))
         )
@@ -121,7 +127,20 @@ class Engine:
     def __enter__(self) -> Self:
         self._engine = chess.engine.SimpleEngine.popen_uci(self._path)
         self.name = self._engine.id.get("name", "unknown")
+        if self._options:
+            self._engine.configure(self._options)
         return self
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    def option_default(self, name: str) -> str | int | None:
+        """The engine's advertised default for a UCI option (e.g. the network file in EvalFile)."""
+        if self._engine is None:
+            raise EngineError("engine_not_running", "use Engine as a context manager")
+        opt = self._engine.options.get(name)
+        return None if opt is None else opt.default
 
     def __exit__(self, *exc) -> None:
         if self._engine is not None:
@@ -158,15 +177,22 @@ class Engine:
         multipv: int,
         budget: Budget | None = None,
         perspective: chess.Color | None = None,
+        new_game: bool = False,
     ) -> list[Analysis]:
-        """Top `multipv` lines, best first. Used to list acceptable alternatives."""
+        """Top `multipv` lines, best first. Used to list acceptable alternatives.
+
+        `new_game` clears the engine's hash first (UCI `ucinewgame`), so the result does not depend on
+        what was searched before. Evidence analysis needs that to be reproducible.
+        """
         if self._engine is None:
             raise EngineError("engine_not_running", "use Engine as a context manager")
         budget = budget or self.default_budget
         perspective = board.turn if perspective is None else perspective
         with self._lock:
             self._engine.configure({"Skill Level": 20})
-            infos = self._engine.analyse(board, budget.limit(), multipv=multipv)
+            infos = self._engine.analyse(
+                board, budget.limit(), multipv=multipv, game=object() if new_game else None
+            )
         out = []
         for info in infos:
             pv = tuple(m.uci() for m in info.get("pv", []))
