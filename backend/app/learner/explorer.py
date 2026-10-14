@@ -8,7 +8,8 @@ What it shows:
 - Step 1a: the games and their pools, the pinned engine config, the cache size, the rules the database enforces.
 - Step 1b: the funnel from the owner's moves to stored positions, with the reasons candidates were set aside.
 - A few example positions per type, **from the PRACTICE pool only**. Held-out positions appear only as counts: seeing one
-  would spoil it as an unseen test (PRD §5.3). The examples shown are marked `excluded_reason = 'shown_in_explorer'`, so
+  would spoil it as an unseen test (PRD §5.3). The examples shown, and any other row for the same board (`seen.py`), are
+  marked `excluded_reason = 'shown_in_explorer'`, so
   practice sessions can skip them (the owner has seen the answer) and they are never chosen again for this page.
 """
 
@@ -25,6 +26,7 @@ import chess.svg
 
 from app import config
 from app.db.schema import connect
+from app.learner import seen
 
 SHOWN = "shown_in_explorer"
 NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen",
@@ -137,13 +139,18 @@ def clean_card(evidence: dict) -> str:
 
 
 def pick_examples(conn, per_type: int) -> dict[str, list]:
-    """Examples from the PRACTICE pool only: those already shown first, then new ones in a fixed pseudo-random order."""
+    """Examples from the PRACTICE pool only: boards already shown first, then unseen boards in a fixed pseudo-random order.
+
+    A board seen anywhere (any of its rows marked) is never a fresh example (`seen.UNSEEN_BOARD`).
+    """
+    seen.propagate(conn)
     out = {}
     for key, where in (("M1", "kind = 'MISTAKE' AND mistake_type = 'M1'"),
                        ("M2", "kind = 'MISTAKE' AND mistake_type = 'M2'"), ("CLEAN", "kind = 'CLEAN'")):
         rows = conn.execute(f"SELECT * FROM position WHERE pool = 'PRACTICE' AND {where}").fetchall()
         shown = [r for r in rows if r["excluded_reason"] == SHOWN]
-        fresh = sorted((r for r in rows if r["excluded_reason"] is None),
+        unseen = {r["id"] for r in conn.execute(f"SELECT id FROM position WHERE {seen.UNSEEN_BOARD}")}
+        fresh = sorted((r for r in rows if r["excluded_reason"] is None and r["id"] in unseen),
                        key=lambda r: hashlib.sha256(f"explorer:{r['id']}".encode()).hexdigest())
         out[key] = (shown + fresh)[:per_type]
     return out
@@ -178,7 +185,7 @@ def build(conn, per_type: int) -> str:
     examples = pick_examples(conn, per_type)
     for rows in examples.values():
         for r in rows:
-            conn.execute("UPDATE position SET excluded_reason = ? WHERE id = ? AND excluded_reason IS NULL", (SHOWN, r["id"]))
+            seen.mark_seen(conn, r["id"], SHOWN)
 
     def g(tc, pool):
         return games.get((tc, pool), 0)

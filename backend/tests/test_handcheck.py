@@ -105,3 +105,35 @@ def test_line_words_label_moves_from_the_players_side():
     board.push_uci("h1h7")  # White's mistake; Black replies
     assert handcheck.line_words(board, ["e7h7", "g1f1"], chess.WHITE) == \
         "they: queen takes the rook on h7; you: king to f1"
+
+
+def add_sibling(conn, game_id, ply, mtype, ev):
+    return conn.execute(
+        "INSERT INTO position (game_id, ply, fen, kind, mistake_type, source_tag, pool, original_move, evidence_json,"
+        " verified_alternatives_json, engine_config_id, detector_version)"
+        " SELECT game_id, ply, fen, 'MISTAKE', ?, source_tag, pool, original_move, ?, verified_alternatives_json,"
+        " engine_config_id, detector_version FROM position WHERE game_id = ? AND ply = ? LIMIT 1",
+        (mtype, json.dumps(ev), game_id, ply)).lastrowid
+
+
+def test_a_board_seen_through_another_row_is_never_sampled(db):
+    """Review finding (PR 64): the explorer showed a move's M1 row; its M2 row for the same board was still sampled."""
+    for n in range(1, 40):  # every practice M1 board also gets an M2 row, so any seen board has a sibling
+        add_sibling(db, f"PRACTICE-{n}", 10, "M2", M2)
+    shown = [r["id"] for r in db.execute(
+        "SELECT id FROM position WHERE pool = 'PRACTICE' AND ply = 10 AND mistake_type = 'M1' LIMIT 12")]
+    for pid in shown:  # marked the old way: only the row itself
+        db.execute("UPDATE position SET excluded_reason = 'shown_in_explorer' WHERE id = ?", (pid,))
+    seen_boards = {tuple(r) for r in db.execute(
+        "SELECT game_id, ply FROM position WHERE excluded_reason IS NOT NULL")}
+    handcheck.make(db)
+    items = json.loads(handcheck.key_path().read_text())["items"]
+    picked = {tuple(r) for r in db.execute(
+        f"SELECT game_id, ply FROM position WHERE id IN ({','.join('?' * len(items))})",
+        [it["position_id"] for it in items])}
+    assert not picked & seen_boards
+    # every row of a seen or sampled board is now marked
+    unmarked = db.execute(
+        "SELECT COUNT(*) FROM position p WHERE excluded_reason IS NULL AND EXISTS (SELECT 1 FROM position m"
+        " WHERE m.game_id = p.game_id AND m.ply = p.ply AND m.excluded_reason IS NOT NULL)").fetchone()[0]
+    assert unmarked == 0

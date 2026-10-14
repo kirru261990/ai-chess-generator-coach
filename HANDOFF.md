@@ -72,7 +72,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Built `app/learner/handcheck.py`:** `make` freezes a sample of 30 PRACTICE-pool MISTAKE positions (8 M1 moved into danger, 7 M1 left behind, 15 M2; none already seen; one per game and ply) in `data/evidence/handcheck_v1.json`, marks them `hand_checked_v1`, and writes `data/evidence/handcheck_v1.html` (boards, arrows, plain words, Yes / No / Can't tell, answers saved in the browser, a Copy button). `score` applies the rule fixed before answering: real only when every question asked is yes; can't tell is not real; **gate 27 of 30**.
 - **The real sample is frozen** (30 positions marked). Found and fixed in the live page before the owner saw it: "you" and "they" were swapped in hanging-piece lines.
 - **Opening it:** the 1.4 MB page does not open as a file in the app's browser pane. A local static server serves `data/evidence/` on 127.0.0.1:8765 (local `.claude/launch.json` entry `evidence-pages`); or open the file in any browser.
-- **Tests:** backend 732 passed (1 skipped), ruff clean. **Branch / PR:** `feat/handcheck-v1`
+- **Review of PR 64 (1 finding, reproduced and fixed):** one move can have an M1 row and an M2 row for the same board; marking only the shown row let the other row be sampled as unseen. New `learner/seen.py`: seen is per board (`mark_seen` marks sibling rows, `UNSEEN_BOARD` filters, `propagate` repairs old marks), used by the explorer and the hand-check. The owner's frozen sample was not affected (checked); 2 sibling rows of sampled boards are now marked.
+- **Tests:** backend 736 passed (1 skipped), ruff clean. **Branch / PR:** `feat/handcheck-v1`
 - **Next:** the owner answers and pastes the copied text; `handcheck score`; record the result and the calibrated thresholds in ADR 0006; the owner's choice on M1 "moved into danger" recognition.
 
 ### 2026-10-14 · MacBook · Claude Code (session 25, part 4): a page to see Steps 1a and 1b

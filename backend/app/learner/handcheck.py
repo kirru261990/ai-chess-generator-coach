@@ -5,9 +5,9 @@
 
 Rules fixed before the owner answers (so the result cannot move the goalposts):
 - **Sample:** PRACTICE-pool MISTAKE positions only (held-out positions must stay unseen, PRD §5.3), never one the owner has
-  already seen (`excluded_reason` set), at most one per (game, ply): 8 M1 "moved into danger", 7 M1 "left behind", 15 M2, in
+  already seen (no row of the same board marked, `seen.py`), at most one per (game, ply): 8 M1 "moved into danger", 7 M1 "left behind", 15 M2, in
   a fixed pseudo-random order. The sample is frozen in `data/evidence/handcheck_v1.json` the first time; `make` afterwards only
-  rebuilds the page from it. The sampled positions are marked `excluded_reason = 'hand_checked_v1'`.
+  rebuilds the page from it. The sampled positions and their sibling rows are marked `excluded_reason = 'hand_checked_v1'`.
 - **Questions:** M1: A "could they take your piece and come out ahead?" then, only if A is yes, B "could you have kept it
   safe?". M2: A "could you take their piece and come out ahead?".
 - **Score:** a position is *real* only when every question asked is answered yes. "Can't tell" and "no" are not real.
@@ -32,6 +32,7 @@ import chess.svg
 
 from app import config
 from app.db.schema import connect
+from app.learner import seen
 from app.learner.explorer import GREEN, NAMES, ORANGE, RED, TARGET, board_svg, plain, side
 
 VERSION = 1
@@ -54,9 +55,10 @@ def _order(salt: str, position_id: int) -> str:
 
 
 def sample(conn) -> list[dict]:
+    seen.propagate(conn)
     rows = conn.execute(
         "SELECT id, game_id, ply, mistake_type, evidence_json FROM position"
-        " WHERE kind = 'MISTAKE' AND pool = 'PRACTICE' AND excluded_reason IS NULL"
+        " WHERE kind = 'MISTAKE' AND pool = 'PRACTICE' AND excluded_reason IS NULL AND " + seen.UNSEEN_BOARD
     ).fetchall()
     used: set[tuple] = set()
     picked = []
@@ -93,8 +95,8 @@ def make(conn) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(key, indent=1) + "\n")
         for it in items:
-            conn.execute("UPDATE position SET excluded_reason = ? WHERE id = ? AND excluded_reason IS NULL",
-                         (MARK, it["position_id"]))
+            seen.mark_seen(conn, it["position_id"], MARK)
+    seen.propagate(conn)  # also repairs boards marked before sibling rows were marked together
     cards = []
     for it in key["items"]:
         row = conn.execute("SELECT evidence_json, verified_alternatives_json FROM position WHERE id = ?",
