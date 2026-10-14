@@ -68,6 +68,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-14 · MacBook · Claude Code (session 25, part 4): a page to see Steps 1a and 1b
+- **Owner asked how to experience 1a and 1b.** Built `app/learner/explorer.py` -> `data/evidence/explorer.html` (git-ignored, never published: it holds the owner's games): pools per time control, the pinned engine, the database rules, the 1b funnel with reasons in plain words, and 3 example boards per type with arrows.
+- **Examples come from the PRACTICE pool only** (held-out positions only as counts, PRD §5.3). The 9 shown are marked `excluded_reason = 'shown_in_explorer'`; P3 practice selection should skip them. Tested.
+- **Tests:** backend 727 passed (1 skipped), ruff clean. **Branch / PR:** `feat/evidence-explorer`
+
 ### 2026-10-14 · MacBook · Claude Code (session 25, part 3): PRD v2 Step 1b, detectors and the first position store
 - **Built on `feat/evidence-detectors`:** `detectors/prd_rules.py` (PRD §4.2 numbers, material along an engine line), `hanging_own_v3.py` (M1), `missed_free_v3.py` (M2), `sound.py` (§4.4, any legal move on demand), `clean.py` (§4.6 + decision 6), `learner/pools.py` (games imported with a fixed 60/40 hash pool), `learner/evidence_run.py` (fast-pass prefilter, 4 pinned engine processes, positions into `data/coach.sqlite3`, summary in `data/evidence/`). v2 detectors untouched.
 - **ADR 0006 updated:** decision 5 corrected (my audit was wrong: `real_play_v1` is Lichess puzzles, not the owner's games, so nothing is excluded); decision 8 (a MISTAKE needs at least one sound top move, found in a trial: a knight lost whatever was played); readings 9 and 10.
