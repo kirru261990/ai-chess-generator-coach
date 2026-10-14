@@ -149,7 +149,9 @@ def fast_pass_by_game() -> dict[str, dict]:
 def build_tasks(conn, limit: int | None) -> list[dict]:
     analyses = fast_pass_by_game()
     tasks = []
-    rows = conn.execute("SELECT id, platform_id, pool, user_color FROM game ORDER BY played_at DESC").fetchall()
+    rows = conn.execute(
+        "SELECT id, platform_id, pool, user_color FROM game WHERE user_color IS NOT NULL ORDER BY played_at DESC"
+    ).fetchall()
     for row in rows:
         analysis = analyses.get(row["platform_id"])
         if analysis is None or analysis.get("schema") != SCHEMA:

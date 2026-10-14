@@ -12,20 +12,22 @@ be broken are enforced by the database itself, not only by the code that writes 
 - at most one unsubmitted assessment per user and mistake type
 - a frozen real-game baseline window is never edited or deleted
 
-`connect()` creates the tables on first use. A schema change bumps SCHEMA_VERSION and adds a migration step;
-a file written by a newer version is refused rather than guessed at.
+`connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
+store and an upgraded one are the same. A schema change never edits a released step; it bumps SCHEMA_VERSION and adds one.
+A file written by a newer version is refused rather than guessed at.
 
 Moving to Postgres later (T30) means porting this file and `app/engine/cache.py`; nothing else touches SQL.
 """
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -54,7 +56,6 @@ CREATE TABLE game (
     id                      TEXT PRIMARY KEY,
     source                  TEXT NOT NULL CHECK (source IN ('chesscom', 'inapp')),
     platform_id             TEXT NOT NULL,
-    user_color              TEXT NOT NULL CHECK (user_color IN ('white', 'black')),
     time_control            TEXT NOT NULL,
     played_at               INTEGER NOT NULL,
     pool                    TEXT NOT NULL CHECK (pool IN ('PRACTICE', 'HELDOUT')),
@@ -215,7 +216,40 @@ CREATE TABLE realgame_stat (
 ) STRICT;
 """
 
-_MIGRATIONS = {1: _SCHEMA_V1}  # version -> SQL that brings version - 1 up to it
+
+
+def _v2_user_color(conn: sqlite3.Connection) -> None:
+    """v2 (Step 1b): `game.user_color`, which side the player had. Existing games are filled from the PGN's White/Black
+    names and CHESSCOM_USERNAME; any game still unknown is filled by the next `pools.import_games`, and the runner skips it
+    until then. A new game without a colour is refused. Safe on a v1 store that already has the column (a Step 1b
+    development build wrote one)."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(game)")}
+    if "user_color" not in columns:
+        conn.execute("ALTER TABLE game ADD COLUMN user_color TEXT CHECK (user_color IN ('white', 'black'))")
+    username = (config.chesscom_username() or "").lower()
+    if username:
+        for row in conn.execute("SELECT id, pgn FROM game WHERE user_color IS NULL").fetchall():
+            color = _pgn_color(row["pgn"], username)
+            if color:
+                conn.execute("UPDATE game SET user_color = ? WHERE id = ?", (color, row["id"]))
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS game_user_color_required BEFORE INSERT ON game WHEN NEW.user_color IS NULL"
+        " BEGIN SELECT RAISE(ABORT, 'a game needs the player''s colour'); END"
+    )
+
+
+_PGN_PLAYER = re.compile(r'^\[(White|Black) "([^"]*)"\]', re.MULTILINE)
+
+
+def _pgn_color(pgn: str, username: str) -> str | None:
+    """'white' / 'black' when the PGN header names `username` on exactly one side (headers only; the rest is untrusted)."""
+    names = {tag.lower(): value.lower() for tag, value in _PGN_PLAYER.findall(pgn)}
+    sides = [side for side in ("white", "black") if names.get(side) == username]
+    return sides[0] if len(sides) == 1 else None
+
+
+# version -> SQL text, or a function, that brings version - 1 up to it
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color}
 
 
 class SchemaError(Exception):
@@ -246,9 +280,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if current > SCHEMA_VERSION:
         raise SchemaError(f"store is schema {current}, this code knows up to {SCHEMA_VERSION}")
     for version in range(current + 1, SCHEMA_VERSION + 1):
+        step = _MIGRATIONS[version]
         with transaction(conn):
-            for statement in _split(_MIGRATIONS[version]):
-                conn.execute(statement)
+            if callable(step):
+                step(conn)
+            else:
+                for statement in _split(step):
+                    conn.execute(statement)
             conn.execute(f"PRAGMA user_version = {version}")
 
 

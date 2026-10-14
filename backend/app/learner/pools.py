@@ -47,6 +47,10 @@ def import_games(conn: sqlite3.Connection, games_path: Path, time_controls) -> i
                 (row_id(pid), SOURCE, pid, g["user_color"], g["time_control"], g["end_time"], pool_for(pid), g["pgn"]),
             )
             added += cur.rowcount
+            if not cur.rowcount:  # already imported: fill a colour an upgraded store could not read from the PGN
+                conn.execute(
+                    "UPDATE game SET user_color = ? WHERE id = ? AND user_color IS NULL", (g["user_color"], row_id(pid))
+                )
     return added
 
 

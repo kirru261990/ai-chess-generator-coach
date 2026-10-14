@@ -230,3 +230,68 @@ def test_transaction_is_all_or_nothing(db):
         add_position(db, "g-practice", "PRACTICE", ply=20)
         add_position(db, "g-practice", "HELDOUT", ply=21)  # refused: the whole block rolls back
     assert db.execute("SELECT COUNT(*) FROM position WHERE ply IN (20, 21)").fetchone()[0] == 0
+
+
+# --- migrations (review finding on PR 62: v1 stores from Step 1a must upgrade) -----------------------------------------
+
+def v1_store(path, with_color_column=False):
+    """A store exactly as the v1 code left it (optionally the Step 1b development build that had the column)."""
+    from app.db import schema
+
+    conn = sqlite3.connect(path, isolation_level=None)
+    for statement in schema._split(schema._SCHEMA_V1):
+        conn.execute(statement)
+    if with_color_column:
+        conn.execute("ALTER TABLE game ADD COLUMN user_color TEXT")
+    conn.execute("PRAGMA user_version = 1")
+    pgn = '[White "Owner"]\n[Black "someone"]\n\n1. e4 *'
+    conn.execute(
+        "INSERT INTO game (id, source, platform_id, time_control, played_at, pool, pgn) VALUES"
+        " ('g-1', 'chesscom', '1', '600', 0, 'PRACTICE', ?), ('g-2', 'chesscom', '2', '600', 0, 'HELDOUT', '1. e4 *')",
+        (pgn,),
+    )
+    conn.close()
+
+
+@pytest.mark.parametrize("with_color_column", [False, True])
+def test_v1_store_upgrades_keeping_data_and_backfilling_colours(tmp_path, monkeypatch, with_color_column):
+    monkeypatch.setenv("CHESSCOM_USERNAME", "owner")
+    path = tmp_path / "v1.sqlite3"
+    v1_store(path, with_color_column)
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    colours = dict(conn.execute("SELECT id, user_color FROM game").fetchall())
+    assert colours == {"g-1": "white", "g-2": None}  # g-2 has no headers: filled by the next import
+    assert conn.execute("SELECT pool FROM game WHERE id = 'g-2'").fetchone()[0] == "HELDOUT"
+    with pytest.raises(sqlite3.IntegrityError, match="colour"):
+        conn.execute(
+            "INSERT INTO game (id, source, platform_id, time_control, played_at, pool, pgn)"
+            " VALUES ('g-3', 'chesscom', '3', '600', 0, 'PRACTICE', '')"
+        )
+
+
+def test_import_fills_a_missing_colour_without_touching_the_pool(tmp_path, monkeypatch):
+    import json
+
+    from app.learner import pools
+
+    monkeypatch.setenv("CHESSCOM_USERNAME", "owner")
+    path = tmp_path / "v1.sqlite3"
+    v1_store(path)
+    conn = connect(path)
+    games = tmp_path / "games.jsonl"
+    games.write_text(json.dumps({"source_id": "https://www.chess.com/game/live/2", "user_color": "black",
+                                 "time_control": "600", "end_time": 5, "pgn": "1. e4 *"}) + "\n")
+    conn.execute("UPDATE game SET id = 'chesscom:2' WHERE id = 'g-2'")
+    assert pools.import_games(conn, games, {"600"}) == 0
+    row = conn.execute("SELECT user_color, pool FROM game WHERE id = 'chesscom:2'").fetchone()
+    assert tuple(row) == ("black", "HELDOUT")
+
+
+def test_a_new_store_and_an_upgraded_store_have_the_same_tables(tmp_path):
+    def shape(conn):
+        return sorted(tuple(r) for r in conn.execute("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"))
+
+    path = tmp_path / "v1.sqlite3"
+    v1_store(path)
+    assert shape(connect(path)) == shape(connect(":memory:"))

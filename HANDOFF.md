@@ -73,7 +73,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **ADR 0006 updated:** decision 5 corrected (my audit was wrong: `real_play_v1` is Lichess puzzles, not the owner's games, so nothing is excluded); decision 8 (a MISTAKE needs at least one sound top move, found in a trial: a knight lost whatever was played); readings 9 and 10.
 - **Full run (42 min, config `ec-d46d6fec26ccdeb6`):** games HELDOUT/PRACTICE 106/147 at 10|0 and 98/99 at 15|10 (45% held-out overall, above the 40% target by chance; the hash rule is fixed). Positions HELDOUT/PRACTICE: M1 87/103, M2 23/38, CLEAN 116/128. PRD minimum (16 MISTAKE + 8 CLEAN held-out per type) is met. Of the M1 positions, 81 are "moved a piece into danger" (no visible threat before the move; open question for the owner in ADR 0006).
 - **Biggest rejection reasons (for calibration in 1c):** M1 decided 161, material swing below 3 along the line 85, top line not a capture 31, no sound move 17. M2 decided 104, no free capture in the best lines 91.
-- **Tests:** backend 720 passed (1 skipped), ruff clean.
+- **Review of PR 62 (1 finding, reproduced and fixed):** I had added `user_color` to schema v1 instead of a new version, so a Step 1a store could not run Step 1b. v1 is restored to its released text; **schema v2** adds the column, fills it from the PGN names (and from synced games on the next import), and refuses new games without it. The owner's store upgraded in place with all counts unchanged. Rule now in `schema.py`: never edit a released step.
+- **Tests:** backend 724 passed (1 skipped), ruff clean.
 - **Next (1c):** a hand-check page with 30 flagged positions for the owner (gate: 27 real), then calibrated thresholds in ADR 0006.
 - **Branch / PR:** `feat/evidence-detectors`
 
