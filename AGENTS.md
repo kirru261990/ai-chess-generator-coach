@@ -76,6 +76,8 @@ pnpm exec tsc -b
 uv run python -m app.sync                                      # sync Chess.com games into data/ (serial, with a contact User-Agent)
 uv run python -m app.engine.batch                              # fast engine pass over the synced games (resumable)
 uv run python -m app.learner.baseline verify                   # check the frozen baseline window (data/baseline/) against its fingerprints
+uv run python -m app.learner.evidence_run run [--workers 4]           # PRD v2 positions into data/coach.sqlite3 (depth 18; about an hour)
+uv run python -m app.learner.evidence_run summary                     # counts by kind, mistake type and pool
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)
 uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
 uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a hand-check's answers with the labels

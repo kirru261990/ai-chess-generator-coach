@@ -54,6 +54,7 @@ CREATE TABLE game (
     id                      TEXT PRIMARY KEY,
     source                  TEXT NOT NULL CHECK (source IN ('chesscom', 'inapp')),
     platform_id             TEXT NOT NULL,
+    user_color              TEXT NOT NULL CHECK (user_color IN ('white', 'black')),
     time_control            TEXT NOT NULL,
     played_at               INTEGER NOT NULL,
     pool                    TEXT NOT NULL CHECK (pool IN ('PRACTICE', 'HELDOUT')),
@@ -233,6 +234,7 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(target, isolation_level=None)  # autocommit; use `with transaction(conn)` to group
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 30000")  # several engine processes may write the cache at once
     if target != ":memory:":
         conn.execute("PRAGMA journal_mode = WAL")
     _migrate(conn)

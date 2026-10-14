@@ -18,8 +18,8 @@ def db():
     )
     for gid, pool in (("g-practice", "PRACTICE"), ("g-heldout", "HELDOUT")):
         conn.execute(
-            "INSERT INTO game (id, source, platform_id, time_control, played_at, pool, pgn)"
-            " VALUES (?, 'chesscom', ?, '600', 0, ?, '')",
+            "INSERT INTO game (id, source, platform_id, user_color, time_control, played_at, pool, pgn)"
+            " VALUES (?, 'chesscom', ?, 'white', '600', 0, ?, '')",
             (gid, gid, pool),
         )
     return conn
