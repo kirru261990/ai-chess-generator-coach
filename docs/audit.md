@@ -98,6 +98,8 @@ record, never edited. Add the PRD windows as new rows (`baseline_window` per mis
 detectors and the evidence config. Note that the newest synced game is from 5 Oct, so sync before freezing.
 
 ### C5. Positions you have already seen.
+**Correction (2026-10-13, Step 1b):** the premise below is wrong. `real_play_v1` holds Lichess puzzles and constructed positions, none from your games, so no position is excluded today. See ADR 0006, decision 5.
+
 You answered the hand-check page for 30 `real_play_v1` positions, and the Review tab showed key moments of synced games. Positions
 that come from your own games and that you have already studied are not "unseen". **Recommendation:** any position whose game is in
 `real_play_v1` is excluded from HELDOUT assessments (`e2_v1`/`e2_v2` are Lichess puzzles, not your games). The game keeps its pool, and those positions stay usable in

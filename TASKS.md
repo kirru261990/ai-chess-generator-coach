@@ -78,7 +78,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## PRD v2 (ADR 0006; replaces T44 and T25 as scoped)
 - [x] P0 Step 0 audit (`docs/audit.md`), owner approved 2026-10-13
 - [x] P1a SQLite store with the PRD rules enforced by the database; pinned evidence engine (Stockfish 19, depth 18, MultiPV 3) with recorded config and a (FEN, config) cache
-- [ ] P1b `hanging_own` v3 (M1), `missed_free` v3 (M2), sound-move validator, CLEAN selector, evidence records, run over all synced games
+- [x] P1b `hanging_own` v3 (M1), `missed_free` v3 (M2), sound-move validator, CLEAN selector, evidence records, run over all synced games (`app.learner.evidence_run`)
 - [ ] P1c Hand-check 30 flagged positions (gate: at least 27 real); record calibrated thresholds in ADR 0006
 - [ ] P2 Pools, baseline assessment, scoring with random-guess rates, PRD real-game windows
 - [ ] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, feedback with the output check, resume)
