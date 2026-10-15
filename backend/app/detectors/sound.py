@@ -62,6 +62,22 @@ def check_move(board: chess.Board, move: chess.Move, evidence: dict, analyser) -
     return Verdict(not failed, loss, tuple(failed), ref)
 
 
+def check_clean_move(board: chess.Board, move: chess.Move, analyser) -> Verdict:
+    """A CLEAN position has no refutation or free piece, so only rules 1 and 4 apply: the move is legal and loses at most
+    SOUND_MAX_LOSS_CP against the best move (ADR 0006 decision 16). Same config and scoring as `check_move`."""
+    if move not in board.legal_moves:
+        raise ValueError(f"illegal move {move.uci()} in {board.fen()}")
+    mover = board.turn
+    after_board = board.copy(stack=False)
+    after_board.push(move)
+    before = analyser.analyse(board)
+    after = analyser.analyse(after_board)
+    eval_after = R.line_score(after.best, mover) if after.best else R.terminal_score(after_board, mover)
+    loss = R.line_score(before.best, mover) - eval_after
+    failed = ("eval_loss_too_large",) if loss > R.SOUND_MAX_LOSS_CP else ()
+    return Verdict(not failed, loss, failed, R.move_ref(board, move.uci()))
+
+
 def verified_alternatives(board: chess.Board, evidence: dict, analyser) -> list[dict]:
     """The engine's top moves that pass `check_move`, with their losses. Pre-computed; other moves are judged on demand."""
     before = analyser.analyse(board)

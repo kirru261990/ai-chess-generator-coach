@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from app.api import blind_spots, synced, tools
+from app.api import blind_spots, coach, synced, tools
 from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
@@ -47,6 +47,14 @@ async def game_error_handler(_: Request, exc: GameError):
 @app.exception_handler(EngineError)
 async def engine_error_handler(_: Request, exc: EngineError):
     return JSONResponse({"error": exc.code, "message": str(exc)}, 503)
+
+
+@app.exception_handler(coach.AssessmentError)
+async def assessment_error_handler(_: Request, exc: coach.AssessmentError):
+    return JSONResponse({"error": exc.code, "message": str(exc)}, coach.STATUS.get(exc.code, 400))
+
+
+app.include_router(coach.router)
 
 
 class StartGame(BaseModel):

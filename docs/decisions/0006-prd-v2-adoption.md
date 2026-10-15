@@ -68,3 +68,20 @@ The two positions not confirmed:
   an M2 or M1 label is correct on material but not the main lesson. A rule for that needs a new detector version and a fresh check.
 
 Step 1 also produced decision 11 (net material), found by the owner during hand-check v1.
+
+## Added in Step 2 (2026-10-15): pools and the baseline assessment
+
+Built in `app/learner/assessment.py` (the service the web API and later the MCP server call), `app/api/coach.py` (thin
+routes), `app/learner/realgame.py` (the frozen window), schema v5, and the web tab "My mistakes". No PRD number changed.
+
+| # | Decision | Why | To reverse |
+|---|---|---|---|
+| 15 | The **baseline needs the same pool minimum as practice** (§5.2: 16 MISTAKE and 8 CLEAN held-out positions that can still be assessed, per type; CLEAN positions are shared by both types, so the count is what is left). | A baseline taken without enough positions for the three delayed tests would be wasted. | `pool_status` check in `start_baseline` |
+| 16 | A move in a **CLEAN** position is sound when it is legal and loses at most `SOUND_MAX_LOSS_CP` (§4.4 rules 1 and 4; rules 2 and 3 have nothing to check there). `sound.check_clean_move`. | §4.4 is written for MISTAKE positions only | n/a |
+| 17 | An assessment board shows the **position, the side to move and the legal moves only**: no last-move highlight. The type is named (cued, §7.3). | Practice hint H1 *is* "highlight the opponent's last move" (§6.3), so showing it in an unassisted test would be a hint. Legal moves are rules, not help. | Add the last move to `get_assessment` |
+| 18 | **Time to decision is measured by the server**, from the first time it showed the board to the answer, capped at 300 s. A board shown again 10 s or more later (left and resumed) is flagged interrupted; a quicker repeat (a page asking twice) is not. Schema v5 `assessment_view`. | §7.4; a client clock is not trusted | `RESHOW_GAP_S` |
+| 19 | **A board is assessed once, ever**, whichever of its rows (M1, M2) was allocated (schema v5 trigger). | One move can be stored as an M1 and an M2 row; seeing it once means seeing the board | n/a |
+| 20 | **Random-guess rates** (§7.5): recognition = right answers ÷ (pieces + 1), per position, summed (decision 7). Move = sound legal moves ÷ legal moves, where every legal move is judged by the same sound check at the position's engine config (about 30 s a position; computed in the background from the moment a test starts and cached in `position_move_chance`). Combined = the sum of the two per-position rates multiplied (treats the two guesses as independent). | §7.5 | n/a |
+| 21 | Step 2 explanations are **templates built from the evidence record** (no LLM yet; §12's LLM wording and output check come with Step 3). They name only the capture, not the rest of the engine line, which is one illustration among many, not forced. | §12: the record is the only source; separate forced from illustrative lines | n/a |
+| 22 | The **frozen real-game window** (§8) is built (`realgame.freeze_baseline_window`: the last 30 games per time control before the moment, both pools, frozen once). Step 3's first practice session calls it; the rates come with Step 4. | §8 says it freezes "when the first practice session for a mistake type starts", which Step 3 builds | n/a |
+| 23 | A sound check is **refused, never compared, when the engine config differs** from the position's (`engine_config_changed`). | §4.1. A second machine must run the identical Stockfish binary (see HANDOFF) | n/a |
