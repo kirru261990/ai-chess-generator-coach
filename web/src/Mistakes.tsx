@@ -7,6 +7,7 @@ import {
   pieceColorAt,
   poolShortfall,
   scoreLine,
+  scoreNotes,
   tapRefusal,
   startLabel,
   tapWords,
@@ -272,6 +273,7 @@ function ResultsPage({ id, onBack }: { id: number; onBack: () => void }) {
         <p className="headline">Spotted the problem: {scoreLine(res.scores.recognition, res.total, res.chance.recognition)}</p>
         <p className="headline">Played a sound move: {scoreLine(res.scores.move, res.total, res.chance.move)}</p>
         <p className="headline">Both right: {scoreLine(res.scores.combined, res.total, res.chance.combined)}</p>
+        {scoreNotes(res).map((n) => <p key={n} className="note fb-wrong">{n}</p>)}
         <p className="note small">
           "Guessing" is how many a random tap and a random legal move would get right on these same positions. Five
           positions is a small sample: this is a starting point, not a verdict.

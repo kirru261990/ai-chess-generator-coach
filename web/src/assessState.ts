@@ -73,6 +73,9 @@ export type Results = {
   chance: { recognition: number; move: number | null; combined: number | null }
   chance_pending: boolean
   interrupted: number
+  question_version: string
+  notes: string[] // for a version 1 test: its tap score is not comparable with later tests
+  set_aside: boolean
   items: ResultItem[]
 }
 
@@ -170,4 +173,9 @@ export function tapRefusal(
     return type === 'M1' ? 'Tap one of your own pieces, or choose "No immediate threat".' : 'Tap one of their pieces, or choose "No immediate threat".'
   }
   return null
+}
+
+/** Lines shown beside the scores: the server's notes (a version 1 test's tap score is not comparable) and a set-aside notice. */
+export function scoreNotes(r: { notes: string[]; set_aside: boolean }): string[] {
+  return [...r.notes, ...(r.set_aside ? ['This test was set aside. It no longer counts as your starting test.'] : [])]
 }

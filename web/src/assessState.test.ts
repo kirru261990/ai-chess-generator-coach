@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { castleMove, pickMove, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
+import { castleMove, pickMove, scoreNotes, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
 const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
@@ -64,6 +64,14 @@ describe('tapRefusal', () => {
   })
   it('never lets a board click replace "No immediate threat"', () => {
     expect(tapRefusal('none', 'a1', squares, 'M1')).toContain('Press that button again')
+  })
+})
+
+describe('scoreNotes', () => {
+  it('shows a version 1 note and a set-aside notice, and nothing for a current test', () => {
+    expect(scoreNotes({ notes: [], set_aside: false })).toEqual([])
+    expect(scoreNotes({ notes: ['not comparable'], set_aside: false })).toEqual(['not comparable'])
+    expect(scoreNotes({ notes: [], set_aside: true })[0]).toContain('set aside')
   })
 })
 
