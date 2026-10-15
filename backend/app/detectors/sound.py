@@ -19,7 +19,7 @@ import chess
 
 from app.detectors import prd_rules as R
 
-VERSION = "1"
+VERSION = "2"  # v2: rule 2 counts material net of the new move (as hanging_own v4)
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def check_move(board: chess.Board, move: chess.Move, evidence: dict, analyser) -
         refutation = evidence["refutation_line"]["uci"]
         first = chess.Move.from_uci(refutation[0])
         if first in after_board.legal_moves and after_board.is_capture(first):
-            swing, _ = R.line_swing(after_board, refutation, not mover)
+            swing, _ = R.line_swing(board, (move.uci(), *refutation), not mover, 1 + R.MAX_REFUTATION_PLIES)
             if swing >= R.MATERIAL_MIN:
                 failed.append("refutation_still_wins")
     else:

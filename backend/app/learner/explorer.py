@@ -147,7 +147,7 @@ def pick_examples(conn, per_type: int) -> dict[str, list]:
     out = {}
     for key, where in (("M1", "kind = 'MISTAKE' AND mistake_type = 'M1'"),
                        ("M2", "kind = 'MISTAKE' AND mistake_type = 'M2'"), ("CLEAN", "kind = 'CLEAN'")):
-        rows = conn.execute(f"SELECT * FROM position WHERE pool = 'PRACTICE' AND {where}").fetchall()
+        rows = conn.execute(f"SELECT * FROM position WHERE pool = 'PRACTICE' AND retired_at IS NULL AND {where}").fetchall()
         shown = [r for r in rows if r["excluded_reason"] == SHOWN]
         unseen = {r["id"] for r in conn.execute(f"SELECT id FROM position WHERE {seen.UNSEEN_BOARD}")}
         fresh = sorted((r for r in rows if r["excluded_reason"] is None and r["id"] in unseen),
@@ -178,7 +178,8 @@ def build(conn, per_type: int) -> str:
     games = {(r["time_control"], r["pool"]): r["n"] for r in
              conn.execute("SELECT time_control, pool, COUNT(*) AS n FROM game GROUP BY time_control, pool")}
     positions = {(r["k"], r["pool"]): r["n"] for r in conn.execute(
-        "SELECT kind || IFNULL(':' || mistake_type, '') AS k, pool, COUNT(*) AS n FROM position GROUP BY k, pool")}
+        "SELECT kind || IFNULL(':' || mistake_type, '') AS k, pool, COUNT(*) AS n FROM position WHERE retired_at IS NULL"
+        " GROUP BY k, pool")}
     cfg = conn.execute("SELECT * FROM engine_config ORDER BY depth DESC LIMIT 1").fetchone()
     cached = conn.execute("SELECT COUNT(*) FROM engine_analysis").fetchone()[0]
     run = latest_run()

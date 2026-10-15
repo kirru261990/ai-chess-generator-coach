@@ -27,7 +27,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -248,8 +248,33 @@ def _pgn_color(pgn: str, username: str) -> str | None:
     return sides[0] if len(sides) == 1 else None
 
 
+def _v3_retired(conn: sqlite3.Connection) -> None:
+    """v3: `position.retired_at`. A detector fix leaves old rows in place but retired: they keep their history and their
+    "seen" marks (a board the owner saw stays seen), and they are never allocated, practised or counted again."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(position)")}
+    if "retired_at" not in columns:
+        conn.execute("ALTER TABLE position ADD COLUMN retired_at TEXT")
+    for table, message in (("assessment_position", "a retired position is never assessed"),
+                           ("practice_attempt", "a retired position is never practised")):
+        conn.execute(
+            f"CREATE TRIGGER IF NOT EXISTS {table}_not_retired BEFORE INSERT ON {table}"
+            f" WHEN (SELECT retired_at FROM position WHERE id = NEW.position_id) IS NOT NULL"
+            f" BEGIN SELECT RAISE(ABORT, '{message}'); END"
+        )
+
+
+def _v4_retired_on_update(conn: sqlite3.Connection) -> None:
+    """v4 (review on PR 65): the v3 guard ran on INSERT only, so an existing practice attempt could be pointed at a retired
+    position. Assessment answers need no new guard: they must match an allocation, and allocations are never changed."""
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS practice_attempt_not_retired_on_update BEFORE UPDATE OF position_id ON practice_attempt"
+        " WHEN (SELECT retired_at FROM position WHERE id = NEW.position_id) IS NOT NULL"
+        " BEGIN SELECT RAISE(ABORT, 'a retired position is never practised'); END"
+    )
+
+
 # version -> SQL text, or a function, that brings version - 1 up to it
-_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color}
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update}
 
 
 class SchemaError(Exception):

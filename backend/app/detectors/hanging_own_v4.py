@@ -1,10 +1,14 @@
-"""`hanging_own` v3 = PRD v2 mistake type M1, hanging piece (PRD §4.3, §4.5; ADR 0006).
+"""`hanging_own` v4 = PRD v2 mistake type M1, hanging piece (PRD §4.3, §4.5; ADR 0006).
 
 After the player's move, the opponent wins at least MATERIAL_MIN by capturing one of the player's pieces, within
 MAX_REFUTATION_PLIES, along the engine's top line, and the move loses at least M1_EVAL_LOSS_CP against the best move,
 at the evidence depth and at the stability depth (depth - 4).
 
-v2 (`hanging_own.py`) is unchanged and still serves the live Practice game; its frozen results are never compared with v3.
+**The material is net of the player's own move** (v4): it is counted from the position *before* the move, along the move and
+then the refutation, so a capture that is recaptured is a trade, not a hanging piece. v3 counted from after the move and
+flagged 33 of 190 trades and small gains as hanging pieces; found by the owner while answering the Step 1c page (ADR 0006).
+
+v2 (`hanging_own.py`) is unchanged and still serves the live Practice game; its frozen results are never compared with v4.
 
 Outcomes:
 - mistake: every check holds; `evidence` is the PRD §4.7 record
@@ -29,7 +33,7 @@ import chess
 from app.detectors import prd_rules as R
 
 DETECTOR = "hanging_own"
-VERSION = "3"
+VERSION = "4"  # v4: material counted net of the player's own capture
 
 
 @dataclass(frozen=True)
@@ -75,7 +79,8 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser) -> Finding:
     victim = after_board.piece_at(first.to_square) if first else None
     if first is None or not after_board.is_capture(first) or victim is None or victim.color != mover:
         return Finding("uncertain", "top_line_not_a_capture_of_player_piece")
-    swing, used = R.line_swing(after_board, pv, not mover)
+    swing, used = R.line_swing(board, (move.uci(), *pv), not mover, 1 + R.MAX_REFUTATION_PLIES)
+    used -= 1  # the player's own move is not part of the refutation
     if swing < R.MATERIAL_MIN:
         return Finding("uncertain", "material_swing_below_minimum")
 
@@ -101,7 +106,8 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser) -> Finding:
         "lost_piece": "moved" if moved else "other",
         "lost_piece_square_after": chess.square_name(first.to_square),
         "refutation_line": {"uci": refutation, "san": R.sans(after_board, refutation)},
-        "material_swing": swing,
+        "material_swing": swing,  # net for the opponent, counted from before the player's move
+        "swing_after_move": R.line_swing(after_board, refutation, not mover)[0],
         "eval_before": eval_before,
         "eval_after": eval_after,
         "eval_loss": loss,

@@ -295,3 +295,22 @@ def test_a_new_store_and_an_upgraded_store_have_the_same_tables(tmp_path):
     path = tmp_path / "v1.sqlite3"
     v1_store(path)
     assert shape(connect(path)) == shape(connect(":memory:"))
+
+
+def test_a_retired_position_is_never_assessed_or_practised(db):
+    heldout = add_position(db, "g-heldout", "HELDOUT")
+    practice = add_position(db, "g-practice", "PRACTICE", ply=12)
+    db.execute("UPDATE position SET retired_at = 'now' WHERE id IN (?, ?)", (heldout, practice))
+    with pytest.raises(sqlite3.IntegrityError, match="retired"):
+        allocate(db, new_assessment(db), heldout)
+    sid = db.execute("INSERT INTO practice_session (user, mistake_type, status, started_at)"
+                     " VALUES ('owner', 'M1', 'created', ?)", (NOW,)).lastrowid
+    with pytest.raises(sqlite3.IntegrityError, match="retired"):
+        db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
+                   " VALUES (?, ?, 1, ?)", (sid, practice, NOW))
+    # Review finding (PR 65): an attempt on an active position could be pointed at a retired one afterwards.
+    active = add_position(db, "g-practice", "PRACTICE", ply=14)
+    attempt = db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
+                         " VALUES (?, ?, 1, ?)", (sid, active, NOW)).lastrowid
+    with pytest.raises(sqlite3.IntegrityError, match="retired"):
+        db.execute("UPDATE practice_attempt SET position_id = ? WHERE id = ?", (practice, attempt))

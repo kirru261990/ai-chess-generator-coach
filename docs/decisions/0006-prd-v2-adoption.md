@@ -44,10 +44,27 @@ A game's pool never changes. A position takes its game's pool and never changes 
 | 9 | Readings in the v3 code: an M2 "equal alternative" is a top-3 line within **20 cp** of the best (`EQUAL_WITHIN_CP`; not a PRD number, the owner confirms in 1c). PRD §4.5 says the capture must be in the top line, §4.3 allows an equal alternative: §4.3 is followed. CLEAN's "attacked piece" means a knight, bishop, rook or queen (not pawns or kings), and a position where the player is in check is never CLEAN. | PRD gaps | `prd_rules.py`, `clean.py` |
 | 10 | Games are imported into `game` with their pool in Step 1b (not Step 2), because a stored position needs its game's pool. The Step 2 work (pool-size check, exposure handling) is unchanged. | Order of work | n/a |
 
-**Open for the owner (Step 1c):** in an M1 position where the player moved a piece *into* danger (`lost_piece = moved`), nothing is
-wrong on the board before the move, so "What is happening here?" has no visible answer. The record stores `target_squares` (the
-square the piece moved from) and `lost_piece_square_after`. Options: ask such positions differently, or keep only `lost_piece = other`
-positions for recognition. The Step 1c page reports how many of each there are.
+| 11 | **Hanging piece material is net of the player's own move** (`hanging_own` v4, sound v2): counted from before the move, along the move and the refutation. A capture that is recaptured is a trade. | **Found by the owner** while answering the v1 hand-check (2026-10-15): "if I took something valuable and they take it back, I am on top". v3 counted from after the move: 38 of 190 flags were trades or small gains (4 of them on the v1 page). The sound check now also credits a move that wins material back, so 9 positions that had "no sound move" became solvable. Result: 161 M1 (73 held-out, 88 practice). | Revert to `line_swing(after_board, ...)` |
+| 12 | A detector fix **retires** old rows (schema v3, `position.retired_at`) instead of deleting them: they keep their history and seen marks, and SQLite refuses to assess or practise them. A full `evidence_run` retires rows from non-current detector versions after copying seen marks to the current rows. | Deleting would forget which boards the owner saw | n/a |
+| 13 | Hand-check **v1 is superseded** (it sampled v3). v2 samples the v4 store; the v1 boards stay marked as seen. | Decision 11 | n/a |
 
-## Calibrated thresholds (PRD §4.2)
-Filled in after the Step 1 hand-check. Until then the PRD defaults apply unchanged.
+| 14 | **Recognition uses only M1 positions where the piece was left in danger** (`lost_piece = other`). Positions where the player moved the piece into danger (`lost_piece = moved`) have nothing visible to tap before the move, so they are left out of the tap-a-square step, in practice and in assessments. They stay stored. | **Owner chose (a), 2026-10-15** (the alternative was asking them differently). Enough remain: 44 held-out (16 needed) and 38 unseen in practice. | Allow `moved` with a different question |
+
+## Calibrated thresholds (PRD §4.2): Step 1 exit gate met (2026-10-15)
+
+**Hand-check v2** (30 practice-pool positions from `hanging_own` v4 and `missed_free` v3; scoring rule fixed before answering):
+**28 of 30 real** (gate 27). M1 14/15, M2 14/15. Can't tell: 1, No: 1. Answers and per-item numbers are in
+`data/evidence/handcheck_v2_result.json` (git-ignored: the owner's games).
+
+**Thresholds: the PRD defaults are kept unchanged** (`detectors/prd_rules.py`, RULES_VERSION 1): MIN_PLY 8, DECIDED_LIMIT 600 cp,
+M1 loss 200 cp, M2 loss 150 cp, MATERIAL_MIN 3, MAX_REFUTATION_PLIES 4, SOUND_MAX_LOSS 100 cp, CLEAN loss < 30 cp, plus the reading
+EQUAL_WITHIN_CP 20. The gate passed at these values, and changing a number after seeing the answers would move the goalposts.
+
+The two positions not confirmed:
+- **M1, "moved into danger", B = can't tell:** the queen took a rook with check and was recaptured (net 4). The suggested safe move
+  was a different capture, which made "could you have kept it safe?" hard to judge.
+- **M2, A = no:** the free capture (rook takes bishop) only nets 3 after a queen trade, and the move played (a queen trade) lost
+  mainly because it walked into a mating attack. **Watch item:** when most of the loss comes from something else (here, mate),
+  an M2 or M1 label is correct on material but not the main lesson. A rule for that needs a new detector version and a fresh check.
+
+Step 1 also produced decision 11 (net material), found by the owner during hand-check v1.

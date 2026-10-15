@@ -11,7 +11,7 @@ import chess
 import pytest
 
 from app.db.schema import connect
-from app.detectors import clean, hanging_own_v3, missed_free_v3, sound
+from app.detectors import clean, hanging_own_v4, missed_free_v3, sound
 from app.detectors import prd_rules as R
 from app.engine.evidence import EngineConfig, EvidenceAnalyser, EvidenceAnalysis, Line
 
@@ -68,7 +68,7 @@ def m1_scripts(**changes):
 
 
 def test_m1_hanging_piece_is_a_mistake_with_a_full_evidence_record():
-    f = hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts()))
+    f = hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts()))
     assert (f.outcome, f.reason) == ("mistake", "all_checks_hold")
     e = f.evidence
     assert e["mistake_type"] == "M1" and e["fen"] == M1_FEN and e["ply"] == 10
@@ -79,8 +79,33 @@ def test_m1_hanging_piece_is_a_mistake_with_a_full_evidence_record():
     assert e["material_swing"] == 5
     assert (e["eval_before"], e["eval_after"], e["eval_loss"], e["eval_loss_stability"]) == (-150, -800, 650, 650)
     assert e["engine_config_id"] == CFG.id and e["stability_config_id"] == CFG.stability.id
-    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("hanging_own", "3", R.RULES_VERSION)
+    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("hanging_own", "4", R.RULES_VERSION)
     assert [a["uci"] for a in f.alternatives] == ["h1h2", "d2g5", "g1f2"]
+
+
+def test_m1_counts_what_the_players_own_move_captured():
+    """Owner's finding (Step 1c): taking a bishop and losing the rook for it is a trade (net 2), not a hanging piece."""
+    fen = "4k3/3b4/8/8/8/8/8/3RK3 w - - 0 1"
+    scripts = {fen: [L("e1e2", 50)], after(fen, "d1d7"): [L("e8d7", -300, pv=("e8d7",))]}
+    f = hanging_own_v4.detect(chess.Board(fen), mv("d1d7"), 10, FakeAnalyser(scripts))
+    assert (f.outcome, f.reason) == ("uncertain", "material_swing_below_minimum")
+
+
+def test_m1_grabbing_a_pawn_and_losing_a_rook_is_still_a_hanging_piece():
+    fen = "4k3/3p4/2b5/8/8/8/8/3RK3 w - - 0 1"
+    scripts = {
+        fen: [L("e1e2", 0), L("d1d2", 0), L("e1f2", 0)],
+        after(fen, "d1d7"): [L("c6d7", -400, pv=("c6d7", "e1e2"))],
+        after(fen, "e1e2"): [L("e8e7", 0)],
+        after(fen, "d1d2"): [L("e8e7", 0)],
+        after(fen, "e1f2"): [L("e8e7", 0)],
+    }
+    f = hanging_own_v4.detect(chess.Board(fen), mv("d1d7"), 10, FakeAnalyser(scripts))
+    assert f.outcome == "mistake"
+    assert (f.evidence["material_swing"], f.evidence["swing_after_move"]) == (4, 5)  # rook 5 minus the pawn 1
+    assert f.evidence["refutation_line"]["uci"] == ["c6d7", "e1e2"]
+    again = sound.check_move(chess.Board(fen), mv("d1d7"), f.evidence, FakeAnalyser(scripts))
+    assert "refutation_still_wins" in again.failed
 
 
 def test_m1_target_is_the_piece_left_behind_when_another_move_was_played():
@@ -93,7 +118,7 @@ def test_m1_target_is_the_piece_left_behind_when_another_move_was_played():
         after(fen, "c6d4"): [L("e1d2", 0)],
         after(fen, "a8a5"): [L("b5c6", 0)],
     }
-    f = hanging_own_v3.detect(chess.Board(fen), mv("g8g7"), 11, FakeAnalyser(scripts))
+    f = hanging_own_v4.detect(chess.Board(fen), mv("g8g7"), 11, FakeAnalyser(scripts))
     assert f.outcome == "mistake"
     assert f.evidence["target_squares"] == ["c6"] and f.evidence["lost_piece"] == "other"
 
@@ -110,38 +135,38 @@ def test_m1_target_is_the_piece_left_behind_when_another_move_was_played():
     ],
 )
 def test_m1_gates_and_thresholds(ply, scripts, expected):
-    f = hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1h7"), ply, FakeAnalyser(scripts))
+    f = hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1h7"), ply, FakeAnalyser(scripts))
     assert (f.outcome, f.reason) == expected and f.evidence is None
 
 
 def test_m1_loss_must_hold_at_the_stability_depth():
     overrides = {(after(M1_FEN, "h1h7"), CFG.stability.depth): [L("e7h7", -300, pv=("e7h7",))]}
-    f = hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts(), overrides))
+    f = hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts(), overrides))
     assert (f.outcome, f.reason) == ("uncertain", "loss_not_stable")
 
 
 def test_m1_refutation_that_loses_material_back_is_not_a_mistake():
     fen = "4k3/4q3/8/8/8/3B4/8/6KR w - - 0 1"  # a bishop on d3 guards h7
     scripts = {fen: [L("h1h2", -150)], after(fen, "h1h7"): [L("e7h7", -800, pv=("e7h7", "d3h7"))]}
-    f = hanging_own_v3.detect(chess.Board(fen), mv("h1h7"), 10, FakeAnalyser(scripts))
+    f = hanging_own_v4.detect(chess.Board(fen), mv("h1h7"), 10, FakeAnalyser(scripts))
     assert (f.outcome, f.reason) == ("uncertain", "material_swing_below_minimum")
 
 
 def test_m1_needs_a_sound_move_or_the_piece_was_lost_anyway():
     bad = {after(M1_FEN, u): [L("e7e6", -500)] for u in ("h1h2", "d2g5", "g1f2")}
-    f = hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts(**bad)))
+    f = hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts(**bad)))
     assert (f.outcome, f.reason) == ("uncertain", "no_sound_move")
 
 
 def test_only_legal_move_is_skipped():
     fen = "7k/8/8/8/8/5q2/8/6K1 w - - 0 1"  # Kh2 is the only move
-    f = hanging_own_v3.detect(chess.Board(fen), mv("g1h2"), 20, FakeAnalyser({fen: [L("g1h2", -900)]}))
+    f = hanging_own_v4.detect(chess.Board(fen), mv("g1h2"), 20, FakeAnalyser({fen: [L("g1h2", -900)]}))
     assert (f.outcome, f.reason) == ("skipped", "only_legal_move")
 
 
 def test_illegal_move_is_refused():
     with pytest.raises(ValueError):
-        hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1g1"), 10, FakeAnalyser(m1_scripts()))
+        hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1g1"), 10, FakeAnalyser(m1_scripts()))
 
 
 # --- M2: White can take a loose rook on h5 -------------------------------------------------------------------------
@@ -204,7 +229,7 @@ def test_m2_capture_that_loses_material_back_is_not_free():
 # --- Sound move -----------------------------------------------------------------------------------------------------
 
 def m1_evidence():
-    return hanging_own_v3.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts())).evidence
+    return hanging_own_v4.detect(chess.Board(M1_FEN), mv("h1h7"), 10, FakeAnalyser(m1_scripts())).evidence
 
 
 def test_sound_accepts_any_move_that_meets_the_rules_not_only_the_best():
@@ -305,7 +330,7 @@ def test_real_engine_finds_the_hanging_rook():
         cfg = EngineConfig(engine.name, "test", "test", depth=12, multipv=3, hash_mb=16, threads=1)
         analyser = EvidenceAnalyser(engine, cfg, connect(":memory:"))
         board = chess.Board(M1_FEN)
-        f = hanging_own_v3.detect(board, mv("h1h7"), 10, analyser)
+        f = hanging_own_v4.detect(board, mv("h1h7"), 10, analyser)
         assert f.outcome == "mistake", f
         assert f.evidence["refutation_line"]["uci"][0] == "e7h7" and f.evidence["material_swing"] >= 5
         assert f.alternatives

@@ -78,7 +78,8 @@ uv run python -m app.engine.batch                              # fast engine pas
 uv run python -m app.learner.baseline verify                   # check the frozen baseline window (data/baseline/) against its fingerprints
 uv run python -m app.learner.evidence_run run [--workers 4]           # PRD v2 positions into data/coach.sqlite3 (depth 18; about an hour)
 uv run python -m app.learner.evidence_run summary                     # counts by kind, mistake type and pool
-uv run python -m app.learner.handcheck make                           # Step 1c page data/evidence/handcheck_v1.html (sample frozen on first run)
+uv run python -m app.learner.evidence_run retire                      # retire rows from old detector versions (a full run does this)
+uv run python -m app.learner.handcheck make                           # Step 1c page data/evidence/handcheck_v2.html (sample frozen on first run)
 uv run python -m app.learner.handcheck score ANSWERS.txt               # score the owner's answers (gate: 27 of 30 real)
 uv run python -m app.learner.explorer                                 # data/evidence/explorer.html: what 1a/1b built and found (practice examples only)
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)

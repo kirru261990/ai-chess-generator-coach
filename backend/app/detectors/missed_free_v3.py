@@ -22,7 +22,7 @@ from __future__ import annotations
 import chess
 
 from app.detectors import prd_rules as R
-from app.detectors.hanging_own_v3 import Finding, confirm, gates
+from app.detectors.hanging_own_v4 import Finding, confirm, gates
 
 DETECTOR = "missed_free"
 VERSION = "3"

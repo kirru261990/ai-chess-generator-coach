@@ -68,6 +68,17 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-15 · MacBook · Claude Code (session 26): the owner's catch, M1 counts net material (hanging_own v4)
+- **Owner's question while answering hand-check v1:** "if I took something valuable and they take it back, I am on top". Correct: v3 measured the loss from *after* the player's move, so trades and small gains were flagged as hanging pieces (38 of 190; 4 on the v1 page).
+- **Fixed on `fix/m1-net-material`:** `hanging_own_v4.py` (renamed from v3) counts from before the move, along the move and the refutation; `sound` v2 credits a move that wins material back (9 "no sound move" positions became solvable). Schema **v3** adds `position.retired_at`: a full run retires rows from old detector versions after copying seen marks; SQLite refuses to assess or practise a retired row. ADR 0006 decisions 11 to 13.
+- **Rerun (3 s, all engine searches cached):** M1 161 (73 held-out, 88 practice), M2 61 (23/38), CLEAN 244 (116/128); 190 v3 rows retired; every seen board still marked.
+- **Hand-check v1 superseded; v2 built** (`data/evidence/handcheck_v2.html`, 30 new boards, none from v1; question A now says "counting what your move took"). The owner had not submitted v1 answers.
+- **Tests:** backend 740 passed (1 skipped), ruff clean. **Branch / PR:** `fix/m1-net-material`
+- **Hand-check v2 scored: 28 of 30 real (gate 27), Step 1 exit gate met.** M1 14/15 (one can't tell on B), M2 14/15 (one no: a capture that nets 3 only after a queen trade, where the real loss was walking into mate; recorded as a watch item). PRD default thresholds kept; ADR 0006 updated.
+- **Owner chose (a):** recognition uses only M1 positions where the piece was left in danger (ADR 0006 decision 14; 44 held-out, 38 unseen practice).
+- **Review of PR 65 (1 finding, reproduced and fixed):** the retired guard ran on INSERT only; schema **v4** adds it to UPDATE of `practice_attempt.position_id`.
+- **Next:** **Step 2** (pool-size check, baseline assessment end to end, scoring with random-guess rates, PRD real-game windows).
+
 ### 2026-10-14 · MacBook · Claude Code (session 25, part 5): Step 1c hand-check page
 - **Built `app/learner/handcheck.py`:** `make` freezes a sample of 30 PRACTICE-pool MISTAKE positions (8 M1 moved into danger, 7 M1 left behind, 15 M2; none already seen; one per game and ply) in `data/evidence/handcheck_v1.json`, marks them `hand_checked_v1`, and writes `data/evidence/handcheck_v1.html` (boards, arrows, plain words, Yes / No / Can't tell, answers saved in the browser, a Copy button). `score` applies the rule fixed before answering: real only when every question asked is yes; can't tell is not real; **gate 27 of 30**.
 - **The real sample is frozen** (30 positions marked). Found and fixed in the live page before the owner saw it: "you" and "they" were swapped in hanging-piece lines.
