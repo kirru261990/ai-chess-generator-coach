@@ -13,7 +13,7 @@ from app.api import coach
 from app.api.main import app
 from app.db.schema import connect
 from app.learner import assessment as A
-from tests.test_assessment import FORBIDDEN_KEYS, FakeAnalyser, Store, keys
+from tests.test_assessment import FORBIDDEN_KEYS, T0, FakeAnalyser, Store, finish, keys
 
 client = TestClient(app)
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
@@ -154,7 +154,7 @@ def _imports(path: Path) -> set[str]:
 
 def test_only_the_coach_routes_reach_the_position_store():
     """Static guard: in the API and the MCP server, only `api/coach.py` imports the store or the assessment service."""
-    store_modules = {"app.db", "app.db.schema", "app.learner.assessment", "app.learner.realgame"}
+    store_modules = {"app.db", "app.db.schema", "app.learner.assessment", "app.learner.realgame", "app.learner.practice"}
     offenders = []
     for path in sorted([*(APP_DIR / "api").glob("*.py"), *(APP_DIR / "mcp").glob("*.py")]):
         if path.name == "coach.py":
@@ -169,3 +169,64 @@ def test_practice_positions_are_never_allocated(store):
     pools = {r[0] for r in store.conn.execute(
         "SELECT p.pool FROM assessment_position ap JOIN position p ON p.id = ap.position_id WHERE assessment_id = ?", (aid,))}
     assert pools == {"HELDOUT"}
+
+
+# --- Replay My Mistakes over HTTP (PRD v2 §6.5, §11) -------------------------------------------------------------------------
+
+PRACTICE_LEAK_KEYS = FORBIDDEN_KEYS | {"allowed", "board_line", "original", "verdict", "avoids", "sound"}
+
+
+def test_a_practice_session_works_over_http_and_leaks_nothing_before_the_answer(store):
+    conn = store.conn
+    import random
+
+    for t in A.TYPES:  # the starting tests are done
+        finish(conn, A.start_baseline(conn, t, rng=random.Random(3), now=T0)["assessment_id"])
+    for _ in range(4):
+        store.position("M1", pool="PRACTICE")
+    heldout = heldout_fens(conn)
+    home = client.get("/coach/home").json()["types"][0]["practice"]
+    assert home["unlocked"] is True and home["session"] is None and home["positions"]["unseen"] >= 5
+
+    started = client.post("/coach/practice/sessions", json={"mistake_type": "M1"}).json()
+    sid = started["session_id"]
+    assert started["resumed"] is False
+    assert client.post("/coach/practice/sessions", json={"mistake_type": "M1"}).json()["resumed"] is True
+    bodies = []
+    view = client.get(f"/coach/practice/sessions/{sid}").json()
+    while view["current"]:
+        cur = view["current"]
+        bodies.append(view)
+        assert not PRACTICE_LEAK_KEYS & set(keys(view)), PRACTICE_LEAK_KEYS & set(keys(view))  # before the first answer
+        assert cur["stage"] == "recognition" and cur["feedback"] is None and cur["hints"] == []
+        r = client.post(f"/coach/practice/sessions/{sid}/recognition", json={"ord": cur["ord"], "tap": "h7"})
+        assert r.status_code == 200 and not PRACTICE_LEAK_KEYS & set(keys(r.json()))
+        r = client.post(f"/coach/practice/sessions/{sid}/move", json={"ord": cur["ord"], "move": "h7h1"})
+        fb = r.json()["current"]["feedback"]
+        assert fb["sound"] is True and fb["target_squares"] == ["h7"]
+        bodies.append(r.json())
+        view = client.post(f"/coach/practice/sessions/{sid}/next", json={"ord": cur["ord"]}).json()
+    assert view["status"] == "completed"
+    summary = client.get(f"/coach/practice/sessions/{sid}/summary").json()
+    bodies.append(summary)
+    assert summary["assisted"] is True and summary["first_attempt_correct"] == 5
+    text = json.dumps(bodies)
+    assert not [f for f in heldout if f'"{f}"' in text]  # a held-out board never reaches a practice response
+
+
+def test_practice_errors_use_stable_codes(store):
+    conn = store.conn
+    r = client.post("/coach/practice/sessions", json={"mistake_type": "M1"})
+    assert r.status_code == 409 and r.json()["error"] == "baseline_needed"
+    assert client.get("/coach/practice/sessions/999").status_code == 404
+    import random
+
+    finish(conn, A.start_baseline(conn, "M1", rng=random.Random(3), now=T0)["assessment_id"])
+    sid = client.post("/coach/practice/sessions", json={"mistake_type": "M1"}).json()["session_id"]
+    cur = client.get(f"/coach/practice/sessions/{sid}").json()["current"]
+    r = client.post(f"/coach/practice/sessions/{sid}/move", json={"ord": cur["ord"], "move": "h7h1"})
+    assert r.status_code == 409 and r.json()["error"] == "wrong_step"
+    r = client.post(f"/coach/practice/sessions/{sid}/recognition", json={"ord": cur["ord"], "tap": "e7"})
+    assert r.status_code == 400 and r.json()["error"] == "tap_a_piece"
+    r = client.get(f"/coach/practice/sessions/{sid}/summary")
+    assert r.status_code == 409 and r.json()["error"] == "not_finished"

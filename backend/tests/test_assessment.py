@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 import chess
 import pytest
 
-from app.db.schema import connect
+from app.db.schema import SCHEMA_VERSION, connect
 from app.engine.evidence import EngineConfig, EvidenceAnalysis, Line, register_config
 from app.learner import assessment as A
 from app.learner import realgame
@@ -71,17 +71,17 @@ class Store:
         self.n = 0
         register_config(conn, CFG)
 
-    def game(self, pool, tc="600", played_at=0):
+    def game(self, pool, tc="600", played_at=0, pgn=""):
         self.n += 1
         gid = f"chesscom:g{self.n}"
         self.conn.execute(
             "INSERT INTO game (id, source, platform_id, user_color, time_control, played_at, pool, pgn)"
-            " VALUES (?, 'chesscom', ?, 'white', ?, ?, ?, '')",
-            (gid, f"g{self.n}", tc, played_at or self.n, pool),
+            " VALUES (?, 'chesscom', ?, 'white', ?, ?, ?, ?)",
+            (gid, f"g{self.n}", tc, played_at or self.n, pool, pgn),
         )
         return gid
 
-    def position(self, kind, pool="HELDOUT", game_id=None, ply=20, lost_piece="other", fen=None):
+    def position(self, kind, pool="HELDOUT", game_id=None, ply=20, lost_piece="other", fen=None, override=None):
         game_id = game_id or self.game(pool)
         self.n += 1
         template = {"M1": M1_FEN, "M2": M2_FEN, "CLEAN": CLEAN_FEN}[kind]
@@ -89,6 +89,7 @@ class Store:
         ev = evidence(kind, fen, self.n)
         if kind == "M1":
             ev["lost_piece"] = lost_piece
+        ev.update(override or {})
         alternatives = None if kind == "CLEAN" else json.dumps([ev["best_move"]])
         return self.conn.execute(
             "INSERT INTO position (game_id, ply, fen, kind, mistake_type, source_tag, pool, original_move, evidence_json,"
@@ -555,6 +556,13 @@ def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_p
     path = tmp_path / "old.sqlite3"
     c = connect(path)
     c.execute("PRAGMA user_version = 5")
+    # undo what v7 (practice sessions) added, then what v6 added
+    c.execute("DROP INDEX one_open_practice_session_per_type")
+    c.execute("DROP TRIGGER practice_attempt_in_session")
+    c.execute("DROP TABLE practice_session_position")
+    for table, column in (("practice_attempt", "recognition_correct"), ("practice_attempt", "verdict_json"),
+                          ("practice_session", "repeat_games")):
+        c.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
     c.execute("DROP TRIGGER assessment_supersede_only_submitted")
     c.execute("DROP TRIGGER assessment_supersede_is_final")
     c.execute("ALTER TABLE assessment DROP COLUMN question_version")
@@ -564,7 +572,7 @@ def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_p
               " VALUES ('u', 'M1', 'BASELINE', 'x', 'x', 'submitted')")
     c.close()
     c = connect(path)
-    assert c.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert c.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     row = c.execute("SELECT question_version, superseded_at FROM assessment").fetchone()
     assert tuple(row) == ("1", None)
 

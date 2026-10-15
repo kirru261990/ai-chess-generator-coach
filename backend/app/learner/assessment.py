@@ -454,6 +454,17 @@ _REASONS = {
 }
 
 
+def move_reason(verdict: dict, sound_: bool) -> str:
+    """One sentence on what the move did about the problem (no repeat of the move or the verdict), for the practice feedback."""
+    if sound_:
+        return "That deals with the problem."
+    if "refutation_still_wins" in verdict["failed"]:
+        return "They could still win the piece."
+    if "free_piece_not_taken" in verdict["failed"]:
+        return "The free piece was left, and it gave away too much."
+    return "It gave away too much."
+
+
 def _move_words(verdict: dict, sound_: bool) -> str:
     san = verdict["move"]["san"]
     if sound_:

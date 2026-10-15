@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import { api } from './api'
+import Practice from './Practice'
+import { practiceLabel } from './practiceState'
 import {
   NO_THREAT,
   castleMove,
@@ -19,34 +22,33 @@ import {
   type Results,
 } from './assessState'
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 const RESULTS_POLL_MS = 4000 // while the random-guess move rate is still being calculated
 
-type Screen = { name: 'home' } | { name: 'test'; id: number } | { name: 'results'; id: number }
-
-async function api<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, body === undefined ? undefined : {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message ?? data.error ?? `request failed (${res.status})`)
-  return data as T
-}
+type Screen =
+  | { name: 'home' }
+  | { name: 'test'; id: number }
+  | { name: 'results'; id: number }
+  | { name: 'practice'; id: number }
+  | { name: 'summary'; id: number }
 
 /** PRD v2 home and the unassisted baseline test (Step 2). No hints, no eval, no feedback until the end. */
 export default function Mistakes() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
+  if (screen.name === 'practice' || screen.name === 'summary') return <Practice id={screen.id} onHome={() => setScreen({ name: 'home' })} />
   if (screen.name === 'test') return <Test id={screen.id} onDone={() => setScreen({ name: 'results', id: screen.id })} />
   if (screen.name === 'results') return <ResultsPage id={screen.id} onBack={() => setScreen({ name: 'home' })} />
   return <Home onOpen={(t) => {
     if (t.baseline?.status === 'submitted') setScreen({ name: 'results', id: t.baseline.assessment_id })
     else if (t.baseline) setScreen({ name: 'test', id: t.baseline.assessment_id })
-  }} onStarted={(id) => setScreen({ name: 'test', id })} />
+  }} onStarted={(id) => setScreen({ name: 'test', id })} onPractice={(id) => setScreen({ name: 'practice', id })} onSummary={(id) => setScreen({ name: 'summary', id })} />
 }
 
-function Home({ onOpen, onStarted }: { onOpen: (t: HomeType) => void; onStarted: (id: number) => void }) {
+function Home({ onOpen, onStarted, onPractice, onSummary }: {
+  onOpen: (t: HomeType) => void
+  onStarted: (id: number) => void
+  onPractice: (id: number) => void
+  onSummary: (id: number) => void
+}) {
   const [types, setTypes] = useState<HomeType[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -60,6 +62,15 @@ function Home({ onOpen, onStarted }: { onOpen: (t: HomeType) => void; onStarted:
     setBusy(true)
     api<{ assessment_id: number }>('/coach/assessments/baseline', { mistake_type: t.mistake_type })
       .then((s) => onStarted(s.assessment_id))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false))
+  }
+
+  function practise(t: HomeType) {
+    if (t.practice.session) return onPractice(t.practice.session.session_id)
+    setBusy(true)
+    api<{ session_id: number }>('/coach/practice/sessions', { mistake_type: t.mistake_type })
+      .then((s) => onPractice(s.session_id))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false))
   }
@@ -89,6 +100,15 @@ function Home({ onOpen, onStarted }: { onOpen: (t: HomeType) => void; onStarted:
               {short && <p className="note">{short}</p>}
               {t.baseline?.status === 'submitted' && <p className="note">Starting test done.</p>}
               {label && <button disabled={busy} onClick={() => go(t)}>{label}</button>}
+              <hr />
+              <h4>Practise your own mistakes</h4>
+              <p className="note small">{practiceLabel(t.practice).note}</p>
+              {practiceLabel(t.practice).button && (
+                <button disabled={busy} onClick={() => practise(t)}>{practiceLabel(t.practice).button}</button>
+              )}
+              {t.practice.last_completed !== null && !t.practice.session && (
+                <button onClick={() => onSummary(t.practice.last_completed!)}>See my last practice summary</button>
+              )}
             </div>
           )
         })}

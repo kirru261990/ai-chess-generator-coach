@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { castleMove, leftOutLine, pickMove, scoreNotes, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
-const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
+const practice = { unlocked: true, positions: { unseen: 10, to_repeat: 0 }, session: null, last_completed: null }
+const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, practice, ...over })
 
 describe('startLabel', () => {
   it('starts, continues or shows results, and cannot start a small pool', () => {

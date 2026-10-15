@@ -3,6 +3,8 @@
  * player sees. Before the final submit the server sends the board and its legal moves, nothing else.
  */
 
+import type { PracticeStatus } from './practiceState'
+
 export const NO_THREAT = 'none'
 
 export type PoolStatus = {
@@ -18,6 +20,7 @@ export type HomeType = {
   label: string
   pool: PoolStatus
   baseline: { assessment_id: number; status: 'pending' | 'in_progress' | 'submitted' } | null
+  practice: PracticeStatus
 }
 
 export type AssessmentView = {
