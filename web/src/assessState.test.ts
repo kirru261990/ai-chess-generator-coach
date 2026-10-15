@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { castleMove, pickMove, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
+import { castleMove, pickMove, scoreNotes, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
 const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
@@ -49,6 +49,29 @@ describe('castling', () => {
     expect(castleMove(['e8d8'], fen, 'e8', 'a8')).toBeNull()
     expect(castleMove(legal, fen, 'a8', 'e8')).toBeNull()
     expect(castleMove(legal, fen, 'e8', 'a1')).toBeNull()
+  })
+})
+
+describe('tapRefusal', () => {
+  const squares = ['a1', 'e1']
+  it('accepts a piece of the asked side', () => {
+    expect(tapRefusal(null, 'a1', squares, 'M1')).toBeNull()
+    expect(tapRefusal('e1', 'a1', squares, 'M1')).toBeNull() // changing a tapped piece is fine
+  })
+  it('explains a tap on the other side, for each type', () => {
+    expect(tapRefusal(null, 'h8', squares, 'M1')).toContain('your own')
+    expect(tapRefusal(null, 'h8', squares, 'M2')).toContain('their')
+  })
+  it('never lets a board click replace "No immediate threat"', () => {
+    expect(tapRefusal('none', 'a1', squares, 'M1')).toContain('Press that button again')
+  })
+})
+
+describe('scoreNotes', () => {
+  it('shows a version 1 note and a set-aside notice, and nothing for a current test', () => {
+    expect(scoreNotes({ notes: [], set_aside: false })).toEqual([])
+    expect(scoreNotes({ notes: ['not comparable'], set_aside: false })).toEqual(['not comparable'])
+    expect(scoreNotes({ notes: [], set_aside: true })[0]).toContain('set aside')
   })
 })
 
