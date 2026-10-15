@@ -53,5 +53,21 @@ wrong on the board before the move, so "What is happening here?" has no visible 
 square the piece moved from) and `lost_piece_square_after`. Options: ask such positions differently, or keep only `lost_piece = other`
 positions for recognition. The Step 1c page reports how many of each there are.
 
-## Calibrated thresholds (PRD §4.2)
-Filled in after the Step 1 hand-check. Until then the PRD defaults apply unchanged.
+## Calibrated thresholds (PRD §4.2): Step 1 exit gate met (2026-10-15)
+
+**Hand-check v2** (30 practice-pool positions from `hanging_own` v4 and `missed_free` v3; scoring rule fixed before answering):
+**28 of 30 real** (gate 27). M1 14/15, M2 14/15. Can't tell: 1, No: 1. Answers and per-item numbers are in
+`data/evidence/handcheck_v2_result.json` (git-ignored: the owner's games).
+
+**Thresholds: the PRD defaults are kept unchanged** (`detectors/prd_rules.py`, RULES_VERSION 1): MIN_PLY 8, DECIDED_LIMIT 600 cp,
+M1 loss 200 cp, M2 loss 150 cp, MATERIAL_MIN 3, MAX_REFUTATION_PLIES 4, SOUND_MAX_LOSS 100 cp, CLEAN loss < 30 cp, plus the reading
+EQUAL_WITHIN_CP 20. The gate passed at these values, and changing a number after seeing the answers would move the goalposts.
+
+The two positions not confirmed:
+- **M1, "moved into danger", B = can't tell:** the queen took a rook with check and was recaptured (net 4). The suggested safe move
+  was a different capture, which made "could you have kept it safe?" hard to judge.
+- **M2, A = no:** the free capture (rook takes bishop) only nets 3 after a queen trade, and the move played (a queen trade) lost
+  mainly because it walked into a mating attack. **Watch item:** when most of the loss comes from something else (here, mate),
+  an M2 or M1 label is correct on material but not the main lesson. A rule for that needs a new detector version and a fresh check.
+
+Step 1 also produced decision 11 (net material), found by the owner during hand-check v1.
