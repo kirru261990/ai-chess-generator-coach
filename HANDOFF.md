@@ -8,7 +8,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4, with the Practice changes in `docs/decisions/0005-practice-assistance.md`). Decisions: `docs/decisions/`.
 2. `git checkout main && git pull`. **`main` holds everything the owner practises with**; check `gh pr list` for anything open (the docs PR `docs/handoff-51-53` may still be waiting for the owner to say merge).
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**849 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**81 tests**; `oxlint` has 4 known warnings in `App.tsx`).
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**850 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**81 tests**; `oxlint` has 4 known warnings in `App.tsx`).
 4. Ask the owner what to do first (see "Next up" and "Decisions waiting on the owner"), take one task per branch `feat/<name>` or `fix/<name>`, one PR each. **Do not switch branches in the folder the owner's dev server serves while they practise**: use `git worktree add`.
 
 ## Current state
@@ -75,7 +75,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **After merge (owner's real store):** run `cd backend && uv run python -m app.learner.assessment schedule-missing` once (the owner's first M1 session was finished before Step 4: its test opens 2026-10-18 11:04 UTC, 72 hours after that session). Restart the backend first so the store upgrades to schema v8.
 - **Not built (P4b):** real-game rates with floors (PRD §8). The stored positions only hold mistakes, not the denominators, so every player move of the baseline-window and later games has to be checked at the evidence config; see ADR decision 41.
 - **Review of PR 74 (1 finding from the owner's reviewer, 7 from a self-review with the code-review skill; all reproduced or reasoned, fixed):** see ADR 0006 decision 42. Schema is now **v9** (`practice_session.delayed_status`). After merge: restart the backend, then `schedule-missing` once.
-- **Tests:** backend 849 passed (1 skipped), web 81 tests, ruff and tsc clean.
+- **Tests:** backend 850 passed (1 skipped), web 81 tests, ruff and tsc clean.
 
 ### 2026-10-15 · second Mac · Claude Code (session 27, part 5): the owner's first practice session
 - **The owner played one M1 practice session** (5 positions, 9 tries, no hints, no errors in the log); the real-game "before" window for M1 is frozen (the M2 window is not: no M2 session yet). The numbers are not in the repo (owner's games).

@@ -454,3 +454,24 @@ def test_the_waiting_helper_and_the_warning_about_retired_positions_in_a_waiting
     assert pending_positions_retired(conn) == 2
     assert A.home(conn, now=due)["types"][0]["delayed"]["waiting"] == {
         "assessment_id": row["id"], "status": "pending", "due_at": row["due_at"], "available": True}
+
+
+# --- review on PR 74: a waiting starting test is not a delayed test -------------------------------------------------------------
+
+
+def test_progress_and_home_show_a_waiting_baseline_as_neither_a_delayed_test_nor_a_take_it_button(conn):
+    """A player who has started (not finished) a starting test: the Delayed tests block must stay empty."""
+    import random
+
+    from tests.test_assessment import Store
+
+    s = Store(conn)
+    s.fill()
+    aid = A.start_baseline(conn, "M1", rng=random.Random(1), now=T0)["assessment_id"]
+    assert conn.execute("SELECT status FROM assessment WHERE id = ?", (aid,)).fetchone()[0] == "pending"
+    p = {t["mistake_type"]: t for t in G.progress(conn, now=T0)["types"]}["M1"]
+    assert p["baseline"] is None and p["waiting"] is None and p["delayed"] == []
+    assert A.home(conn, now=T0)["types"][0]["delayed"] == {"waiting": None, "done": []}
+    # the helper still sees it where that is the point: nothing else may start while a test of the type is unsubmitted
+    assert A.waiting_assessment(conn, "M1", T0)["kind"] == "BASELINE"
+    assert A.waiting_assessment(conn, "M1", T0, kind="DELAYED") is None

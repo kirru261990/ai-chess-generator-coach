@@ -113,7 +113,7 @@ def progress(conn: sqlite3.Connection, *, now: datetime | None = None) -> dict:
         baseline_rows = [r for r in rows if r["kind"] == "BASELINE" and r["superseded_at"] is None]
         baseline = _test_summary(conn, baseline_rows[-1]) if baseline_rows else None
         delayed = [_test_summary(conn, r) for r in rows if r["kind"] == "DELAYED"]
-        waiting = A.waiting_assessment(conn, t, now)
+        waiting = A.waiting_assessment(conn, t, now, kind="DELAYED")
         types.append({
             "mistake_type": t, "label": A.LABELS[t], "baseline": baseline, "delayed": delayed,
             "set_aside": sum(1 for r in rows if r["superseded_at"] is not None),

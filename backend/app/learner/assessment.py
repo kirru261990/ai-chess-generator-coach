@@ -153,9 +153,7 @@ def home(conn: sqlite3.Connection, *, now: datetime | None = None) -> dict:
         done = [r["id"] for r in conn.execute(
             "SELECT id FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'DELAYED' AND status = 'submitted' ORDER BY id",
             (user(), t))]
-        waiting = waiting_assessment(conn, t, now)
-        if waiting is not None and waiting["kind"] != "DELAYED":
-            waiting = None
+        waiting = waiting_assessment(conn, t, now, kind="DELAYED")
         out.append({
             "mistake_type": t, "label": LABELS[t], "pool": pool_status(conn, t), "baseline": baseline,
             "delayed": {
@@ -249,12 +247,15 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
 # --- the delayed assessment (PRD §7.2) -----------------------------------------------------------------------------------
 
 
-def waiting_assessment(conn: sqlite3.Connection, mistake_type: str, now: datetime | None = None) -> dict | None:
+def waiting_assessment(conn: sqlite3.Connection, mistake_type: str, now: datetime | None = None, *,
+                       kind: str | None = None) -> dict | None:
     """The unsubmitted assessment of a type, if any (the unique index allows one), with whether it is open yet. The one place
-    that decides what counts as "waiting" (review on PR 74)."""
+    that decides what counts as "waiting" (review on PR 74). Without `kind` any assessment counts (what blocks starting another);
+    screens that talk about delayed tests pass kind="DELAYED", so an unfinished starting test is never shown as one."""
     row = conn.execute(
-        "SELECT id, kind, status, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'",
-        (user(), mistake_type),
+        "SELECT id, kind, status, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'"
+        " AND (? IS NULL OR kind = ?)",
+        (user(), mistake_type, kind, kind),
     ).fetchone()
     if row is None:
         return None
