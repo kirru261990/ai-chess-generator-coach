@@ -61,10 +61,12 @@ def baseline_done(conn: sqlite3.Connection, mistake_type: str) -> bool:
 
 
 def _first_attempt_clean(conn: sqlite3.Connection, position_id: int) -> bool:
-    """The player got this position right on their own at the first attempt (sound move, no hint)."""
+    """The player got this board right on their own at the first attempt (sound move, no hint). It is a property of the board:
+    one game and ply can be stored as an M1 row and an M2 row, and an attempt on either counts (review on PR 72)."""
     row = conn.execute(
-        "SELECT move_sound, hint_level FROM practice_attempt WHERE position_id = ? AND attempt_number = 1"
-        " ORDER BY id LIMIT 1",
+        "SELECT a.move_sound, a.hint_level FROM practice_attempt a JOIN position p ON p.id = a.position_id"
+        " JOIN position q ON q.game_id = p.game_id AND q.ply = p.ply"
+        " WHERE q.id = ? AND a.attempt_number = 1 AND a.move IS NOT NULL ORDER BY a.id LIMIT 1",
         (position_id,),
     ).fetchone()
     return bool(row and row["move_sound"] == 1 and row["hint_level"] == 0)
@@ -113,22 +115,25 @@ def _open_session(conn: sqlite3.Connection, mistake_type: str) -> sqlite3.Row | 
 
 
 def start_session(conn: sqlite3.Connection, mistake_type: str, *, now: datetime | None = None) -> dict:
-    """Start a session for a type, or return the open one (it resumes). Locked until the baseline for the type is done."""
+    """Start a session for a type, or return the open one (it resumes). Locked until the baseline for the type is done.
+
+    The look-up of an open session, the choice of positions, the freezing of the real-game window and the insert are one
+    transaction: two simultaneous requests are serialised, and the second gets the first one's session (review on PR 72)."""
     A._check_type(mistake_type)
-    open_ = _open_session(conn, mistake_type)
-    if open_:
-        return {"session_id": open_["id"], "resumed": True}
-    if not baseline_done(conn, mistake_type):
-        raise AssessmentError("baseline_needed", "Take the starting test for this mistake type first.")
-    chosen, repeat = _choose(_candidates(conn, mistake_type))
-    if len(chosen) < MIN_SIZE:
-        raise AssessmentError(
-            "not_enough_practice_positions",
-            f"Not enough practice positions left for this mistake type ({len(chosen)} of {MIN_SIZE} needed).",
-        )
     now = A._now(now)
-    realgame.freeze_baseline_window(conn, mistake_type, now=now)  # once per type; later sessions find it frozen (its own transaction)
     with transaction(conn):
+        open_ = _open_session(conn, mistake_type)
+        if open_:
+            return {"session_id": open_["id"], "resumed": True}
+        if not baseline_done(conn, mistake_type):
+            raise AssessmentError("baseline_needed", "Take the starting test for this mistake type first.")
+        chosen, repeat = _choose(_candidates(conn, mistake_type))
+        if len(chosen) < MIN_SIZE:
+            raise AssessmentError(
+                "not_enough_practice_positions",
+                f"Not enough practice positions left for this mistake type ({len(chosen)} of {MIN_SIZE} needed).",
+            )
+        realgame.freeze_in_transaction(conn, mistake_type, now=now)  # once per type; later sessions find it frozen
         sid = conn.execute(
             "INSERT INTO practice_session (user, mistake_type, status, started_at, repeat_games) VALUES (?, ?, 'created', ?, ?)",
             (A.user(), mistake_type, A._iso(now), int(repeat)),
@@ -173,24 +178,30 @@ def _stage(attempt: sqlite3.Row) -> str:
 
 
 def _current(conn: sqlite3.Connection, s: sqlite3.Row, now: datetime) -> tuple[sqlite3.Row | None, sqlite3.Row | None]:
-    """The position the player is on (the first not done) and its latest attempt, created when the board is first shown."""
+    """The position the player is on (the first not done) and its latest attempt. The first attempt is created when the board
+    is first shown: inside the write lock, after checking again, so two simultaneous first views make one attempt (review on
+    PR 72). The board is marked PRACTICED for every practice row of that game and ply (an M1 and an M2 row can share it)."""
     for pos in _positions(conn, s["id"]):
         if pos["done_at"] is not None:
             continue
         attempts = _attempts(conn, s["id"], pos["position_id"])
-        if attempts:
-            return pos, attempts[-1]
-        with transaction(conn):
-            conn.execute(
-                "INSERT INTO practice_attempt (session_id, position_id, attempt_number, hint_level, created_at)"
-                " VALUES (?, ?, 1, 0, ?)",
-                (s["id"], pos["position_id"], A._iso(now)),
-            )
-            conn.execute("UPDATE position SET exposure_status = 'PRACTICED' WHERE id = ? AND exposure_status = 'UNSEEN'",
-                         (pos["position_id"],))
-            if s["status"] == "created":
-                conn.execute("UPDATE practice_session SET status = 'in_progress' WHERE id = ?", (s["id"],))
-        return pos, _attempts(conn, s["id"], pos["position_id"])[-1]
+        if not attempts:
+            with transaction(conn):
+                if not _attempts(conn, s["id"], pos["position_id"]):  # nobody else created it while we waited for the lock
+                    conn.execute(
+                        "INSERT INTO practice_attempt (session_id, position_id, attempt_number, hint_level, created_at)"
+                        " VALUES (?, ?, 1, 0, ?)",
+                        (s["id"], pos["position_id"], A._iso(now)),
+                    )
+                    conn.execute(
+                        "UPDATE position SET exposure_status = 'PRACTICED' WHERE exposure_status = 'UNSEEN' AND pool = 'PRACTICE'"
+                        " AND (id = ? OR (game_id, ply) IN (SELECT game_id, ply FROM position WHERE id = ?"
+                        " AND game_id IS NOT NULL))",
+                        (pos["position_id"], pos["position_id"]),
+                    )
+                conn.execute("UPDATE practice_session SET status = 'in_progress' WHERE id = ? AND status = 'created'", (s["id"],))
+            attempts = _attempts(conn, s["id"], pos["position_id"])
+        return pos, attempts[-1]
     return None, None
 
 

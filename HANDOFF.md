@@ -8,7 +8,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4, with the Practice changes in `docs/decisions/0005-practice-assistance.md`). Decisions: `docs/decisions/`.
 2. `git checkout main && git pull`. **`main` holds everything the owner practises with**; check `gh pr list` for anything open (the docs PR `docs/handoff-51-53` may still be waiting for the owner to say merge).
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**804 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**74 tests**; `oxlint` has 4 known warnings in `App.tsx`).
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**811 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**74 tests**; `oxlint` has 4 known warnings in `App.tsx`).
 4. Ask the owner what to do first (see "Next up" and "Decisions waiting on the owner"), take one task per branch `feat/<name>` or `fix/<name>`, one PR each. **Do not switch branches in the folder the owner's dev server serves while they practise**: use `git worktree add`.
 
 ## Current state
@@ -74,7 +74,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Exit gate:** one full session works end to end (service, HTTP, and in the browser with the real engine on a scratch copy of the real store); the leak tests pass (nothing about the answer before the first attempt: no best move, eval, line, target squares, verdict, and only the current board; no held-out board in any practice response; only `api/coach.py` imports the practice service); an interrupted session resumes at the same position, step and hint level (also after a backend restart, in the browser).
 - **Not built (P3b):** the LLM wording of the feedback and its PRD §12 output check. Feedback is a template from the evidence record, so it is correct by construction. Only about 1 dollar of the October budget is left.
 - **For the next session:** Step 4 (delayed assessment 72 hours after a completed session, one pending per type, results reveal, Progress screen, real-game rates with floors). Practice positions left in the real store: M1 38 unseen, M2 5 unseen (a second M2 session will mostly repeat positions that were not got right on the first attempt).
-- **Tests:** backend 804 passed (1 skipped), web 74 tests, ruff and tsc clean.
+- **Review on PR 72 (3 findings, all reproduced and fixed):** the sibling M1/M2 row of a practised board stayed UNSEEN (now marked, and "got right" is per board); two simultaneous first views could both create attempt 1; two simultaneous session starts could both pass the resume check (and freeze the window before the session existed). Each now runs in one write transaction with the check inside it; `start_baseline` had the same pattern and got the same fix. Race tests use real threads with separate connections.
+- **Tests:** backend 811 passed (1 skipped), web 74 tests, ruff and tsc clean.
 
 ### 2026-10-15 · second Mac · Claude Code (session 27, part 3): the owner's catch, CLEAN v2
 - **Owner's question** on a "nothing is wrong" position in the retaken M1 test: a bishop attacked by a defended pawn (loses 3 for 1) was labelled "No immediate threat". Right: decision 6 only excluded threats worth 3 or more. The second kept test (M2) also had a free pawn.

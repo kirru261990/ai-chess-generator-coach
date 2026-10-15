@@ -440,3 +440,117 @@ def test_hint_one_names_the_opponents_last_move_from_the_game(conn):
     wrong = conn.execute("UPDATE game SET pgn = '1. d4 d5 *' WHERE id = ?", (gid,))
     assert wrong is not None
     assert "No last move" in P.hint_content(conn, pos, 1)["text"]  # the game's moves do not lead to this board
+
+
+# --- review on PR 72 ---------------------------------------------------------------------------------------------------------
+
+
+def test_a_board_shown_in_practice_is_practiced_for_both_of_its_rows(store):
+    """One game and ply can be stored as an M1 row and an M2 row. Showing the board marks both, and the sibling is not offered
+    later as a fresh position for the other type (nor as a repeat when the first attempt was right)."""
+    conn = store.conn
+    gid = store.game("PRACTICE", played_at=10**9)  # the newest game: chosen first
+    m1 = store.position("M1", pool="PRACTICE", game_id=gid, ply=30, fen=M1_PRACTICE_FEN.format(n=991), override=M1_PRACTICE)
+    m2 = store.position("M2", pool="PRACTICE", game_id=gid, ply=30)
+    sid, view = begin(conn, "M1")
+    assert view["current"]["fen"].endswith(" 991")
+    status = {r["id"]: r["exposure_status"] for r in conn.execute("SELECT id, exposure_status FROM position WHERE id IN (?, ?)", (m1, m2))}
+    assert status == {m1: "PRACTICED", m2: "PRACTICED"}
+    fresh = {r["id"] for r in P._candidates(conn, "M2") if r["exposure_status"] == "UNSEEN"}
+    assert m2 not in fresh
+    # got right on the player's own first attempt: the board is not offered again for the other type either
+    fb = play(conn, sid, view)
+    assert fb["current"]["feedback"]["sound"] is True
+    assert m2 not in {r["id"] for r in P._candidates(conn, "M2")}
+    assert P.available(conn, "M2")["unseen"] == 6  # the six other M2 practice positions only
+
+
+def test_a_board_not_got_right_comes_back_through_either_row(store):
+    conn = store.conn
+    gid = store.game("PRACTICE", played_at=10**9)
+    store.position("M1", pool="PRACTICE", game_id=gid, ply=30, fen=M1_PRACTICE_FEN.format(n=991), override=M1_PRACTICE)
+    m2 = store.position("M2", pool="PRACTICE", game_id=gid, ply=30)
+    sid, view = begin(conn, "M1")
+    play(conn, sid, view, good=False)  # not sound on the first attempt
+    assert m2 in {r["id"] for r in P._candidates(conn, "M2")}  # to repeat, as the other type's row of the same board
+
+
+def test_two_simultaneous_first_views_create_one_attempt(store, tmp_path, monkeypatch):
+    """Review on PR 72: two page loads can both read "no attempt yet". The second must find the first one's attempt."""
+    conn = store.conn
+    sid, _ = begin(conn)
+    conn.execute("DELETE FROM practice_attempt")  # as if the first view had not happened yet
+    conn.execute("UPDATE position SET exposure_status = 'UNSEEN' WHERE pool = 'PRACTICE'")
+    real = P._attempts
+    calls = {"n": 0}
+
+    def stale_first_read(c, session_id, position_id):
+        calls["n"] += 1
+        return [] if calls["n"] == 1 else real(c, session_id, position_id)
+
+    first = connect(tmp_path / "store.sqlite3")
+    P.get_session(first, sid, now=at(1))  # the winner creates attempt 1
+    monkeypatch.setattr(P, "_attempts", stale_first_read)  # the loser read before the winner's commit
+    other = connect(tmp_path / "store.sqlite3")
+    P.get_session(other, sid, now=at(2))  # must not hit the unique constraint
+    monkeypatch.setattr(P, "_attempts", real)
+    assert conn.execute("SELECT COUNT(*) FROM practice_attempt").fetchone()[0] == 1
+
+
+def test_simultaneous_requests_really_race_without_an_error(store, tmp_path):
+    import threading
+
+    sid, _ = begin(store.conn)
+    store.conn.execute("DELETE FROM practice_attempt")
+    store.conn.execute("UPDATE position SET exposure_status = 'UNSEEN' WHERE pool = 'PRACTICE'")
+    errors, barrier = [], threading.Barrier(4)
+
+    def load():
+        c = connect(tmp_path / "store.sqlite3")
+        try:
+            barrier.wait()
+            P.get_session(c, sid, now=at(3))
+        except Exception as e:  # noqa: BLE001 - the test reports any failure
+            errors.append(repr(e))
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=load) for _ in range(4)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == []
+    assert store.conn.execute("SELECT COUNT(*) FROM practice_attempt").fetchone()[0] == 1
+
+
+def test_two_simultaneous_starts_return_the_same_session_and_freeze_once(store, tmp_path):
+    import threading
+
+    results, errors, barrier = [], [], threading.Barrier(4)
+
+    def start():
+        c = connect(tmp_path / "store.sqlite3")
+        try:
+            barrier.wait()
+            results.append(P.start_session(c, "M1", now=at(5)))
+        except Exception as e:  # noqa: BLE001
+            errors.append(repr(e))
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=start) for _ in range(4)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == []
+    assert len({r["session_id"] for r in results}) == 1 and sum(not r["resumed"] for r in results) == 1
+    assert store.conn.execute("SELECT COUNT(*) FROM practice_session WHERE mistake_type = 'M1'").fetchone()[0] == 1
+    assert store.conn.execute("SELECT COUNT(*) FROM baseline_window WHERE mistake_type = 'M1'").fetchone()[0] >= 1
+
+
+def test_a_failed_start_does_not_freeze_the_window(conn):
+    s = Store(conn)
+    s.fill(m1=20, m2=20, clean=14)
+    s.position("M1", pool="PRACTICE")  # too few positions
+    finish(conn, A.start_baseline(conn, "M1", rng=random.Random(3), now=T0)["assessment_id"])
+    with pytest.raises(A.AssessmentError):
+        P.start_session(conn, "M1")
+    assert conn.execute("SELECT COUNT(*) FROM baseline_window").fetchone()[0] == 0

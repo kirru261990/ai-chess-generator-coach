@@ -657,3 +657,26 @@ def test_results_leave_out_a_position_whose_best_line_wins_something(store):
     r = A.results(conn, aid)
     assert r["left_out_count"] == 1 and r["total"] == 4
     assert [i["fen"] for i in r["items"] if i["left_out"]] == [BEST_LINE_FEN]
+
+
+def test_two_simultaneous_baseline_starts_return_the_same_assessment(store, tmp_path):
+    """Review on PR 72 (same pattern): the look-up and the insert are one transaction, so a double request is not an error."""
+    import threading
+
+    results, errors, barrier = [], [], threading.Barrier(4)
+
+    def go():
+        c = connect(tmp_path / "store.sqlite3")
+        try:
+            barrier.wait()
+            results.append(A.start_baseline(c, "M1", rng=random.Random(5), now=T0))
+        except Exception as e:  # noqa: BLE001
+            errors.append(repr(e))
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=go) for _ in range(4)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == [] and len({r["assessment_id"] for r in results}) == 1
+    assert sum(not r["resumed"] for r in results) == 1
