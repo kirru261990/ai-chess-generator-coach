@@ -190,11 +190,17 @@ def _pick(rows: list[sqlite3.Row], n: int, rng: random.Random, used_games: set[s
 
 def _allocate(conn: sqlite3.Connection, mistake_type: str, rng: random.Random) -> list[sqlite3.Row]:
     """SIZE assessable held-out positions: 3 or 4 MISTAKE of the type and the rest CLEAN, from different games where possible,
-    in random order. Fewer than SIZE come back when the pool cannot supply them."""
-    n_mistakes = rng.choice(MISTAKE_COUNTS)
+    in random order. The mix is chosen at random among the mixes the pool can actually supply (3+2 and 4+1), so a pool with
+    exactly 3 mistake and 2 clean positions still gives a test (review on PR 74). Nothing comes back when no valid mix exists."""
+    mistakes = _assessable(conn, _TYPE_FILTER[mistake_type])
+    cleans = _assessable(conn, _CLEAN_FILTER)
+    feasible = [n for n in MISTAKE_COUNTS if len(mistakes) >= n and len(cleans) >= SIZE - n]
+    if not feasible:
+        return []
+    n_mistakes = rng.choice(feasible)
     used: set[str] = set()
-    chosen = _pick(_assessable(conn, _TYPE_FILTER[mistake_type]), n_mistakes, rng, used)
-    chosen += _pick(_assessable(conn, _CLEAN_FILTER), SIZE - n_mistakes, rng, used)
+    chosen = _pick(mistakes, n_mistakes, rng, used)
+    chosen += _pick(cleans, SIZE - n_mistakes, rng, used)
     rng.shuffle(chosen)
     return chosen
 

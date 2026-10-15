@@ -284,3 +284,63 @@ def test_each_not_sound_move_has_one_main_reason_in_a_fixed_order():
     assert G.main_reason({"failed": ["eval_loss_too_large"], "mate": "missed"}) == "missed_checkmate"
     assert G.main_reason({"failed": ["eval_loss_too_large"], "mate": None}) == "eval_loss_too_large"
     assert G.main_reason({"failed": []}) is None
+
+
+# --- review on PR 74: choose the mix from what the pool can actually supply ----------------------------------------------------
+
+
+def _pool(conn, mistakes, cleans):
+    """A held-out pool with exactly this many unused M1 mistake and CLEAN positions."""
+    from tests.test_assessment import Store
+
+    s = Store(conn)
+    for _ in range(mistakes):
+        s.position("M1")
+    for _ in range(cleans):
+        s.position("CLEAN")
+    return s
+
+
+@pytest.mark.parametrize(("mistakes", "cleans", "expected"), [
+    (3, 2, (3, 2)),   # only 3+2 exists: asking for 4 mistakes used to return 4 positions and "no positions left"
+    (4, 1, (4, 1)),   # only 4+1 exists
+    (5, 5, None),     # both exist: the mix is chosen at random
+])
+def test_the_mix_is_chosen_from_what_the_pool_can_supply(conn, mistakes, cleans, expected):
+    import random
+
+    _pool(conn, mistakes, cleans)
+    seen = set()
+    for seed in range(40):
+        chosen = A._allocate(conn, "M1", random.Random(seed))
+        assert len(chosen) == A.SIZE, f"seed {seed} gave {len(chosen)} positions"
+        n_mistakes = sum(1 for r in chosen if conn.execute("SELECT kind FROM position WHERE id = ?", (r["id"],)).fetchone()[0] == "MISTAKE")
+        seen.add((n_mistakes, A.SIZE - n_mistakes))
+    assert seen == ({expected} if expected else {(3, 2), (4, 1)})
+
+
+@pytest.mark.parametrize(("mistakes", "cleans"), [(2, 9), (9, 0), (0, 0), (2, 2), (3, 1), (4, 0)])
+def test_nothing_is_allocated_when_no_valid_mix_exists(conn, mistakes, cleans):
+    import random
+
+    _pool(conn, mistakes, cleans)
+    assert all(A._allocate(conn, "M1", random.Random(seed)) == [] for seed in range(10))
+
+
+def test_the_last_delayed_test_is_still_scheduled_when_the_pool_is_at_its_edge(store):
+    """Seen end to end: leave exactly 3 unused mistake and 2 clean positions and finish a session."""
+    conn = store.conn
+    keep_m = [r[0] for r in conn.execute(
+        "SELECT id FROM position WHERE pool = 'HELDOUT' AND kind = 'MISTAKE' AND mistake_type = 'M1' AND exposure_status = 'UNSEEN'"
+        " AND retired_at IS NULL AND json_extract(evidence_json, '$.lost_piece') = 'other' ORDER BY id LIMIT 3")]
+    keep_c = [r[0] for r in conn.execute(
+        "SELECT id FROM position WHERE pool = 'HELDOUT' AND kind = 'CLEAN' AND exposure_status = 'UNSEEN' AND retired_at IS NULL"
+        " ORDER BY id LIMIT 2")]
+    keep = set(keep_m + keep_c)
+    for (pid,) in conn.execute("SELECT id FROM position WHERE pool = 'HELDOUT' AND exposure_status = 'UNSEEN'").fetchall():
+        if pid not in keep:
+            conn.execute("UPDATE position SET excluded_reason = 'used' WHERE id = ?", (pid,))
+    sid = done_session(conn)
+    (row,) = delayed_rows(conn)
+    assert row["source_session_id"] == sid
+    assert P.summary(conn, sid)["delayed_test"]["status"] == "scheduled"
