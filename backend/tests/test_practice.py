@@ -57,17 +57,22 @@ def conn(tmp_path):
     c.close()
 
 
-@pytest.fixture
-def store(conn):
+def make_store(conn, practice_m1=8):
+    """Held-out positions for both starting tests, practice positions, and both starting tests done (practice is unlocked)."""
     s = Store(conn)
     s.fill(m1=20, m2=20, clean=14)  # held-out: enough for both starting tests
-    for _ in range(8):
+    for _ in range(practice_m1):
         s.position("M1", pool="PRACTICE", fen=M1_PRACTICE_FEN.format(n=s.n + 2), override=M1_PRACTICE)
     for _ in range(6):
         s.position("M2", pool="PRACTICE")
     for t in A.TYPES:  # the starting tests are done: practice is unlocked
         finish(conn, A.start_baseline(conn, t, rng=random.Random(3), now=T0)["assessment_id"])
     return s
+
+
+@pytest.fixture
+def store(conn):
+    return make_store(conn)
 
 
 def at(seconds):

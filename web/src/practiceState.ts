@@ -4,6 +4,7 @@
  * be tapped, and nothing else.
  */
 import { pieceColorAt, type MoveRef } from './assessState'
+import type { DelayedTestInfo } from './progressState'
 
 export type Hint = {
   level: number
@@ -83,6 +84,7 @@ export type PracticeSummary = {
   needed_retry: number
   recognized: number
   repeat_games: boolean
+  delayed_test: DelayedTestInfo
   items: SummaryItem[]
 }
 

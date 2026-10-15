@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { api } from './api'
+import { delayedSummaryLine } from './progressState'
 import { NO_THREAT, castleMove, pickMove, pieceColorAt, tapRefusal, tapWords, targetsFrom } from './assessState'
 import {
   feedbackMarks, hintButton, hintMarks, lineCaption, stepTitle, summaryLines,
@@ -203,6 +204,7 @@ function SummaryPage({ summary, onHome }: { summary: PracticeSummary | null; onH
           Practice is assisted, so this is not a test score. The delayed test (a few days later) shows whether it helped.
           {summary.repeat_games && ' Some positions came from the same game.'}
         </p>
+        <p className="note"><strong>Next:</strong> {delayedSummaryLine(summary.delayed_test)}</p>
       </div>
       {summary.items.map((it) => {
         const squares: Record<string, React.CSSProperties> = {}

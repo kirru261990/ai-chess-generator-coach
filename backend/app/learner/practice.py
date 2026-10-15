@@ -420,6 +420,7 @@ def next_position(conn: sqlite3.Connection, session_id: int, ord_: int, *, now: 
                      (A._iso(now), session_id, pos["position_id"]))
         if all(p["done_at"] or p["position_id"] == pos["position_id"] for p in _positions(conn, session_id)):
             _complete(conn, s, now)
+            A.schedule_delayed(conn, s["mistake_type"], session_id, now)  # the delayed test opens 72 hours from now (§7.2)
     return get_session(conn, session_id, now=now)
 
 
@@ -458,6 +459,7 @@ def summary(conn: sqlite3.Connection, session_id: int) -> dict:
         "needed_retry": sum(i["needed_retry"] for i in items),
         "recognized": sum(i["recognized"] for i in items),
         "repeat_games": bool(s["repeat_games"]),
+        "delayed_test": A.delayed_for_session(conn, session_id, s["mistake_type"]),
         "items": items,
     }
 

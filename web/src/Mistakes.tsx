@@ -3,6 +3,8 @@ import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import Practice from './Practice'
 import { practiceLabel } from './practiceState'
+import ProgressPage from './Progress'
+import { delayedLabel, dueText } from './progressState'
 import {
   NO_THREAT,
   castleMove,
@@ -30,24 +32,33 @@ type Screen =
   | { name: 'results'; id: number }
   | { name: 'practice'; id: number }
   | { name: 'summary'; id: number }
+  | { name: 'progress' }
 
 /** PRD v2 home and the unassisted baseline test (Step 2). No hints, no eval, no feedback until the end. */
 export default function Mistakes() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
+  if (screen.name === 'progress') {
+    return <ProgressPage onHome={() => setScreen({ name: 'home' })} onResults={(id) => setScreen({ name: 'results', id })} onTake={(id) => setScreen({ name: 'test', id })} />
+  }
   if (screen.name === 'practice' || screen.name === 'summary') return <Practice id={screen.id} onHome={() => setScreen({ name: 'home' })} />
-  if (screen.name === 'test') return <Test id={screen.id} onDone={() => setScreen({ name: 'results', id: screen.id })} />
+  if (screen.name === 'test') {
+    return <Test id={screen.id} onDone={() => setScreen({ name: 'results', id: screen.id })} onHome={() => setScreen({ name: 'home' })} />
+  }
   if (screen.name === 'results') return <ResultsPage id={screen.id} onBack={() => setScreen({ name: 'home' })} />
   return <Home onOpen={(t) => {
     if (t.baseline?.status === 'submitted') setScreen({ name: 'results', id: t.baseline.assessment_id })
     else if (t.baseline) setScreen({ name: 'test', id: t.baseline.assessment_id })
-  }} onStarted={(id) => setScreen({ name: 'test', id })} onPractice={(id) => setScreen({ name: 'practice', id })} onSummary={(id) => setScreen({ name: 'summary', id })} />
+  }} onStarted={(id) => setScreen({ name: 'test', id })} onPractice={(id) => setScreen({ name: 'practice', id })} onSummary={(id) => setScreen({ name: 'summary', id })}
+    onTake={(id) => setScreen({ name: 'test', id })} onProgress={() => setScreen({ name: 'progress' })} />
 }
 
-function Home({ onOpen, onStarted, onPractice, onSummary }: {
+function Home({ onOpen, onStarted, onPractice, onSummary, onTake, onProgress }: {
   onOpen: (t: HomeType) => void
   onStarted: (id: number) => void
   onPractice: (id: number) => void
   onSummary: (id: number) => void
+  onTake: (id: number) => void
+  onProgress: () => void
 }) {
   const [types, setTypes] = useState<HomeType[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +88,7 @@ function Home({ onOpen, onStarted, onPractice, onSummary }: {
 
   return (
     <div className="spots">
-      <h2>Test yourself first</h2>
+      <h2>Test yourself first <button onClick={onProgress}>My progress</button></h2>
       <p className="note">
         Before practising a kind of mistake, take a short test of 5 positions from your own games that you have not seen
         here before. There is no help and no feedback until you finish. This is your starting point, so later tests can show
@@ -109,6 +120,15 @@ function Home({ onOpen, onStarted, onPractice, onSummary }: {
               {t.practice.last_completed !== null && !t.practice.session && (
                 <button onClick={() => onSummary(t.practice.last_completed!)}>See my last practice summary</button>
               )}
+              {(() => {
+                const d = delayedLabel(t.delayed)
+                return (
+                  <>
+                    {d.note && <p className="note small">{d.note}</p>}
+                    {d.takeId !== null && <button onClick={() => onTake(d.takeId!)}>Take your delayed test</button>}
+                  </>
+                )
+              })()}
             </div>
           )
         })}
@@ -117,7 +137,7 @@ function Home({ onOpen, onStarted, onPractice, onSummary }: {
   )
 }
 
-function Test({ id, onDone }: { id: number; onDone: () => void }) {
+function Test({ id, onDone, onHome }: { id: number; onDone: () => void; onHome: () => void }) {
   const [view, setView] = useState<AssessmentView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -143,6 +163,16 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
   if (error) return <div className="app"><p className="error">{error}</p></div>
   if (!view) return <div className="app"><p>Loading…</p></div>
 
+  if (view.available === false) {
+    return (
+      <div className="app">
+        <h2>{view.label}: delayed test</h2>
+        <p>This test is not open yet. {view.due_at ? dueText(view.due_at) : ''}</p>
+        <p className="note">It uses positions you have not seen, with no help. Nothing about it can be shown before it opens.</p>
+        <button onClick={onHome}>Back</button>
+      </div>
+    )
+  }
   const cur = view.current
   if (!cur) {
     return (
@@ -289,7 +319,7 @@ function ResultsPage({ id, onBack }: { id: number; onBack: () => void }) {
   return (
     <div className="spots">
       <button onClick={onBack}>Back</button>
-      <h2>{res.label}: your starting test</h2>
+      <h2>{res.label}: your {res.assessment_kind === 'DELAYED' ? 'delayed' : 'starting'} test</h2>
       <div className="card">
         <p className="headline">Spotted the problem: {scoreLine(res.scores.recognition, res.total, res.chance.recognition)}</p>
         <p className="headline">Played a sound move: {scoreLine(res.scores.move, res.total, res.chance.move)}</p>

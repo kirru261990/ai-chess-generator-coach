@@ -3,7 +3,9 @@ import { castleMove, leftOutLine, pickMove, scoreNotes, tapRefusal, pieceColorAt
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
 const practice = { unlocked: true, positions: { unseen: 10, to_repeat: 0 }, session: null, last_completed: null }
-const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, practice, ...over })
+const home = (over: Partial<HomeType>): HomeType => ({
+  mistake_type: 'M1', label: 'x', pool, baseline: null, practice, delayed: { waiting: null, done: [] }, ...over,
+})
 
 describe('startLabel', () => {
   it('starts, continues or shows results, and cannot start a small pool', () => {

@@ -15,6 +15,9 @@ The web API and, later, the MCP server call these functions; neither has scoring
 - **Scoring (§7.5):** recognition is correct when the tapped square is a target square (MISTAKE) or the answer is "No
   immediate threat" (CLEAN). The move is judged with the sound-move rules (`detectors/sound.py`) at the position's own engine
   config; a different config is refused, never compared. Combined = both. Random-guess rates sit next to every score.
+- **Delayed assessments (§7.2, Step 4):** finishing a practice session schedules one for its type, 72 hours after the session
+  was completed, unless an assessment of that type is already waiting. Its positions are allocated at once (durably, §10) and
+  nothing about it is shown before it is due: no board and no count of answers.
 - **Time (§7.4):** the server times each decision from when it first showed the board, capped at 300 s. A board shown again
   after RESHOW_GAP_S (the test was left and resumed) is flagged as interrupted.
 """
@@ -24,7 +27,7 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import chess
 
@@ -43,6 +46,7 @@ MIN_HELDOUT_CLEAN = 8
 TIME_CAP_MS = 300_000
 RESHOW_GAP_S = 10  # a page that asks for the same board twice in a row is not an interruption
 NO_THREAT = "none"
+DUE_HOURS = 72  # PRD §7.2
 QUESTION_VERSION = "2"  # the recognition wording; schema v6 records it on each assessment
 
 LABELS = {"M1": "Pieces left in danger", "M2": "Free pieces to take"}
@@ -134,8 +138,10 @@ def pool_status(conn: sqlite3.Connection, mistake_type: str) -> dict:
     }
 
 
-def home(conn: sqlite3.Connection) -> dict:
-    """Per mistake type: pool counts, and the baseline's status (none, open or done)."""
+def home(conn: sqlite3.Connection, *, now: datetime | None = None) -> dict:
+    """Per mistake type: pool counts, the baseline's status (none, open or done) and the delayed assessments (the one waiting,
+    with when it opens, and how many are done)."""
+    now = _now(now)
     out = []
     for t in TYPES:
         row = conn.execute(
@@ -144,7 +150,21 @@ def home(conn: sqlite3.Connection) -> dict:
             (user(), t),
         ).fetchone()
         baseline = {"assessment_id": row["id"], "status": row["status"]} if row else None
-        out.append({"mistake_type": t, "label": LABELS[t], "pool": pool_status(conn, t), "baseline": baseline})
+        delayed = conn.execute(
+            "SELECT id, status, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'DELAYED' ORDER BY id",
+            (user(), t),
+        ).fetchall()
+        waiting = next((d for d in delayed if d["status"] != "submitted"), None)
+        out.append({
+            "mistake_type": t, "label": LABELS[t], "pool": pool_status(conn, t), "baseline": baseline,
+            "delayed": {
+                "waiting": None if waiting is None else {
+                    "assessment_id": waiting["id"], "status": waiting["status"], "due_at": waiting["due_at"],
+                    "available": now >= datetime.fromisoformat(waiting["due_at"]),
+                },
+                "done": [d["id"] for d in delayed if d["status"] == "submitted"],
+            },
+        })
     return {"types": out}
 
 
@@ -166,6 +186,17 @@ def _pick(rows: list[sqlite3.Row], n: int, rng: random.Random, used_games: set[s
             picked.append(row)
             ids.add(row["id"])
     return picked
+
+
+def _allocate(conn: sqlite3.Connection, mistake_type: str, rng: random.Random) -> list[sqlite3.Row]:
+    """SIZE assessable held-out positions: 3 or 4 MISTAKE of the type and the rest CLEAN, from different games where possible,
+    in random order. Fewer than SIZE come back when the pool cannot supply them."""
+    n_mistakes = rng.choice(MISTAKE_COUNTS)
+    used: set[str] = set()
+    chosen = _pick(_assessable(conn, _TYPE_FILTER[mistake_type]), n_mistakes, rng, used)
+    chosen += _pick(_assessable(conn, _CLEAN_FILTER), SIZE - n_mistakes, rng, used)
+    rng.shuffle(chosen)
+    return chosen
 
 
 def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.Random | None = None,
@@ -194,12 +225,7 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
                 f"{status['mistake_positions']} of {MIN_HELDOUT_MISTAKE} mistake positions and "
                 f"{status['clean_positions']} of {MIN_HELDOUT_CLEAN} clean positions",
             )
-        rng = rng or random.SystemRandom()
-        n_mistakes = rng.choice(MISTAKE_COUNTS)
-        used: set[str] = set()
-        chosen = _pick(_assessable(conn, _TYPE_FILTER[mistake_type]), n_mistakes, rng, used)
-        chosen += _pick(_assessable(conn, _CLEAN_FILTER), SIZE - n_mistakes, rng, used)
-        rng.shuffle(chosen)
+        chosen = _allocate(conn, mistake_type, rng or random.SystemRandom())
         aid = conn.execute(
             "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, question_version)"
             " VALUES (?, ?, 'BASELINE', ?, ?, 'pending', ?)",
@@ -210,6 +236,63 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
                 "INSERT INTO assessment_position (assessment_id, position_id, ord) VALUES (?, ?, ?)", (aid, r["id"], ord_)
             )
     return {"assessment_id": aid, "resumed": False}
+
+
+# --- the delayed assessment (PRD §7.2) -----------------------------------------------------------------------------------
+
+
+def schedule_delayed(conn: sqlite3.Connection, mistake_type: str, session_id: int, completed_at: datetime, *,
+                     rng: random.Random | None = None) -> dict:
+    """Schedule the delayed assessment for a completed practice session, in the caller's transaction (practice completes the
+    session and schedules together). One per session; none while an assessment of the type is waiting (§7.2: at most one pending
+    per type, which sets the cadence); none when the pool cannot supply a full assessment. Returns the status:
+    scheduled (with the assessment id and due time), pending_exists or no_positions."""
+    existing = conn.execute(
+        "SELECT id, due_at FROM assessment WHERE source_session_id = ?", (session_id,)
+    ).fetchone()
+    if existing:
+        return {"status": "scheduled", "assessment_id": existing["id"], "due_at": existing["due_at"]}
+    waiting = conn.execute(
+        "SELECT id FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'", (user(), mistake_type)
+    ).fetchone()
+    if waiting:
+        return {"status": "pending_exists", "assessment_id": waiting["id"]}
+    chosen = _allocate(conn, mistake_type, rng or random.SystemRandom())
+    if len(chosen) < SIZE:
+        return {"status": "no_positions"}
+    due = _iso(completed_at + timedelta(hours=DUE_HOURS))
+    aid = conn.execute(
+        "INSERT INTO assessment (user, mistake_type, kind, source_session_id, created_at, due_at, status, question_version)"
+        " VALUES (?, ?, 'DELAYED', ?, ?, ?, 'pending', ?)",
+        (user(), mistake_type, session_id, _iso(completed_at), due, QUESTION_VERSION),
+    ).lastrowid
+    for ord_, r in enumerate(chosen):
+        conn.execute("INSERT INTO assessment_position (assessment_id, position_id, ord) VALUES (?, ?, ?)", (aid, r["id"], ord_))
+    return {"status": "scheduled", "assessment_id": aid, "due_at": due}
+
+
+def delayed_for_session(conn: sqlite3.Connection, session_id: int, mistake_type: str) -> dict:
+    """What happened to a session's delayed assessment, for its summary: scheduled (with the due time), another one already
+    waiting, or no unused held-out positions left."""
+    row = conn.execute("SELECT id, due_at, status FROM assessment WHERE source_session_id = ?", (session_id,)).fetchone()
+    if row:
+        return {"status": "scheduled", "assessment_id": row["id"], "due_at": row["due_at"]}
+    waiting = conn.execute(
+        "SELECT id, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'",
+        (user(), mistake_type),
+    ).fetchone()
+    if waiting:
+        return {"status": "pending_exists", "assessment_id": waiting["id"], "due_at": waiting["due_at"]}
+    return {"status": "no_positions"}
+
+
+def is_due(a: sqlite3.Row, now: datetime) -> bool:
+    return a["kind"] != "DELAYED" or now >= datetime.fromisoformat(a["due_at"])
+
+
+def _require_due(a: sqlite3.Row, now: datetime) -> None:
+    if not is_due(a, now):
+        raise AssessmentError("not_due_yet", f"This test opens at {a['due_at']}.")
 
 
 # --- taking it -----------------------------------------------------------------------------------------------------------
@@ -255,6 +338,11 @@ def get_assessment(conn: sqlite3.Connection, assessment_id: int, *, now: datetim
     """The assessment as the player may see it now: the current board only, nothing about answers until it is submitted."""
     now = _now(now)
     a = _load(conn, assessment_id)
+    if a["status"] != "submitted" and not is_due(a, now):
+        # not open yet: no board, no count, nothing that could show what it holds
+        return {"assessment_id": a["id"], "assessment_kind": a["kind"], "mistake_type": a["mistake_type"],
+                "label": LABELS[a["mistake_type"]], "status": "pending", "available": False, "due_at": a["due_at"],
+                "total": None, "answered": 0, "current": None, "ready_to_submit": False}
     items = _items(conn, assessment_id)
     answered = sum(1 for i in items if i["result_id"] is not None)
     current = next((i for i in items if i["result_id"] is None), None)
@@ -269,6 +357,8 @@ def get_assessment(conn: sqlite3.Connection, assessment_id: int, *, now: datetim
         "answered": answered,
         "current": None,
         "ready_to_submit": a["status"] != "submitted" and current is None,
+        "available": True,
+        "due_at": a["due_at"],
     }
     if a["status"] == "submitted" or current is None:
         return view
@@ -316,6 +406,7 @@ def submit_item(conn: sqlite3.Connection, assessment_id: int, ord_: int, recogni
     a = _load(conn, assessment_id)
     if a["status"] == "submitted":
         raise AssessmentError("assessment_submitted", "this assessment is already submitted")
+    _require_due(a, now)
     current = next((i for i in _items(conn, assessment_id) if i["result_id"] is None), None)
     if current is None or current["ord"] != ord_:
         raise AssessmentError("not_current_position", "answer the position on the board; a submitted one cannot be changed")
@@ -362,6 +453,7 @@ def submit(conn: sqlite3.Connection, assessment_id: int, *, now: datetime | None
     """The final submit: every position answered, positions become TESTED (never used again), answers can be revealed."""
     a = _load(conn, assessment_id)
     if a["status"] != "submitted":
+        _require_due(a, _now(now))
         items = _items(conn, assessment_id)
         if any(i["result_id"] is None for i in items):
             raise AssessmentError("not_finished", "answer every position before submitting")
@@ -677,8 +769,21 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("assessment_id", type=int)
     one.add_argument("--reason", required=True)
     sub.add_parser("list", help="list assessments")
+    sub.add_parser("schedule-missing", help="schedule the delayed assessment for a type's latest completed practice session "
+                   "if it has none and none is waiting (for sessions finished before Step 4 existed)")
     args = parser.parse_args(argv)
     conn = connect()
+    if args.cmd == "schedule-missing":
+        for t in TYPES:
+            last = conn.execute(
+                "SELECT id, completed_at FROM practice_session WHERE user = ? AND mistake_type = ? AND status = 'completed'"
+                " ORDER BY id DESC LIMIT 1", (user(), t)).fetchone()
+            if last is None:
+                print(t, "no completed session")
+                continue
+            with transaction(conn):
+                print(t, schedule_delayed(conn, t, last["id"], datetime.fromisoformat(last["completed_at"])))
+        return 0
     if args.cmd == "list":
         for r in conn.execute("SELECT id, mistake_type, kind, status, question_version, superseded_at FROM assessment"):
             print(dict(r))

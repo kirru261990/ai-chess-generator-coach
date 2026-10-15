@@ -26,6 +26,7 @@ from app.db.schema import connect
 from app.engine.evidence import open_evidence
 from app.learner import assessment as A
 from app.learner import practice as P
+from app.learner import progress as G
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ _lock = threading.Lock()
 
 STATUS = {
     "not_found": 404,
+    "not_due_yet": 403,
     "unknown_mistake_type": 400,
     "tap_a_piece": 400,
     "not_a_baseline": 400,
@@ -141,7 +143,10 @@ def start_baseline(body: StartBaseline, conn: Conn):
 
 @router.get("/assessments/{assessment_id}")
 def get_assessment(assessment_id: int, conn: Conn):
-    return A.get_assessment(conn, assessment_id)
+    out = A.get_assessment(conn, assessment_id)
+    if out.get("available") and out["assessment_kind"] == "DELAYED":  # the delayed test just opened: work out its guessing rates
+        start_chance_job(A.missing_move_chances(conn, assessment_id))
+    return out
 
 
 @router.post("/assessments/{assessment_id}/items")
@@ -206,3 +211,8 @@ def practice_next(session_id: int, body: OrdIn, conn: Conn):
 @router.get("/practice/sessions/{session_id}/summary")
 def practice_summary(session_id: int, conn: Conn):
     return P.summary(conn, session_id)
+
+
+@router.get("/progress")
+def progress(conn: Conn):
+    return G.progress(conn)
