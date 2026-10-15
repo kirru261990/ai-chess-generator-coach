@@ -150,19 +150,17 @@ def home(conn: sqlite3.Connection, *, now: datetime | None = None) -> dict:
             (user(), t),
         ).fetchone()
         baseline = {"assessment_id": row["id"], "status": row["status"]} if row else None
-        delayed = conn.execute(
-            "SELECT id, status, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'DELAYED' ORDER BY id",
-            (user(), t),
-        ).fetchall()
-        waiting = next((d for d in delayed if d["status"] != "submitted"), None)
+        done = [r["id"] for r in conn.execute(
+            "SELECT id FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'DELAYED' AND status = 'submitted' ORDER BY id",
+            (user(), t))]
+        waiting = waiting_assessment(conn, t, now)
+        if waiting is not None and waiting["kind"] != "DELAYED":
+            waiting = None
         out.append({
             "mistake_type": t, "label": LABELS[t], "pool": pool_status(conn, t), "baseline": baseline,
             "delayed": {
-                "waiting": None if waiting is None else {
-                    "assessment_id": waiting["id"], "status": waiting["status"], "due_at": waiting["due_at"],
-                    "available": now >= datetime.fromisoformat(waiting["due_at"]),
-                },
-                "done": [d["id"] for d in delayed if d["status"] == "submitted"],
+                "waiting": None if waiting is None else {k: waiting[k] for k in ("assessment_id", "status", "due_at", "available")},
+                "done": done,
             },
         })
     return {"types": out}
@@ -223,6 +221,8 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
             raise AssessmentError("baseline_done", "the baseline for this mistake type is already done")
         if row:
             return {"assessment_id": row["id"], "resumed": True}
+        if waiting_assessment(conn, mistake_type):  # a delayed test is waiting: the unique index allows one unsubmitted test
+            raise AssessmentError("test_waiting", "A test for this mistake type is waiting. Take it first.")
         status = pool_status(conn, mistake_type)
         if not status["ready"]:
             raise AssessmentError(
@@ -232,6 +232,8 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
                 f"{status['clean_positions']} of {MIN_HELDOUT_CLEAN} clean positions",
             )
         chosen = _allocate(conn, mistake_type, rng or random.SystemRandom())
+        if len(chosen) < SIZE:  # the counts passed but no valid 3+2 or 4+1 mix exists
+            raise AssessmentError("pool_too_small", "Not enough unused positions to make a full test for this mistake type.")
         aid = conn.execute(
             "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, question_version)"
             " VALUES (?, ?, 'BASELINE', ?, ?, 'pending', ?)",
@@ -247,6 +249,19 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
 # --- the delayed assessment (PRD §7.2) -----------------------------------------------------------------------------------
 
 
+def waiting_assessment(conn: sqlite3.Connection, mistake_type: str, now: datetime | None = None) -> dict | None:
+    """The unsubmitted assessment of a type, if any (the unique index allows one), with whether it is open yet. The one place
+    that decides what counts as "waiting" (review on PR 74)."""
+    row = conn.execute(
+        "SELECT id, kind, status, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'",
+        (user(), mistake_type),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"assessment_id": row["id"], "kind": row["kind"], "status": row["status"], "due_at": row["due_at"],
+            "available": _now(now) >= datetime.fromisoformat(row["due_at"])}
+
+
 def schedule_delayed(conn: sqlite3.Connection, mistake_type: str, session_id: int, completed_at: datetime, *,
                      rng: random.Random | None = None) -> dict:
     """Schedule the delayed assessment for a completed practice session, in the caller's transaction (practice completes the
@@ -258,11 +273,9 @@ def schedule_delayed(conn: sqlite3.Connection, mistake_type: str, session_id: in
     ).fetchone()
     if existing:
         return {"status": "scheduled", "assessment_id": existing["id"], "due_at": existing["due_at"]}
-    waiting = conn.execute(
-        "SELECT id FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'", (user(), mistake_type)
-    ).fetchone()
+    waiting = waiting_assessment(conn, mistake_type, completed_at)
     if waiting:
-        return {"status": "pending_exists", "assessment_id": waiting["id"]}
+        return {"status": "pending_exists", "assessment_id": waiting["assessment_id"]}
     chosen = _allocate(conn, mistake_type, rng or random.SystemRandom())
     if len(chosen) < SIZE:
         return {"status": "no_positions"}
@@ -278,18 +291,18 @@ def schedule_delayed(conn: sqlite3.Connection, mistake_type: str, session_id: in
 
 
 def delayed_for_session(conn: sqlite3.Connection, session_id: int, mistake_type: str) -> dict:
-    """What happened to a session's delayed assessment, for its summary: scheduled (with the due time), another one already
-    waiting, or no unused held-out positions left."""
-    row = conn.execute("SELECT id, due_at, status FROM assessment WHERE source_session_id = ?", (session_id,)).fetchone()
+    """What happened to a session's delayed assessment, for its summary. The outcome is the one stored when the session was
+    completed (a later state cannot tell "another test was waiting" from "no positions"); `waiting` is added only while a test
+    still waits. A session completed before Step 4 has no stored outcome: `not_set`."""
+    row = conn.execute("SELECT id, due_at FROM assessment WHERE source_session_id = ?", (session_id,)).fetchone()
     if row:
         return {"status": "scheduled", "assessment_id": row["id"], "due_at": row["due_at"]}
-    waiting = conn.execute(
-        "SELECT id, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'",
-        (user(), mistake_type),
-    ).fetchone()
-    if waiting:
-        return {"status": "pending_exists", "assessment_id": waiting["id"], "due_at": waiting["due_at"]}
-    return {"status": "no_positions"}
+    stored = conn.execute("SELECT delayed_status FROM practice_session WHERE id = ?", (session_id,)).fetchone()["delayed_status"]
+    out: dict = {"status": stored or "not_set"}
+    waiting = waiting_assessment(conn, mistake_type)
+    if out["status"] == "pending_exists" and waiting:
+        out |= {"assessment_id": waiting["assessment_id"], "due_at": waiting["due_at"]}
+    return out
 
 
 def is_due(a: sqlite3.Row, now: datetime) -> bool:
@@ -613,13 +626,28 @@ def stronger_move_words(verdict: dict, kind: str) -> str | None:
     return f"A stronger move existed (about {pawns} pawns better)."
 
 
+def reason_code(verdict: dict) -> str | None:
+    """The one main reason a move is not sound, in a fixed order, shared by the feedback sentence and the Progress counts so they
+    cannot disagree (review on PR 74): the piece still in danger, the free piece left, a mate allowed or missed, a stronger move."""
+    failed = verdict["failed"]
+    for code in ("refutation_still_wins", "free_piece_not_taken"):
+        if code in failed:
+            return code
+    if verdict.get("mate") == "allowed":
+        return "allows_checkmate"
+    if verdict.get("mate") == "missed":
+        return "missed_checkmate"
+    return "eval_loss_too_large" if "eval_loss_too_large" in failed else None
+
+
 def move_reason(verdict: dict, sound_: bool, kind: str) -> str:
     """One sentence on what the move did about the problem (no repeat of the move or the verdict), for the practice feedback."""
     if sound_:
         return "That deals with the problem."
-    if "refutation_still_wins" in verdict["failed"]:
+    code = reason_code(verdict)
+    if code == "refutation_still_wins":
         return "They could still win the piece."
-    if "free_piece_not_taken" in verdict["failed"]:
+    if code == "free_piece_not_taken":
         return "The free piece was left, and it gave away too much."
     return stronger_move_words(verdict, kind) or "It gave away too much."
 

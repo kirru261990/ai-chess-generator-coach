@@ -31,10 +31,17 @@ describe('delayedLabel', () => {
 })
 
 describe('delayedSummaryLine', () => {
-  it('covers the three cases', () => {
+  it('covers every outcome, and never says "no positions" for a session where another test was waiting', () => {
     expect(delayedSummaryLine({ status: 'scheduled', assessment_id: 1, due_at: h(72) }, NOW)).toContain('delayed test is set')
-    expect(delayedSummaryLine({ status: 'pending_exists', assessment_id: 1, due_at: h(10) }, NOW)).toContain('already waiting')
+    const waiting = delayedSummaryLine({ status: 'pending_exists', assessment_id: 1, due_at: h(10) }, NOW)
+    expect(waiting).toContain('already waiting')
+    expect(waiting).toContain('in about 10 hours')
+    const later = delayedSummaryLine({ status: 'pending_exists' }, NOW) // that test has been taken since
+    expect(later).toContain('already waiting')
+    expect(later).not.toContain('No unused positions')
     expect(delayedSummaryLine({ status: 'no_positions' }, NOW)).toContain('No unused positions')
+    expect(delayedSummaryLine({ status: 'error' }, NOW)).toContain('practice was saved')
+    expect(delayedSummaryLine({ status: 'not_set' }, NOW)).toBe('No delayed test was set for this session.')
   })
 })
 

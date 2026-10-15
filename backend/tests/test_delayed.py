@@ -278,12 +278,12 @@ def test_http_the_delayed_test_is_closed_then_open_and_progress_leaks_nothing(st
 
 
 def test_each_not_sound_move_has_one_main_reason_in_a_fixed_order():
-    assert G.main_reason({"failed": ["refutation_still_wins", "eval_loss_too_large"]}) == "refutation_still_wins"
-    assert G.main_reason({"failed": ["free_piece_not_taken", "eval_loss_too_large"]}) == "free_piece_not_taken"
-    assert G.main_reason({"failed": ["eval_loss_too_large"], "mate": "allowed"}) == "allows_checkmate"
-    assert G.main_reason({"failed": ["eval_loss_too_large"], "mate": "missed"}) == "missed_checkmate"
-    assert G.main_reason({"failed": ["eval_loss_too_large"], "mate": None}) == "eval_loss_too_large"
-    assert G.main_reason({"failed": []}) is None
+    assert A.reason_code({"failed": ["refutation_still_wins", "eval_loss_too_large"]}) == "refutation_still_wins"
+    assert A.reason_code({"failed": ["free_piece_not_taken", "eval_loss_too_large"]}) == "free_piece_not_taken"
+    assert A.reason_code({"failed": ["eval_loss_too_large"], "mate": "allowed"}) == "allows_checkmate"
+    assert A.reason_code({"failed": ["eval_loss_too_large"], "mate": "missed"}) == "missed_checkmate"
+    assert A.reason_code({"failed": ["eval_loss_too_large"], "mate": None}) == "eval_loss_too_large"
+    assert A.reason_code({"failed": []}) is None
 
 
 # --- review on PR 74: choose the mix from what the pool can actually supply ----------------------------------------------------
@@ -344,3 +344,113 @@ def test_the_last_delayed_test_is_still_scheduled_when_the_pool_is_at_its_edge(s
     (row,) = delayed_rows(conn)
     assert row["source_session_id"] == sid
     assert P.summary(conn, sid)["delayed_test"]["status"] == "scheduled"
+
+
+# --- the self-review of PR 74 ---------------------------------------------------------------------------------------------------
+
+
+def test_the_outcome_of_scheduling_is_stored_so_a_later_summary_does_not_say_no_positions(store):
+    conn = store.conn
+    first = done_session(conn, seconds=0)
+    (row,) = delayed_rows(conn)
+    second = done_session(conn, seconds=3000)  # finished while the first test was waiting
+    assert P.summary(conn, second)["delayed_test"]["status"] == "pending_exists"
+    take(conn, row["id"], completed_at(conn, first) + H72)  # the first test is taken: nothing is waiting any more
+    later = P.summary(conn, second)["delayed_test"]
+    assert later == {"status": "pending_exists"}  # still what happened then, not a false "no positions left"
+    assert conn.execute("SELECT delayed_status FROM practice_session WHERE id = ?", (second,)).fetchone()[0] == "pending_exists"
+    conn.execute("UPDATE practice_session SET delayed_status = NULL WHERE id = ?", (second,))  # a session from before Step 4
+    assert P.summary(conn, second)["delayed_test"] == {"status": "not_set"}
+
+
+def test_a_scheduling_failure_does_not_stop_the_session_from_finishing(store, monkeypatch):
+    conn = store.conn
+
+    def broken(c, mistake_type, session_id, completed_at, **kw):
+        c.execute("INSERT INTO assessment (user, mistake_type, kind, source_session_id, created_at, due_at, status)"
+                  " VALUES (?, ?, 'DELAYED', ?, 'x', 'x', 'pending')", (A.user(), mistake_type, session_id))
+        raise sqlite3.IntegrityError("a board is assessed once, ever")  # after a partial write
+
+    monkeypatch.setattr(A, "schedule_delayed", broken)
+    sid = done_session(conn)  # the last "Next position" must still commit
+    assert conn.execute("SELECT status, delayed_status FROM practice_session WHERE id = ?", (sid,)).fetchone()[:] == ("completed", "error")
+    assert delayed_rows(conn) == []  # the partial write was rolled back with the savepoint
+    assert P.summary(conn, sid)["delayed_test"] == {"status": "error"}
+    monkeypatch.undo()
+    assert A.schedule_delayed(conn, "M1", sid, completed_at(conn, sid))["status"] == "scheduled"  # schedule-missing can repair it
+
+
+def test_a_baseline_cannot_start_while_a_delayed_test_waits_and_never_with_no_positions(store, monkeypatch):
+    conn = store.conn
+    done_session(conn)
+    first = conn.execute("SELECT id FROM assessment WHERE kind = 'BASELINE' AND mistake_type = 'M1'").fetchone()[0]
+    A.supersede_baseline(conn, first, "retake")
+    with pytest.raises(A.AssessmentError) as e:  # used to be an unhandled IntegrityError (a 500)
+        A.start_baseline(conn, "M1")
+    assert e.value.code == "test_waiting"
+    conn2 = connect(":memory:")
+    s2 = make_store(conn2)
+    A.supersede_baseline(conn2, conn2.execute("SELECT id FROM assessment WHERE mistake_type = 'M1'").fetchone()[0], "retake")
+    monkeypatch.setattr(A, "_allocate", lambda *a, **k: [])
+    with pytest.raises(A.AssessmentError) as e:
+        A.start_baseline(conn2, "M1")
+    assert e.value.code == "pool_too_small"
+    assert conn2.execute("SELECT COUNT(*) FROM assessment WHERE mistake_type = 'M1' AND status <> 'submitted'").fetchone()[0] == 0
+    assert s2 is not None
+
+
+def test_mean_decision_time_leaves_out_interrupted_positions(store):
+    conn = store.conn
+    sid = done_session(conn)
+    (row,) = delayed_rows(conn)
+    now = completed_at(conn, sid) + H72
+    view = A.get_assessment(conn, row["id"], now=now)
+    for i in range(5):
+        cur = view["current"]
+        if i == 4:  # the last board is left and shown again a minute later: interrupted
+            A.get_assessment(conn, row["id"], now=now + timedelta(seconds=60))
+        view = A.submit_item(conn, row["id"], cur["ord"], "none", cur["legal_moves"][0], FakeAnalyser(), now=now + timedelta(seconds=20 * (i + 1) + (400 if i == 4 else 0)))
+        now_shown = now + timedelta(seconds=20 * (i + 1))
+        now = now_shown if i < 4 else now
+    A.submit(conn, row["id"], now=now + timedelta(minutes=30))
+    r = A.results(conn, row["id"])
+    assert sum(i["interrupted"] for i in r["items"]) == 1
+    p = {t["mistake_type"]: t for t in G.progress(conn)["types"]}["M1"]["delayed"][0]
+    others = [i["seconds"] for i in r["items"] if not i["interrupted"]]
+    assert p["timed"] == len(others) and p["mean_seconds"] == round(sum(others) / len(others))
+    assert p["interrupted"] == 1
+
+
+def test_progress_reasons_use_the_same_mate_reading_as_the_feedback(store):
+    from app.engine.evidence import EvidenceAnalysis, Line, store_analysis
+    from tests.test_practice import _rook_to_b1
+
+    conn = store.conn
+    sid, cur, board, after = _rook_to_b1(conn, store)
+    P.submit_move(conn, sid, cur["ord"], "a1b1", FakeAnalyser(), now=at(5))
+    conn.execute("UPDATE practice_attempt SET move_sound = 0, verdict_json = ? WHERE move IS NOT NULL",
+                 (json.dumps({"eval_loss": 1200, "failed": ["eval_loss_too_large"], "move": {"uci": "a1b1", "san": "Rb1"}}),))
+    config_id = conn.execute("SELECT engine_config_id FROM position WHERE fen = ?", (cur["fen"],)).fetchone()[0]
+    store_analysis(conn, EvidenceAnalysis(board.fen(), config_id, (Line("a1a2", ("a1a2",), 200, None, None, 18),)))
+    store_analysis(conn, EvidenceAnalysis(after.fen(), config_id, (Line("c3a1", ("c3a1",), None, -2, -1, 18),)))
+    reasons = {t["mistake_type"]: t for t in G.progress(conn)["types"]}["M1"]["practice"]["reasons"]
+    assert reasons == [{"reason": "the move allowed checkmate", "count": 1}]  # an older verdict with no flag, read from the cache
+
+
+def test_the_waiting_helper_and_the_warning_about_retired_positions_in_a_waiting_test(store):
+    from app.learner.evidence_run import pending_positions_retired
+
+    conn = store.conn
+    assert A.waiting_assessment(conn, "M1") is None
+    sid = done_session(conn)
+    (row,) = delayed_rows(conn)
+    due = completed_at(conn, sid) + H72
+    w = A.waiting_assessment(conn, "M1", due - timedelta(minutes=1))
+    assert (w["assessment_id"], w["kind"], w["available"]) == (row["id"], "DELAYED", False)
+    assert A.waiting_assessment(conn, "M1", due)["available"] is True and A.waiting_assessment(conn, "M2") is None
+    assert pending_positions_retired(conn) == 0
+    conn.execute("UPDATE position SET retired_at = 'x' WHERE id IN (SELECT position_id FROM assessment_position WHERE assessment_id = ?"
+                 " ORDER BY ord LIMIT 2)", (row["id"],))  # a rebuild retires two positions of the waiting test
+    assert pending_positions_retired(conn) == 2
+    assert A.home(conn, now=due)["types"][0]["delayed"]["waiting"] == {
+        "assessment_id": row["id"], "status": "pending", "due_at": row["due_at"], "available": True}

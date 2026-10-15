@@ -43,6 +43,7 @@ _lock = threading.Lock()
 STATUS = {
     "not_found": 404,
     "not_due_yet": 403,
+    "test_waiting": 409,
     "unknown_mistake_type": 400,
     "tap_a_piece": 400,
     "not_a_baseline": 400,

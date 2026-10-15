@@ -11,8 +11,10 @@ export type DelayedHome = {
 
 export type DelayedTestInfo =
   | { status: 'scheduled'; assessment_id: number; due_at: string }
-  | { status: 'pending_exists'; assessment_id: number; due_at: string }
+  | { status: 'pending_exists'; assessment_id?: number; due_at?: string } // the ids only while that test still waits
   | { status: 'no_positions' }
+  | { status: 'error' }
+  | { status: 'not_set' } // a session finished before delayed tests existed
 
 export type TestSummary = {
   assessment_id: number
@@ -90,8 +92,13 @@ export function delayedLabel(d: DelayedHome, now: number = Date.now()): { note: 
 /** The line on the practice summary about the delayed test. */
 export function delayedSummaryLine(t: DelayedTestInfo, now: number = Date.now()): string {
   if (t.status === 'scheduled') return `Your delayed test is set. ${dueText(t.due_at, now)}. It uses positions you have not seen, with no help.`
-  if (t.status === 'pending_exists') return `Another test is already waiting. ${dueText(t.due_at, now)}. Take it, and the next session will set the next one.`
-  return 'No unused positions are left to set a delayed test for this mistake type.'
+  if (t.status === 'pending_exists') {
+    const when = t.due_at ? ` ${dueText(t.due_at, now)}.` : ''
+    return `Another test was already waiting when you finished, so none was set for this session.${when} Take it, and the next session will set the next one.`
+  }
+  if (t.status === 'no_positions') return 'No unused positions were left to set a delayed test for this mistake type.'
+  if (t.status === 'error') return 'Something went wrong setting your delayed test, so none was set. Your practice was saved.'
+  return 'No delayed test was set for this session.'
 }
 
 function pct(x: number | null): string {

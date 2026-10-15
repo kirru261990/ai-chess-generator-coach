@@ -20,7 +20,7 @@ from datetime import datetime
 
 from app.learner import assessment as A
 
-# One main reason per not-sound move, in this order (the same order the feedback sentence uses), so the counts add up.
+# One main reason per not-sound move (`assessment.reason_code`, the same function the feedback sentence uses), so the counts add up.
 REASON_WORDS = {
     "refutation_still_wins": "the piece was still in danger after the move",
     "free_piece_not_taken": "the free piece was left",
@@ -30,21 +30,10 @@ REASON_WORDS = {
 }
 
 
-def main_reason(verdict: dict) -> str | None:
-    failed = verdict["failed"]
-    for code in ("refutation_still_wins", "free_piece_not_taken"):
-        if code in failed:
-            return code
-    if verdict.get("mate") == "allowed":
-        return "allows_checkmate"
-    if verdict.get("mate") == "missed":
-        return "missed_checkmate"
-    return "eval_loss_too_large" if "eval_loss_too_large" in failed else None
-
-
 def _test_summary(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
     r = A.results(conn, row["id"])
-    counted = [i for i in r["items"] if not i["left_out"] and i["seconds"] is not None]
+    # an interrupted position is capped at 300 s (PRD §7.4): it is flagged, and kept out of the average
+    counted = [i for i in r["items"] if not i["left_out"] and not i["interrupted"] and i["seconds"] is not None]
     seconds = [i["seconds"] for i in counted]
     return {
         "assessment_id": row["id"], "kind": row["kind"], "submitted_at": row["submitted_at"],
@@ -87,15 +76,16 @@ def practice_stats(conn: sqlite3.Connection, mistake_type: str) -> dict:
         "SELECT COUNT(*) FROM practice_session WHERE user = ? AND mistake_type = ? AND status = 'completed'",
         (A.user(), mistake_type)).fetchone()[0]
     rows = conn.execute(
-        "SELECT a.position_id, a.attempt_number, a.move_sound, a.hint_level, a.elapsed_ms, a.recognition_correct, a.verdict_json"
-        " FROM practice_attempt a JOIN practice_session s ON s.id = a.session_id"
+        "SELECT a.position_id, a.attempt_number, a.move_sound, a.hint_level, a.elapsed_ms, a.recognition_correct, a.verdict_json,"
+        " p.fen, p.engine_config_id FROM practice_attempt a JOIN practice_session s ON s.id = a.session_id"
+        " JOIN position p ON p.id = a.position_id"
         " WHERE s.user = ? AND s.mistake_type = ? AND a.move IS NOT NULL ORDER BY a.id", (A.user(), mistake_type)).fetchall()
     first = [r for r in rows if r["attempt_number"] == 1]
     seconds = [r["elapsed_ms"] / 1000 for r in first if r["elapsed_ms"] is not None]
     reasons: Counter = Counter()
     for r in rows:
         if not r["move_sound"]:
-            code = main_reason(json.loads(r["verdict_json"]))
+            code = A.reason_code(A.with_mate(conn, json.loads(r["verdict_json"]), r["fen"], r["engine_config_id"]))
             if code:
                 reasons[code] += 1
     not_sound = sum(1 for r in rows if not r["move_sound"])
@@ -123,15 +113,12 @@ def progress(conn: sqlite3.Connection, *, now: datetime | None = None) -> dict:
         baseline_rows = [r for r in rows if r["kind"] == "BASELINE" and r["superseded_at"] is None]
         baseline = _test_summary(conn, baseline_rows[-1]) if baseline_rows else None
         delayed = [_test_summary(conn, r) for r in rows if r["kind"] == "DELAYED"]
-        waiting = conn.execute(
-            "SELECT id, due_at FROM assessment WHERE user = ? AND mistake_type = ? AND status <> 'submitted'",
-            (A.user(), t)).fetchone()
+        waiting = A.waiting_assessment(conn, t, now)
         types.append({
             "mistake_type": t, "label": A.LABELS[t], "baseline": baseline, "delayed": delayed,
             "set_aside": sum(1 for r in rows if r["superseded_at"] is not None),
             "waiting": None if waiting is None else {
-                "assessment_id": waiting["id"], "due_at": waiting["due_at"],
-                "available": now >= datetime.fromisoformat(waiting["due_at"]),
+                "assessment_id": waiting["assessment_id"], "due_at": waiting["due_at"], "available": waiting["available"],
             },
             "comparison": comparison(baseline, delayed), "practice": practice_stats(conn, t),
         })
