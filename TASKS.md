@@ -81,6 +81,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] P1b `hanging_own` v3 (M1), `missed_free` v3 (M2), sound-move validator, CLEAN selector, evidence records, run over all synced games (`app.learner.evidence_run`)
 - [x] P1c Hand-check: v2 passed 28 of 30 (gate 27), 2026-10-15; PRD default thresholds kept (ADR 0006). v1 superseded after the owner found the trade flaw (hanging_own v4)
 - [x] P2 Pools, baseline assessment (M1 uses `lost_piece = other` only, ADR 0006 decision 14), scoring with random-guess rates, PRD real-game windows (built 2026-10-15 on `feat/step2-baseline`, ADR 0006 decisions 15 to 23; the owner takes the real baselines after merge; window rates are Step 4)
+- [x] P2c CLEAN v2: no capture wins anything for either side; flawed CLEAN positions are left out of scores (ADR 0006 decisions 27 to 29)
 - [x] P2b Question version 2 (tap only the asked side, own for M1 and theirs for M2) and setting a baseline aside; M1 retaken (ADR 0006 decisions 24 to 26)
 - [ ] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, feedback with the output check, resume)
 - [ ] P4 Delayed assessments, results reveal, Progress screen, real-game rates with floors

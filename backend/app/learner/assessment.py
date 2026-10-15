@@ -30,8 +30,9 @@ import chess
 
 from app import config
 from app.db.schema import transaction
+from app.detectors import clean, sound
 from app.detectors import prd_rules as R
-from app.detectors import sound
+from app.engine.evidence import cached_analysis
 from app.learner.seen import UNSEEN_BOARD
 
 TYPES = ("M1", "M2")
@@ -52,6 +53,13 @@ CUES = {
     "M2": "This test is about free pieces. Each position has two steps. Step 1 is a question: tap one of THEIR pieces that "
           "you can win for free, or choose \"No immediate threat\". It is not a move yet. Step 2 is your move. "
           "There is no help and no feedback until the end.",
+}
+# Plain words for why a "nothing is wrong" position is left out of the score (clean v2, ADR 0006 decision 27)
+LEFT_OUT_WORDS = {
+    "player_has_free_capture": "you could win something here, even if only a pawn",
+    "player_piece_can_be_won": "something of yours could be won, even for a small gain",
+    "in_check": "you were in check",
+    "best_line_wins_material": "the engine's best line started by winning something",
 }
 V1_NOTE = ("This test used the first wording of the tap question, which let you tap a piece of either side and was easy to "
            "mix up with your move. Trust the move score. The tap score cannot be compared with later tests.")
@@ -456,6 +464,25 @@ def _move_words(verdict: dict, sound_: bool) -> str:
     return f"Your move {san} was not sound: {reasons[0] if reasons else 'it gave away too much'}."
 
 
+def left_out_reason(kind: str, board: chess.Board, *, conn: sqlite3.Connection | None = None,
+                    engine_config_id: str | None = None) -> str | None:
+    """Why a position is left out of the score, in plain words, or None. Only a "nothing is wrong" position can be unfair:
+    a capture that wins anything for either side (or a check) makes "No immediate threat" the wrong answer. It is judged by
+    the whole current CLEAN rule, so a position chosen under the looser v1 rule is left out of the score whichever way the
+    player answered (abstain rather than guess, AGENTS rule 5): the engine-free part (`clean.threat_reason`) and the engine's
+    best line, read from the position's own cached search (`clean.best_line_reason`). A position whose search is not in the
+    cache cannot be judged on the engine part and stays in."""
+    if kind != "CLEAN":
+        return None
+    why = clean.threat_reason(board)
+    if why is None and conn is not None and engine_config_id is not None:
+        why = clean.best_line_reason(board, cached_analysis(conn, board.fen(), engine_config_id))
+    if why is None:
+        return None
+    return (f"Left out of your score: {LEFT_OUT_WORDS[why]}, so \"No immediate threat\" was not a fair answer. "
+            "That is a flaw in how this position was chosen, not in your play.")
+
+
 def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
     """Answers, explanations and scores with their random-guess rates. Only after the final submit."""
     a = _load(conn, assessment_id)
@@ -475,6 +502,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
         evidence = json.loads(r["evidence_json"])
         verdict = json.loads(r["verdict_json"])
         board = chess.Board(r["fen"])
+        out = left_out_reason(r["kind"], board, conn=conn, engine_config_id=r["engine_config_id"])
         if r["kind"] == "CLEAN":
             good_moves = [evidence["best_move"]]
             answer: list[str] = []
@@ -494,7 +522,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "your_move": verdict["move"],
             "move_sound": bool(r["move_sound"]),
             "correct": bool(r["recognition_correct"] and r["move_sound"]),
-            "explanation": explain(r["kind"], evidence, r["fen"]),
+            "explanation": out or explain(r["kind"], evidence, r["fen"]),
             "move_explanation": _move_words(verdict, bool(r["move_sound"])),
             "good_moves": [{"uci": m["uci"], "san": m["san"]} for m in good_moves],
             "game_move": evidence["player_move"],
@@ -503,12 +531,14 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "interrupted": bool(r["interrupted"]),
             "recognition_chance": recognition_chance(r["kind"], evidence, r["fen"], a["mistake_type"], a["question_version"]),
             "move_chance": move_chance(conn, r["position_id"], r["engine_config_id"]),
+            "left_out": out,
         })
-    n = len(items)
-    pending = any(i["move_chance"] is None for i in items)
-    rec_chance = sum(i["recognition_chance"] for i in items)
-    move_chance_sum = None if pending else sum(i["move_chance"] for i in items)
-    both_chance = None if pending else sum(i["recognition_chance"] * i["move_chance"] for i in items)
+    scored = [i for i in items if i["left_out"] is None]
+    n = len(scored)
+    pending = any(i["move_chance"] is None for i in scored)
+    rec_chance = sum(i["recognition_chance"] for i in scored)
+    move_chance_sum = None if pending else sum(i["move_chance"] for i in scored)
+    both_chance = None if pending else sum(i["recognition_chance"] * i["move_chance"] for i in scored)
     return {
         "assessment_id": a["id"],
         "assessment_kind": a["kind"],
@@ -518,11 +548,12 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
         "notes": [V1_NOTE] if a["question_version"] == "1" else [],
         "set_aside": a["superseded_at"] is not None,
         "submitted_at": a["submitted_at"],
-        "total": n,
+        "total": n,  # positions that count: a position left out (below) is in neither the score nor the denominator
+        "left_out_count": len(items) - n,
         "scores": {
-            "recognition": sum(i["tap_correct"] for i in items),
-            "move": sum(i["move_sound"] for i in items),
-            "combined": sum(i["correct"] for i in items),
+            "recognition": sum(i["tap_correct"] for i in scored),
+            "move": sum(i["move_sound"] for i in scored),
+            "combined": sum(i["correct"] for i in scored),
         },
         # expected number right out of `total` when guessing at random (PRD §7.5); combined assumes the two guesses are
         # independent
@@ -532,9 +563,9 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "combined": None if both_chance is None else round(both_chance, 2),
         },
         "chance_pending": pending,
-        "interrupted": sum(i["interrupted"] for i in items),
+        "interrupted": sum(i["interrupted"] for i in scored),
         "items": items,
-        "versions": {"sound": sound.VERSION, "rules": R.RULES_VERSION},
+        "versions": {"sound": sound.VERSION, "rules": R.RULES_VERSION, "clean": clean.VERSION},
     }
 
 

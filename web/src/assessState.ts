@@ -62,13 +62,15 @@ export type ResultItem = {
   interrupted: boolean
   recognition_chance: number
   move_chance: number | null
+  left_out: string | null // why this position is not in the score (a small threat made "No immediate threat" unfair)
 }
 
 export type Results = {
   assessment_id: number
   mistake_type: 'M1' | 'M2'
   label: string
-  total: number
+  total: number // positions that count
+  left_out_count: number
   scores: { recognition: number; move: number; combined: number }
   chance: { recognition: number; move: number | null; combined: number | null }
   chance_pending: boolean
@@ -173,6 +175,13 @@ export function tapRefusal(
     return type === 'M1' ? 'Tap one of your own pieces, or choose "No immediate threat".' : 'Tap one of their pieces, or choose "No immediate threat".'
   }
   return null
+}
+
+/** "1 position was left out of the score…" under the scores, or null when every position counts. */
+export function leftOutLine(count: number): string | null {
+  if (count <= 0) return null
+  const was = count === 1 ? '1 position was' : `${count} positions were`
+  return `${was} left out of the score (and of the "out of"): a small threat on the board made "No immediate threat" an unfair answer. That is a flaw in how it was chosen, not in your play.`
 }
 
 /** Lines shown beside the scores: the server's notes (a version 1 test's tap score is not comparable) and a set-aside notice. */

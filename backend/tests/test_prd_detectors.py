@@ -265,7 +265,7 @@ def test_sound_refuses_an_illegal_move_or_another_position():
 
 # --- CLEAN ----------------------------------------------------------------------------------------------------------
 
-CLEAN_FEN = "4k3/8/8/3p4/4N3/5P2/8/4K3 w - - 0 1"  # the knight is attacked but defended: nothing to win or lose
+CLEAN_FEN = "4k3/4p3/3n4/8/4N3/5P2/8/4K3 w - - 0 1"  # two knights attack each other and both are defended: nothing to win
 
 
 def clean_scripts(after_cp=20):
@@ -275,7 +275,7 @@ def clean_scripts(after_cp=20):
 def test_clean_position_has_an_attacked_piece_and_no_threat():
     f = clean.detect(chess.Board(CLEAN_FEN), mv("e4c5"), 10, FakeAnalyser(clean_scripts()))
     assert (f.outcome, f.reason) == ("clean", "all_checks_hold")
-    assert f.evidence["answer"] == "no_immediate_threat" and f.evidence["attacked_squares"] == ["e4"]
+    assert f.evidence["answer"] == "no_immediate_threat" and f.evidence["attacked_squares"] == ["d6", "e4"]
     assert f.evidence["eval_loss"] == 0 and f.evidence["engine_config_id"] == CFG.id
 
 
@@ -291,11 +291,35 @@ def test_clean_needs_a_near_best_move():
         (M2_FEN, "player_has_free_capture"),
         ("4k3/8/8/3p4/4N3/8/8/4K3 w - - 0 1", "player_piece_can_be_won"),
         ("4k3/8/8/p7/1b6/3N4/8/4K3 w - - 0 1", "in_check"),
+        # v2 (ADR 0006 decision 27): small threats and free pickups are not "no immediate threat" either
+        ("4k3/8/8/3p4/4N3/5P2/8/4K3 w - - 0 1", "player_piece_can_be_won"),  # a knight attacked by a pawn: loses 3 for 1
+        ("r3kb1r/ppp2pp1/2nq1n1p/3pp3/3P2b1/1BP2N1P/PP3PP1/RNBQK2R b KQkq - 0 10", "player_piece_can_be_won"),  # the owner's case
+        ("4k3/4p3/3n4/6p1/4N2P/5P2/8/4K3 w - - 0 1", "player_has_free_capture"),  # a loose pawn can be taken for free
         (CLEAN_FEN, None),
     ],
 )
 def test_clean_static_rules(fen, reason):
     assert clean.static_reason(chess.Board(fen)) == reason
+
+
+def test_a_free_en_passant_pawn_is_a_free_capture_even_when_another_move_is_best():
+    """Review on PR 70: `capture_net` returns 0 for en passant (no piece on the target square), so the static check missed
+    it. Both rooks are defended (Rxb8+ Kxb8 nets 0), the only gain is exd6 e.p."""
+    fen = "1rk5/8/8/3pP3/8/8/8/1RK5 w - d6 0 1"
+    board = chess.Board(fen)
+    assert clean.static_reason(board) == "player_has_free_capture"
+    assert clean.threat_reason(board) == "player_has_free_capture"
+    assert clean.best_capture_net(board, chess.WHITE) == 1
+    # a defended pawn taken en passant is a trade, not a free capture: the capturing pawn is retaken on d6
+    defended = chess.Board("1rk5/2p5/8/3pP3/8/8/8/1RK5 w - d6 0 1")
+    assert clean.best_capture_net(defended, chess.WHITE) == 0
+    assert clean.static_reason(defended) is None
+
+
+def test_threat_reason_is_the_answer_check_without_the_attacked_piece_condition():
+    assert clean.threat_reason(chess.Board(chess.STARTING_FEN)) is None  # nothing attacked, nothing to win
+    assert clean.static_reason(chess.Board(chess.STARTING_FEN)) == "nothing_attacked"
+    assert clean.threat_reason(chess.Board(M2_FEN)) == "player_has_free_capture"
 
 
 # --- shared measurements ----------------------------------------------------------------------------------------------

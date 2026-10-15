@@ -567,3 +567,85 @@ def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_p
     assert c.execute("PRAGMA user_version").fetchone()[0] == 6
     row = c.execute("SELECT question_version, superseded_at FROM assessment").fetchone()
     assert tuple(row) == ("1", None)
+
+
+# --- a "nothing is wrong" position with a small threat is left out of the score (ADR 0006 decision 27) ---------------------
+
+# The owner's case: Black's bishop on g4 is attacked by the h3 pawn and defended only by a knight (loses 3 for 1).
+OWNER_FEN = "r3kb1r/ppp2pp1/2nq1n1p/3pp3/3P2b1/1BP2N1P/PP3PP1/RNBQK2R b KQkq - 0 10"
+
+
+def test_a_clean_position_with_a_small_threat_is_left_out_of_score_denominator_and_chance(store):
+    conn = store.conn
+    aid = start(conn, "M1")
+    rows = allocated(conn, aid)
+    flawed = next(r for r in rows if r["kind"] == "CLEAN")
+    conn.execute("UPDATE position SET fen = ? WHERE id = ?", (OWNER_FEN, flawed["id"]))
+    view = A.get_assessment(conn, aid, now=T0)
+    while view["current"]:  # tap "No immediate threat" and play the first legal move everywhere
+        cur = view["current"]
+        view = A.submit_item(conn, aid, cur["ord"], "none", cur["legal_moves"][0], FakeAnalyser(), now=T0 + timedelta(seconds=9))
+    A.submit(conn, aid, now=T0 + timedelta(minutes=5))
+    for pid in A.missing_move_chances(conn, aid):
+        A.compute_move_chance(conn, pid, FakeAnalyser())
+    r = A.results(conn, aid)
+    out = [i for i in r["items"] if i["left_out"]]
+    assert len(out) == 1 and out[0]["fen"] == OWNER_FEN
+    assert "something of yours could be won" in out[0]["left_out"] and out[0]["explanation"] == out[0]["left_out"]
+    assert r["total"] == 4 and r["left_out_count"] == 1 and r["versions"]["clean"] == "2"
+    counted = [i for i in r["items"] if not i["left_out"]]
+    assert r["scores"]["recognition"] == sum(i["tap_correct"] for i in counted)
+    assert r["scores"]["move"] == sum(i["move_sound"] for i in counted)
+    assert r["chance"]["recognition"] == round(sum(i["recognition_chance"] for i in counted), 2)
+    assert r["chance"]["move"] == round(sum(i["move_chance"] for i in counted), 2)
+
+
+def test_fair_clean_positions_and_mistake_positions_are_never_left_out(store):
+    conn = store.conn
+    aid = start(conn, "M2")
+    finish_v1(conn, aid)
+    r = A.results(conn, aid)
+    assert r["left_out_count"] == 0 and r["total"] == 5 and all(i["left_out"] is None for i in r["items"])
+
+
+# Review on PR 70: the retrospective exclusion has to apply the whole CLEAN v2 rule, including the engine's best line.
+# Both pawn captures here are trades (net 0), so the static check is satisfied.
+BEST_LINE_FEN = "4k3/8/2p5/3p4/4P3/3P4/8/4K3 w - - 0 1"
+FAIR_FEN = "4k3/8/8/8/8/8/3B4/4K3 w - - 0 1"
+
+
+def put_analysis(conn, fen, config_id, lines):
+    from app.engine.evidence import store_analysis
+
+    store_analysis(conn, EvidenceAnalysis(fen, config_id, tuple(lines)))
+
+
+def test_left_out_also_applies_the_engines_best_line_condition_from_the_cache(store):
+    conn = store.conn
+    board = chess.Board(BEST_LINE_FEN)
+    assert A.clean.threat_reason(board) is None  # the static exchange alone does not flag it
+    # scripted best line: e4xd5 and Black does not retake (what the engine's line would have to show)
+    put_analysis(conn, board.fen(), CFG.id, [Line("e4d5", ("e4d5", "e8e7"), 100, None, None, 18)])
+    why = A.left_out_reason("CLEAN", board, conn=conn, engine_config_id=CFG.id)
+    assert why is not None and "best line started by winning something" in why
+    # without the cache the engine part cannot be applied: the position stays in (documented)
+    assert A.left_out_reason("CLEAN", chess.Board(FAIR_FEN), conn=conn, engine_config_id=CFG.id) is None
+    # a best line that starts with a quiet move keeps a fair position in
+    put_analysis(conn, FAIR_FEN, CFG.id, [Line("e1f1", ("e1f1",), 0, None, None, 18)])
+    assert A.left_out_reason("CLEAN", chess.Board(FAIR_FEN), conn=conn, engine_config_id=CFG.id) is None
+
+
+def test_results_leave_out_a_position_whose_best_line_wins_something(store):
+    conn = store.conn
+    aid = start(conn, "M1")
+    flawed = next(r for r in allocated(conn, aid) if r["kind"] == "CLEAN")
+    conn.execute("UPDATE position SET fen = ? WHERE id = ?", (BEST_LINE_FEN, flawed["id"]))
+    put_analysis(conn, BEST_LINE_FEN, CFG.id, [Line("e4d5", ("e4d5", "e8e7"), 100, None, None, 18)])
+    view = A.get_assessment(conn, aid, now=T0)
+    while view["current"]:
+        cur = view["current"]
+        view = A.submit_item(conn, aid, cur["ord"], "none", cur["legal_moves"][0], FakeAnalyser(), now=T0 + timedelta(seconds=9))
+    A.submit(conn, aid, now=T0 + timedelta(minutes=5))
+    r = A.results(conn, aid)
+    assert r["left_out_count"] == 1 and r["total"] == 4
+    assert [i["fen"] for i in r["items"] if i["left_out"]] == [BEST_LINE_FEN]

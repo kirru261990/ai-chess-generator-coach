@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { castleMove, pickMove, scoreNotes, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
+import { castleMove, leftOutLine, pickMove, scoreNotes, tapRefusal, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
 const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
@@ -64,6 +64,14 @@ describe('tapRefusal', () => {
   })
   it('never lets a board click replace "No immediate threat"', () => {
     expect(tapRefusal('none', 'a1', squares, 'M1')).toContain('Press that button again')
+  })
+})
+
+describe('leftOutLine', () => {
+  it('says how many positions were left out, or nothing', () => {
+    expect(leftOutLine(0)).toBeNull()
+    expect(leftOutLine(1)).toContain('1 position was left out')
+    expect(leftOutLine(2)).toContain('2 positions were left out')
   })
 })
 

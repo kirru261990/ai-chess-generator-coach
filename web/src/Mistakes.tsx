@@ -5,6 +5,7 @@ import {
   castleMove,
   pickMove,
   pieceColorAt,
+  leftOutLine,
   poolShortfall,
   scoreLine,
   scoreNotes,
@@ -273,7 +274,8 @@ function ResultsPage({ id, onBack }: { id: number; onBack: () => void }) {
         <p className="headline">Spotted the problem: {scoreLine(res.scores.recognition, res.total, res.chance.recognition)}</p>
         <p className="headline">Played a sound move: {scoreLine(res.scores.move, res.total, res.chance.move)}</p>
         <p className="headline">Both right: {scoreLine(res.scores.combined, res.total, res.chance.combined)}</p>
-        {scoreNotes(res).map((n) => <p key={n} className="note fb-wrong">{n}</p>)}
+        {[...scoreNotes(res), leftOutLine(res.left_out_count)].filter((n): n is string => !!n)
+          .map((n) => <p key={n} className="note fb-wrong">{n}</p>)}
         <p className="note small">
           "Guessing" is how many a random tap and a random legal move would get right on these same positions. Five
           positions is a small sample: this is a starting point, not a verdict.
@@ -299,18 +301,21 @@ function ResultCard({ item }: { item: ResultItem }) {
       : []),
   ]
   return (
-    <div className={`feedback ${item.correct ? 'good' : 'mistake'}`}>
+    <div className={`feedback ${item.left_out ? 'slip' : item.correct ? 'good' : 'mistake'}`}>
       <p><strong>Position {item.number}</strong>{item.seconds !== null && ` · ${item.seconds} s`}{item.interrupted && ' · interrupted'}</p>
       <div className="moment-board">
         <Chessboard options={{ position: item.fen, boardOrientation: item.side_to_move, allowDragging: false, squareStyles: styles,
           arrows, id: `result-${item.number}` }} />
       </div>
-      <p className={item.tap_correct ? 'fb-right' : 'fb-wrong'}>
-        You chose {tapWords(item.your_tap)}: {item.tap_correct ? 'right' : 'not right'}.
-      </p>
+      {!item.left_out && (
+        <p className={item.tap_correct ? 'fb-right' : 'fb-wrong'}>
+          You chose {tapWords(item.your_tap)}: {item.tap_correct ? 'right' : 'not right'}.
+        </p>
+      )}
+      {item.left_out && <p>You chose {tapWords(item.your_tap)} and played {item.your_move.san}. Neither counts.</p>}
       <p>{item.explanation}</p>
-      <p className={item.move_sound ? 'fb-right' : 'fb-wrong'}>{item.move_explanation}</p>
-      {!item.move_sound && good && <p>A good move here: {good.san} (green arrow).</p>}
+      {!item.left_out && <p className={item.move_sound ? 'fb-right' : 'fb-wrong'}>{item.move_explanation}</p>}
+      {(item.left_out || !item.move_sound) && good && <p>The engine's best move here: {good.san} (green arrow).</p>}
       <p className="note small">Blue: your tap and your move. {item.answer_squares.length > 0 && (own ? 'Red: your piece in danger.' : 'Green square: the free piece.')}</p>
     </div>
   )
