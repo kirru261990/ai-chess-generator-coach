@@ -12,6 +12,8 @@ be broken are enforced by the database itself, not only by the code that writes 
 - at most one unsubmitted assessment per user and mistake type
 - a board (game and ply) is assessed once, ever, whichever of its rows (M1, M2) was allocated
 - a submitted assessment can be set aside (never deleted, its positions stay TESTED), and only once
+- a practice session holds only practice-pool positions that are not retired, and an attempt belongs to one of them
+- at most one unfinished practice session per user and mistake type (it resumes)
 - a frozen real-game baseline window is never edited or deleted
 
 `connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
@@ -29,7 +31,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -332,9 +334,42 @@ WHEN OLD.superseded_at IS NOT NULL
 BEGIN SELECT RAISE(ABORT, 'a set-aside assessment stays set aside'); END;
 """
 
+_SCHEMA_V7 = """
+-- Step 3 (Replay My Mistakes): the positions of a practice session, in the order shown. A position is done when the player
+-- has seen the feedback and moved on.
+CREATE TABLE practice_session_position (
+    session_id  INTEGER NOT NULL REFERENCES practice_session(id),
+    position_id INTEGER NOT NULL REFERENCES position(id),
+    ord         INTEGER NOT NULL CHECK (ord >= 0),
+    done_at     TEXT,
+    PRIMARY KEY (session_id, position_id),
+    UNIQUE (session_id, ord)
+) STRICT;
+
+CREATE TRIGGER practice_session_position_is_practice BEFORE INSERT ON practice_session_position
+WHEN (SELECT pool IS NOT 'PRACTICE' OR retired_at IS NOT NULL OR kind IS NOT 'MISTAKE' FROM position WHERE id = NEW.position_id)
+BEGIN SELECT RAISE(ABORT, 'practice uses only practice-pool mistake positions that are not retired'); END;
+
+CREATE TRIGGER practice_session_position_keeps_position BEFORE UPDATE OF position_id, session_id, ord ON practice_session_position
+BEGIN SELECT RAISE(ABORT, 'a practice session position is never changed, only finished'); END;
+
+-- An attempt is for a position of its own session.
+CREATE TRIGGER practice_attempt_in_session BEFORE INSERT ON practice_attempt
+WHEN NOT EXISTS (SELECT 1 FROM practice_session_position
+                 WHERE session_id = NEW.session_id AND position_id = NEW.position_id)
+BEGIN SELECT RAISE(ABORT, 'an attempt is for a position of its session'); END;
+
+ALTER TABLE practice_attempt ADD COLUMN recognition_correct INTEGER CHECK (recognition_correct IN (0, 1));
+ALTER TABLE practice_attempt ADD COLUMN verdict_json TEXT;  -- the sound-move verdict, kept for the feedback and the summary
+ALTER TABLE practice_session ADD COLUMN repeat_games INTEGER NOT NULL DEFAULT 0;  -- fewer than 5 different games (PRD 6.1)
+
+CREATE UNIQUE INDEX one_open_practice_session_per_type
+ON practice_session (user, mistake_type) WHERE status IN ('created', 'in_progress');
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
 _MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5,
-               6: _SCHEMA_V6}
+               6: _SCHEMA_V6, 7: _SCHEMA_V7}
 
 
 class SchemaError(Exception):

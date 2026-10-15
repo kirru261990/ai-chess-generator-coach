@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from app.db.schema import connect
 from app.engine.evidence import open_evidence
 from app.learner import assessment as A
+from app.learner import practice as P
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ STATUS = {
     "reason_needed": 400,
     "illegal_move": 400,
     "baseline_done": 409,
+    "baseline_needed": 409,
+    "not_enough_practice_positions": 409,
+    "session_completed": 409,
+    "wrong_step": 409,
     "pool_too_small": 409,
     "not_current_position": 409,
     "assessment_submitted": 409,
@@ -101,9 +106,30 @@ class ItemIn(BaseModel):
     move: str  # UCI
 
 
+class StartSession(BaseModel):
+    mistake_type: str
+
+
+class RecognitionIn(BaseModel):
+    ord: int
+    tap: str  # a square with a piece on the asked side, or "none"
+
+
+class MoveIn(BaseModel):
+    ord: int
+    move: str  # UCI
+
+
+class OrdIn(BaseModel):
+    ord: int
+
+
 @router.get("/home")
 def home(conn: Conn):
-    return A.home(conn)
+    out = A.home(conn)
+    for t in out["types"]:
+        t["practice"] = P.home_status(conn, t["mistake_type"])
+    return out
 
 
 @router.post("/assessments/baseline")
@@ -136,3 +162,47 @@ def results(assessment_id: int, conn: Conn):
     if out["chance_pending"]:
         start_chance_job(A.missing_move_chances(conn, assessment_id))
     return out
+
+
+# --- Replay My Mistakes (PRD v2 §6): assisted practice, practice-pool positions only ----------------------------------
+
+
+@router.post("/practice/sessions")
+def start_session(body: StartSession, conn: Conn):
+    return P.start_session(conn, body.mistake_type)
+
+
+@router.get("/practice/sessions/{session_id}")
+def get_session(session_id: int, conn: Conn):
+    return P.get_session(conn, session_id)
+
+
+@router.post("/practice/sessions/{session_id}/recognition")
+def practice_recognition(session_id: int, body: RecognitionIn, conn: Conn):
+    return P.submit_recognition(conn, session_id, body.ord, body.tap)
+
+
+@router.post("/practice/sessions/{session_id}/move")
+def practice_move(session_id: int, body: MoveIn, conn: Conn):
+    with open_analyser(conn) as analyser:
+        return P.submit_move(conn, session_id, body.ord, body.move, analyser)
+
+
+@router.post("/practice/sessions/{session_id}/hint")
+def practice_hint(session_id: int, body: OrdIn, conn: Conn):
+    return P.hint(conn, session_id, body.ord)
+
+
+@router.post("/practice/sessions/{session_id}/retry")
+def practice_retry(session_id: int, body: OrdIn, conn: Conn):
+    return P.retry(conn, session_id, body.ord)
+
+
+@router.post("/practice/sessions/{session_id}/next")
+def practice_next(session_id: int, body: OrdIn, conn: Conn):
+    return P.next_position(conn, session_id, body.ord)
+
+
+@router.get("/practice/sessions/{session_id}/summary")
+def practice_summary(session_id: int, conn: Conn):
+    return P.summary(conn, session_id)

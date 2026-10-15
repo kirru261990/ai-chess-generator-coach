@@ -83,7 +83,8 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] P2 Pools, baseline assessment (M1 uses `lost_piece = other` only, ADR 0006 decision 14), scoring with random-guess rates, PRD real-game windows (built 2026-10-15 on `feat/step2-baseline`, ADR 0006 decisions 15 to 23; the owner takes the real baselines after merge; window rates are Step 4)
 - [x] P2c CLEAN v2: no capture wins anything for either side; flawed CLEAN positions are left out of scores (ADR 0006 decisions 27 to 29)
 - [x] P2b Question version 2 (tap only the asked side, own for M1 and theirs for M2) and setting a baseline aside; M1 retaken (ADR 0006 decisions 24 to 26)
-- [ ] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, feedback with the output check, resume)
+- [x] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, template feedback, summary, resume; ADR 0006 decisions 30 to 35). Built 2026-10-15 on `feat/step3-replay`
+- [ ] P3b Feedback wording by the LLM with the PRD §12 output check (parse every move and square in the text, reject and fall back to the template if one is not in the evidence record); needs a spend plan (October budget is nearly used)
 - [ ] P4 Delayed assessments, results reveal, Progress screen, real-game rates with floors
 - [ ] P5 MCP tools over the same service layer
 

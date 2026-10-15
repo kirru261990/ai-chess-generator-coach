@@ -28,22 +28,29 @@ def frozen_windows(conn: sqlite3.Connection, mistake_type: str) -> list[dict]:
             for r in rows]
 
 
+def freeze_in_transaction(conn: sqlite3.Connection, mistake_type: str, *, now: datetime) -> None:
+    """Freeze the windows for a type if none exist. The caller holds the transaction (so starting a practice session and
+    freezing its window succeed or fail together, review on PR 72)."""
+    if frozen_windows(conn, mistake_type):
+        return
+    tcs = [r[0] for r in conn.execute("SELECT DISTINCT time_control FROM game ORDER BY time_control")]
+    for tc in tcs:
+        ids = [r[0] for r in conn.execute(
+            "SELECT id FROM game WHERE time_control = ? AND played_at < ? ORDER BY played_at DESC, id LIMIT ?",
+            (tc, int(now.timestamp()), WINDOW_GAMES),
+        )]
+        conn.execute(
+            "INSERT INTO baseline_window (user, mistake_type, time_control, game_ids_json, frozen_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (user(), mistake_type, tc, json.dumps(ids), now.isoformat(timespec="seconds")),
+        )
+
+
 def freeze_baseline_window(conn: sqlite3.Connection, mistake_type: str, *, now: datetime | None = None) -> list[dict]:
     """Freeze the last WINDOW_GAMES games per time control before `now` for this type, once. Returns the frozen windows."""
     if mistake_type not in TYPES:
         raise AssessmentError("unknown_mistake_type", f"mistake type must be one of {', '.join(TYPES)}")
     now = now or datetime.now(UTC)
     with transaction(conn):
-        if not frozen_windows(conn, mistake_type):
-            tcs = [r[0] for r in conn.execute("SELECT DISTINCT time_control FROM game ORDER BY time_control")]
-            for tc in tcs:
-                ids = [r[0] for r in conn.execute(
-                    "SELECT id FROM game WHERE time_control = ? AND played_at < ? ORDER BY played_at DESC, id LIMIT ?",
-                    (tc, int(now.timestamp()), WINDOW_GAMES),
-                )]
-                conn.execute(
-                    "INSERT INTO baseline_window (user, mistake_type, time_control, game_ids_json, frozen_at)"
-                    " VALUES (?, ?, ?, ?, ?)",
-                    (user(), mistake_type, tc, json.dumps(ids), now.isoformat(timespec="seconds")),
-                )
+        freeze_in_transaction(conn, mistake_type, now=now)
     return frozen_windows(conn, mistake_type)

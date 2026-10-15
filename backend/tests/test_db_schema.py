@@ -34,6 +34,11 @@ def add_position(conn, game_id, pool, kind="MISTAKE", mistake_type="M1", ply=10)
     return cur.lastrowid
 
 
+def in_session(conn, session_id, position_id, ord_=0):
+    conn.execute("INSERT INTO practice_session_position (session_id, position_id, ord) VALUES (?, ?, ?)",
+                 (session_id, position_id, ord_))
+
+
 def new_assessment(conn, mistake_type="M1"):
     return conn.execute(
         "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
@@ -110,8 +115,12 @@ def test_practice_never_uses_a_heldout_position(db):
     insert = (
         "INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at) VALUES (?, ?, 1, ?)"
     )
-    with pytest.raises(sqlite3.IntegrityError, match="never uses a held-out"):
+    in_session(db, sid, practice)
+    # a held-out position can be neither in a session (Step 3) nor have an attempt (PRD 5.3): both rules refuse it
+    with pytest.raises(sqlite3.IntegrityError, match="never uses a held-out|position of its session"):
         db.execute(insert, (sid, heldout, NOW))
+    with pytest.raises(sqlite3.IntegrityError, match="practice uses only"):
+        in_session(db, sid, heldout, ord_=1)
     attempt = db.execute(insert, (sid, practice, NOW)).lastrowid
     # Review finding (PR 61): an existing attempt could be pointed at a held-out position afterwards.
     with pytest.raises(sqlite3.IntegrityError, match="never uses a held-out"):
@@ -305,11 +314,14 @@ def test_a_retired_position_is_never_assessed_or_practised(db):
         allocate(db, new_assessment(db), heldout)
     sid = db.execute("INSERT INTO practice_session (user, mistake_type, status, started_at)"
                      " VALUES ('owner', 'M1', 'created', ?)", (NOW,)).lastrowid
-    with pytest.raises(sqlite3.IntegrityError, match="retired"):
+    with pytest.raises(sqlite3.IntegrityError, match="retired|position of its session"):
         db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
                    " VALUES (?, ?, 1, ?)", (sid, practice, NOW))
+    with pytest.raises(sqlite3.IntegrityError, match="practice uses only"):
+        in_session(db, sid, practice)  # and a retired position cannot join a session
     # Review finding (PR 65): an attempt on an active position could be pointed at a retired one afterwards.
     active = add_position(db, "g-practice", "PRACTICE", ply=14)
+    in_session(db, sid, active)
     attempt = db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
                          " VALUES (?, ?, 1, ?)", (sid, active, NOW)).lastrowid
     with pytest.raises(sqlite3.IntegrityError, match="retired"):

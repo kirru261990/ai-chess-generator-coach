@@ -170,33 +170,36 @@ def _pick(rows: list[sqlite3.Row], n: int, rng: random.Random, used_games: set[s
 
 def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.Random | None = None,
                    now: datetime | None = None) -> dict:
-    """Create the BASELINE assessment for a type, or return the open one (resume). One baseline per type, ever."""
+    """Create the BASELINE assessment for a type, or return the open one (resume). One baseline per type, ever.
+
+    The look-up, the choice and the insert are one transaction: two simultaneous requests are serialised and the second gets
+    the first one's assessment instead of a database error (same fix as practice sessions, review on PR 72)."""
     _check_type(mistake_type)
-    row = conn.execute(
-        "SELECT id, status FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'BASELINE'"
-        " AND superseded_at IS NULL ORDER BY id DESC LIMIT 1",
-        (user(), mistake_type),
-    ).fetchone()
-    if row and row["status"] == "submitted":
-        raise AssessmentError("baseline_done", "the baseline for this mistake type is already done")
-    if row:
-        return {"assessment_id": row["id"], "resumed": True}
-    status = pool_status(conn, mistake_type)
-    if not status["ready"]:
-        raise AssessmentError(
-            "pool_too_small",
-            "Not enough games yet for this mistake type: "
-            f"{status['mistake_positions']} of {MIN_HELDOUT_MISTAKE} mistake positions and "
-            f"{status['clean_positions']} of {MIN_HELDOUT_CLEAN} clean positions",
-        )
-    rng = rng or random.SystemRandom()
-    n_mistakes = rng.choice(MISTAKE_COUNTS)
-    used: set[str] = set()
-    chosen = _pick(_assessable(conn, _TYPE_FILTER[mistake_type]), n_mistakes, rng, used)
-    chosen += _pick(_assessable(conn, _CLEAN_FILTER), SIZE - n_mistakes, rng, used)
-    rng.shuffle(chosen)
     t = _iso(_now(now))
     with transaction(conn):
+        row = conn.execute(
+            "SELECT id, status FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'BASELINE'"
+            " AND superseded_at IS NULL ORDER BY id DESC LIMIT 1",
+            (user(), mistake_type),
+        ).fetchone()
+        if row and row["status"] == "submitted":
+            raise AssessmentError("baseline_done", "the baseline for this mistake type is already done")
+        if row:
+            return {"assessment_id": row["id"], "resumed": True}
+        status = pool_status(conn, mistake_type)
+        if not status["ready"]:
+            raise AssessmentError(
+                "pool_too_small",
+                "Not enough games yet for this mistake type: "
+                f"{status['mistake_positions']} of {MIN_HELDOUT_MISTAKE} mistake positions and "
+                f"{status['clean_positions']} of {MIN_HELDOUT_CLEAN} clean positions",
+            )
+        rng = rng or random.SystemRandom()
+        n_mistakes = rng.choice(MISTAKE_COUNTS)
+        used: set[str] = set()
+        chosen = _pick(_assessable(conn, _TYPE_FILTER[mistake_type]), n_mistakes, rng, used)
+        chosen += _pick(_assessable(conn, _CLEAN_FILTER), SIZE - n_mistakes, rng, used)
+        rng.shuffle(chosen)
         aid = conn.execute(
             "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, question_version)"
             " VALUES (?, ?, 'BASELINE', ?, ?, 'pending', ?)",
@@ -452,6 +455,17 @@ _REASONS = {
     "free_piece_not_taken": "the free piece was left and the move gave away too much",
     "eval_loss_too_large": "it gave away too much",
 }
+
+
+def move_reason(verdict: dict, sound_: bool) -> str:
+    """One sentence on what the move did about the problem (no repeat of the move or the verdict), for the practice feedback."""
+    if sound_:
+        return "That deals with the problem."
+    if "refutation_still_wins" in verdict["failed"]:
+        return "They could still win the piece."
+    if "free_piece_not_taken" in verdict["failed"]:
+        return "The free piece was left, and it gave away too much."
+    return "It gave away too much."
 
 
 def _move_words(verdict: dict, sound_: bool) -> str:
