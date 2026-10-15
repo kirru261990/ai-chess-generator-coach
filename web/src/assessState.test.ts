@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickMove, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
+import { castleMove, pickMove, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
 
 const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
 const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
@@ -35,6 +35,20 @@ describe('board helpers', () => {
     expect(pickMove(legal, 'h7', 'a1')).toBeNull()
     expect(targetsFrom(legal, 'h7')).toEqual(['h1', 'h2'])
     expect(targetsFrom(legal, null)).toEqual([])
+  })
+})
+
+describe('castling', () => {
+  const fen = 'r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1'
+  const legal = ['e8c8', 'e8g8', 'e8d8', 'a8a1']
+  it('treats king then own rook as castling on that side', () => {
+    expect(castleMove(legal, fen, 'e8', 'a8')).toBe('e8c8')
+    expect(castleMove(legal, fen, 'e8', 'h8')).toBe('e8g8')
+  })
+  it('only when legal, and only king then own rook', () => {
+    expect(castleMove(['e8d8'], fen, 'e8', 'a8')).toBeNull()
+    expect(castleMove(legal, fen, 'a8', 'e8')).toBeNull()
+    expect(castleMove(legal, fen, 'e8', 'a1')).toBeNull()
   })
 })
 

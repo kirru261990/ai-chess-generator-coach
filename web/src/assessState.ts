@@ -91,22 +91,40 @@ export function poolShortfall(p: PoolStatus): string | null {
   )
 }
 
-/** The piece colour on a square of a FEN board ('w' / 'b'), or null for an empty square. */
-export function pieceColorAt(fen: string, square: string): 'w' | 'b' | null {
+/** The piece letter on a square of a FEN board (FEN letters: upper case is White), or null for an empty square. */
+export function pieceAt(fen: string, square: string): string | null {
   const rows = fen.split(' ')[0].split('/')
   const file = square.charCodeAt(0) - 97
   const rank = Number(square[1])
-  if (file < 0 || file > 7 || !(rank >= 1 && rank <= 8)) return null
+  if (square.length !== 2 || file < 0 || file > 7 || !(rank >= 1 && rank <= 8)) return null
   let col = 0
   for (const ch of rows[8 - rank]) {
     if (/\d/.test(ch)) {
       col += Number(ch)
       continue
     }
-    if (col === file) return ch === ch.toUpperCase() ? 'w' : 'b'
+    if (col === file) return ch
     col += 1
   }
   return null
+}
+
+/** The piece colour on a square of a FEN board ('w' / 'b'), or null for an empty square. */
+export function pieceColorAt(fen: string, square: string): 'w' | 'b' | null {
+  const ch = pieceAt(fen, square)
+  if (!ch) return null
+  return ch === ch.toUpperCase() ? 'w' : 'b'
+}
+
+/** Clicking the king and then one of your own rooks means castling on that side, when it is legal. */
+export function castleMove(legal: string[], fen: string, from: string, to: string): string | null {
+  const king = pieceAt(fen, from)
+  const rook = pieceAt(fen, to)
+  if (!king || !rook || king.toLowerCase() !== 'k' || rook.toLowerCase() !== 'r') return null
+  if (pieceColorAt(fen, from) !== pieceColorAt(fen, to) || from[1] !== to[1]) return null
+  const step = to.charCodeAt(0) > from.charCodeAt(0) ? 2 : -2
+  const target = String.fromCharCode(from.charCodeAt(0) + step) + from[1]
+  return legal.includes(from + target) ? from + target : null
 }
 
 /** The legal move from `from` to `to` (a promotion becomes a queen), or null. */

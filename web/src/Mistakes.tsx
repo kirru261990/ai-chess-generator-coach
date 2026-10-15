@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import {
   NO_THREAT,
+  castleMove,
   pickMove,
   pieceColorAt,
   poolShortfall,
@@ -101,6 +102,7 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
   const [step, setStep] = useState<'tap' | 'move'>('tap')
   const [from, setFrom] = useState<string | null>(null)
   const [move, setMove] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null) // why a click did nothing (rules only, never a hint)
 
   const load = useCallback((v: AssessmentView) => {
     setView(v)
@@ -108,6 +110,7 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
     setStep('tap')
     setFrom(null)
     setMove(null)
+    setNote(null)
   }, [])
 
   useEffect(() => {
@@ -140,15 +143,27 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
       if (color) setTap(square === tap ? null : square)
       return
     }
+    const castle = from ? castleMove(cur.legal_moves, cur.fen, from, square) : null
+    if (castle) {
+      setFrom(null)
+      setMove(castle)
+      setNote(null)
+      return
+    }
     if (color === mine) {
       setFrom(square === from ? null : square)
       setMove(null)
+      setNote(null)
       return
     }
-    if (!from) return
+    if (!from) {
+      setNote('Click one of your pieces first, then the square it should go to.')
+      return
+    }
     const uci = pickMove(cur.legal_moves, from, square)
     setFrom(null)
     setMove(uci)
+    setNote(uci ? null : 'That move is not possible here. Click one of your pieces, then a marked square.')
   }
 
   function send() {
@@ -204,10 +219,12 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
         </div>
       ) : (
         <div className="feedback">
-          <p><strong>2. Your move.</strong> Click a piece, then the square it should go to.</p>
+          <p><strong>2. Your move.</strong> Click a piece, then the square it should go to. To castle, click your king,
+            then the rook.</p>
+          {note && <p className="fb-wrong">{note}</p>}
           <p>Your answer: {tapWords(tap ?? NO_THREAT)}. {move ? `Your move: ${move.slice(0, 2)} to ${move.slice(2, 4)}.` : ''}</p>
           <div className="controls">
-            <button disabled={busy} onClick={() => { setStep('tap'); setFrom(null); setMove(null) }}>Back</button>
+            <button disabled={busy} onClick={() => { setStep('tap'); setFrom(null); setMove(null); setNote(null) }}>Back</button>
             <button disabled={!move || busy} onClick={send}>{busy ? 'Saving…' : 'Submit this position'}</button>
           </div>
           <p className="note small">A submitted position cannot be changed.</p>
