@@ -554,3 +554,56 @@ def test_a_failed_start_does_not_freeze_the_window(conn):
     with pytest.raises(A.AssessmentError):
         P.start_session(conn, "M1")
     assert conn.execute("SELECT COUNT(*) FROM baseline_window").fetchone()[0] == 0
+
+
+# --- wording for a move that saves the piece but is not the strongest ------------------------------------------------------
+
+
+class PenaltyAnalyser(FakeAnalyser):
+    """The scripted engine, except that one position (after the player's move) is scored `cp` from White's side."""
+
+    def __init__(self, fen, cp):
+        self.fen, self.cp = fen, cp
+
+    def analyse(self, board, depth=None):
+        if board.fen() != self.fen:
+            return super().analyse(board, depth)
+        moves = sorted(m.uci() for m in board.legal_moves)[:3]
+        return EvidenceAnalysis(board.fen(), CFG.id, tuple(Line(m, (m,), self.cp, None, None, 18) for m in moves))
+
+
+# On this board the scripted engine scores the position before the move +200 for White (a rook against a bishop), so a score of
+# `cp` after the move is a loss of 200 - cp: 110, 190 and 450 centipawns.
+@pytest.mark.parametrize(("cp", "words"), [
+    (90, "This saves your piece, but a stronger move existed (about 1.1 pawns better)."),
+    (10, "This saves your piece, but a stronger move existed (about 1.9 pawns better)."),
+    (-250, "This deals with the original danger, but something else went wrong: the best move was about 4.5 pawns better."),
+])
+def test_a_retreat_that_saves_the_piece_but_loses_to_the_best_move_says_so_and_still_counts_as_not_sound(store, cp, words):
+    conn = store.conn
+    sid, view = begin(conn)
+    cur = view["current"]
+    board = chess.Board(cur["fen"])
+    board.push_uci("a1b1")  # the rook leaves the bishop's diagonal: the original problem is gone
+    P.submit_recognition(conn, sid, cur["ord"], "a1", now=at(1))
+    fb = P.submit_move(conn, sid, cur["ord"], "a1b1", PenaltyAnalyser(board.fen(), cp), now=at(5))["current"]["feedback"]
+    assert fb["sound"] is False and fb["verdict"] == "NOT SOUND"  # the counting rule is unchanged
+    assert fb["avoids"] == words
+    assert conn.execute("SELECT move_sound FROM practice_attempt WHERE move IS NOT NULL").fetchone()[0] == 0
+
+
+def test_stronger_move_words_only_when_that_is_the_only_rule_that_failed():
+    soft = {"failed": ["eval_loss_too_large"], "eval_loss": 120}
+    assert A.stronger_move_words(soft, "M1").startswith("This saves your piece")
+    assert A.stronger_move_words(soft, "M2").startswith("This takes the free piece, but a stronger move")
+    assert A.stronger_move_words(soft, "CLEAN") == "A stronger move existed (about 1.2 pawns better)."
+    assert A.stronger_move_words({"failed": ["eval_loss_too_large"], "eval_loss": 300}, "M2").startswith("This takes the free piece, but something else")
+    assert A.stronger_move_words({**soft, "failed": ["refutation_still_wins", "eval_loss_too_large"]}, "M1") is None
+    assert A.stronger_move_words({**soft, "failed": ["free_piece_not_taken", "eval_loss_too_large"]}, "M2") is None
+    # the other reasons keep their own words
+    assert A.move_reason({**soft, "failed": ["refutation_still_wins", "eval_loss_too_large"]}, False, "M1") == "They could still win the piece."
+    assert A.move_reason({**soft, "failed": ["free_piece_not_taken", "eval_loss_too_large"]}, False, "M2").startswith("The free piece was left")
+    assert A.move_reason(soft, True, "M1") == "That deals with the problem."
+    v = {**soft, "move": {"uci": "a1b1", "san": "Rb1"}}
+    assert A._move_words(v, False, "M1") == "Your move Rb1 was not sound. This saves your piece, but a stronger move existed (about 1.2 pawns better)."
+    assert A._move_words({**v, "failed": ["refutation_still_wins"]}, False, "M1") == "Your move Rb1 was not sound: they could still win the piece."

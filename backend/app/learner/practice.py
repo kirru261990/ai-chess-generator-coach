@@ -288,7 +288,7 @@ def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) 
         "your_move": verdict["move"],
         "sound": sound_,
         "verdict": "SOUND" if sound_ else "NOT SOUND",
-        "avoids": A.move_reason(verdict, sound_),
+        "avoids": A.move_reason(verdict, sound_, pos["mistake_type"]),
         "good_moves": [{"uci": m["uci"], "san": m["san"]} for m in alternatives],
         "hint_level": attempt["hint_level"],
     }

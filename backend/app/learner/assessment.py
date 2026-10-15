@@ -457,7 +457,28 @@ _REASONS = {
 }
 
 
-def move_reason(verdict: dict, sound_: bool) -> str:
+def stronger_move_words(verdict: dict, kind: str) -> str | None:
+    """The sentence for a move that passed the other sound rules and failed only the strict one (the loss against the engine's
+    best move is over SOUND_MAX_LOSS_CP). The counting does not change: this is still "not sound". It only says what the move
+    did, because "it gave away too much" is misleading for a retreat that saves the piece. `kind` is M1, M2 or CLEAN.
+    Below MATERIAL_MIN points the move is said to do its job and a stronger one existed; from there up something else went
+    wrong and the sentence says so instead of claiming the piece is safe. None when another rule failed too."""
+    if list(verdict["failed"]) != ["eval_loss_too_large"]:
+        return None
+    pawns = f"{verdict['eval_loss'] / 100:.1f}"
+    big = verdict["eval_loss"] >= R.MATERIAL_MIN * 100
+    if kind == "M1":
+        if big:
+            return f"This deals with the original danger, but something else went wrong: the best move was about {pawns} pawns better."
+        return f"This saves your piece, but a stronger move existed (about {pawns} pawns better)."
+    if kind == "M2":
+        if big:
+            return f"This takes the free piece, but something else went wrong: the best move was about {pawns} pawns better."
+        return f"This takes the free piece, but a stronger move existed (about {pawns} pawns better)."
+    return f"A stronger move existed (about {pawns} pawns better)."
+
+
+def move_reason(verdict: dict, sound_: bool, kind: str) -> str:
     """One sentence on what the move did about the problem (no repeat of the move or the verdict), for the practice feedback."""
     if sound_:
         return "That deals with the problem."
@@ -465,13 +486,16 @@ def move_reason(verdict: dict, sound_: bool) -> str:
         return "They could still win the piece."
     if "free_piece_not_taken" in verdict["failed"]:
         return "The free piece was left, and it gave away too much."
-    return "It gave away too much."
+    return stronger_move_words(verdict, kind) or "It gave away too much."
 
 
-def _move_words(verdict: dict, sound_: bool) -> str:
+def _move_words(verdict: dict, sound_: bool, kind: str) -> str:
     san = verdict["move"]["san"]
     if sound_:
         return f"Your move {san} was sound."
+    soft = stronger_move_words(verdict, kind)
+    if soft:
+        return f"Your move {san} was not sound. {soft}"
     reasons = [_REASONS[c] for c in verdict["failed"] if c in _REASONS]
     if "refutation_still_wins" in verdict["failed"]:
         reasons = [_REASONS["refutation_still_wins"]]
@@ -537,7 +561,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "move_sound": bool(r["move_sound"]),
             "correct": bool(r["recognition_correct"] and r["move_sound"]),
             "explanation": out or explain(r["kind"], evidence, r["fen"]),
-            "move_explanation": _move_words(verdict, bool(r["move_sound"])),
+            "move_explanation": _move_words(verdict, bool(r["move_sound"]), "CLEAN" if r["kind"] == "CLEAN" else a["mistake_type"]),
             "good_moves": [{"uci": m["uci"], "san": m["san"]} for m in good_moves],
             "game_move": evidence["player_move"],
             "line": line,  # MISTAKE: the refutation (M1, played after the game move) or the capture (M2)
