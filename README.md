@@ -36,12 +36,13 @@ the engine and rules confirmed, with a note.
 
 | Works | Not yet |
 |---|---|
-| Play vs Stockfish (click to move, Level 1-10, resign, PGN download) | Training sessions and hint ladder |
+| Play vs Stockfish (click to move, Level 1-10, resign, PGN download) | Real-game before/after rates; AI-written practice feedback |
 | Practice mode: unlimited Undo (button or left arrow), an evaluation bar beside the board, a verdict after each move (good / slip / mistake / blunder), what was right or wrong, a badge on the square you moved to (📖 book, ★ best, 👍 good, ?! / ? / ?? for slips, mistakes and blunders), a 💡 Hint button that draws the best move for the next move (green arrow and move dots), only when you ask (a suggestion only; Undo first to fix an earlier move), a banner on the board when a game ends (confetti if you checkmate), "Watch out" threat warnings; always marked assisted; left arrow is Undo; after a suboptimal move your hanging piece (red) and a missed free piece (green) are marked on the board | Lichess sync, PGN import, Maia-2 opponent |
 | Chess.com sync, batch engine analysis, post-game review (up to 3 key moments) | Postgres persistence (games live in memory), sign-in, other users |
 | Review tab: say what you were thinking at a key moment and see what was really on the board (your words saved as written) | Peer benchmark (needs a Lichess games sample) |
 | Detectors `hanging_own` and `missed_free` (versioned), run over a frozen 100-game baseline; a Blind spots page with 10\|0 and 15\|10 side by side | Forks and pins; recency windows and example links on the map |
-| Coach "Why?" with a claim verifier and one repair attempt (needs `ANTHROPIC_API_KEY`; without it you get the checked facts) | MCP tools beyond `get_game`; a demo clip |
+| Coach "Why?" with a claim verifier and one repair attempt (needs `ANTHROPIC_API_KEY`; without it you get the checked facts) | |
+| **My mistakes** (the learning loop): a starting test of five unseen positions from your own games with no help, **Replay My Mistakes** practice (five positions, a question, your move, engine-checked feedback, a three-step hint ladder, always marked assisted), a **delayed test** that opens 72 hours after a session, and a **Progress** screen that keeps tests and assisted practice apart, with the random-guess level next to every score | MCP tools beyond `get_game`; a demo clip |
 
 ## Proof, not claims
 
@@ -68,7 +69,7 @@ Why? and Review comparison show checked facts only. Docker/Postgres is not neede
 - How to review a pull request: [`REVIEW.md`](REVIEW.md)
 - Product spec: [`docs/spec.md`](docs/spec.md)
 - Agent instructions: [`AGENTS.md`](AGENTS.md)
-- Decisions: [`docs/decisions/`](docs/decisions/) (0003 and 0004 the E2 eval, 0005 what Practice may help with)
+- Decisions: [`docs/decisions/`](docs/decisions/) (0003 and 0004 the E2 eval, 0005 what Practice may help with, 0006 the learning loop: positions, tests, practice, Progress)
 
 ## Licence
 
