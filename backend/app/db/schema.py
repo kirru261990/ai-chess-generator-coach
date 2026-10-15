@@ -10,6 +10,7 @@ be broken are enforced by the database itself, not only by the code that writes 
   an assessment result must answer a position allocated to that assessment
 - a game-derived position is stored once per (game, ply, kind, mistake type, config, detector version), CLEAN included
 - at most one unsubmitted assessment per user and mistake type
+- a board (game and ply) is assessed once, ever, whichever of its rows (M1, M2) was allocated
 - a frozen real-game baseline window is never edited or deleted
 
 `connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
@@ -27,7 +28,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -273,8 +274,46 @@ def _v4_retired_on_update(conn: sqlite3.Connection) -> None:
     )
 
 
+_SCHEMA_V5 = """
+-- One board (game, ply) can be stored as an M1 row and an M2 row. Seeing it in one assessment means seeing the board, so no
+-- other row of that board is ever allocated (Step 2).
+CREATE TRIGGER assessment_allocates_board_once BEFORE INSERT ON assessment_position
+WHEN EXISTS (SELECT 1 FROM assessment_position ap JOIN position s ON s.id = ap.position_id
+             JOIN position p ON p.id = NEW.position_id
+             WHERE s.game_id = p.game_id AND s.ply = p.ply AND p.game_id IS NOT NULL)
+BEGIN SELECT RAISE(ABORT, 'a board is assessed once, ever'); END;
+
+-- When the server first showed an assessment position, and how often: the server times the decision itself (PRD §7.4) and
+-- flags a position shown again later (the test was left and resumed) as interrupted. A repeat within a few seconds (a page
+-- that asks twice) is not counted; that rule lives in `learner/assessment.py`.
+CREATE TABLE assessment_view (
+    assessment_id  INTEGER NOT NULL,
+    position_id    INTEGER NOT NULL,
+    first_shown_at TEXT NOT NULL,
+    last_shown_at  TEXT NOT NULL,
+    shown_count    INTEGER NOT NULL CHECK (shown_count >= 1),
+    PRIMARY KEY (assessment_id, position_id),
+    FOREIGN KEY (assessment_id, position_id) REFERENCES assessment_position (assessment_id, position_id)
+) STRICT;
+
+-- The random-guess move rate of a position (PRD §7.5): how many legal moves are sound. Every legal move is checked with the
+-- evidence config, so this is slow (about 2 s a move) and computed once per (position, config, sound-check version).
+CREATE TABLE position_move_chance (
+    position_id      INTEGER NOT NULL REFERENCES position(id),
+    engine_config_id TEXT NOT NULL REFERENCES engine_config(id),
+    sound_version    TEXT NOT NULL,
+    legal_moves      INTEGER NOT NULL CHECK (legal_moves >= 1),
+    sound_moves      INTEGER NOT NULL CHECK (sound_moves BETWEEN 0 AND legal_moves),
+    computed_at      TEXT NOT NULL,
+    PRIMARY KEY (position_id, engine_config_id, sound_version)
+) STRICT;
+
+-- Why a move was judged sound or not (rule codes, eval loss), kept for the reveal after the final submit.
+ALTER TABLE assessment_result ADD COLUMN verdict_json TEXT;
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
-_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update}
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5}
 
 
 class SchemaError(Exception):

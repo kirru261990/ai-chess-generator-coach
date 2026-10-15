@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { showAnalysisTabs } from './analysisTabs'
 import App from './App'
 import BlindSpots from './BlindSpots'
+import Mistakes from './Mistakes'
 import ReviewPage from './Review'
 import { usageLabel, type Usage } from './usageLabel'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
-type Tab = 'play' | 'spots' | 'review'
+type Tab = 'play' | 'test' | 'spots' | 'review'
 
 // Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
 const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
@@ -27,24 +28,30 @@ export default function Shell() {
 
   return (
     <>
-      {SHOW_ANALYSIS_TABS && (
       <nav className="tabs">
         <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')}>
           Play
         </button>
-        <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
-          Review
+        <button className={tab === 'test' ? 'on' : ''} onClick={() => setTab('test')}>
+          My mistakes
         </button>
-        <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
-          Blind spots
-        </button>
+        {SHOW_ANALYSIS_TABS && (
+          <>
+            <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
+              Review
+            </button>
+            <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
+              Blind spots
+            </button>
+          </>
+        )}
       </nav>
-      )}
       {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
         <App />
       </div>
+      <div hidden={tab !== 'test'}>{tab === 'test' && <Mistakes />}</div>
       <div hidden={tab !== 'review'}>{tab === 'review' && <ReviewPage />}</div>
       <div hidden={tab !== 'spots'}>{tab === 'spots' && <BlindSpots />}</div>
     </>

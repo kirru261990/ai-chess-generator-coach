@@ -1,0 +1,49 @@
+import { describe, expect, it } from 'vitest'
+import { pickMove, pieceColorAt, poolShortfall, scoreLine, startLabel, tapWords, targetsFrom, type HomeType } from './assessState'
+
+const pool = { mistake_positions: 20, clean_positions: 30, needed_mistake_positions: 16, needed_clean_positions: 8, ready: true }
+const home = (over: Partial<HomeType>): HomeType => ({ mistake_type: 'M1', label: 'x', pool, baseline: null, ...over })
+
+describe('startLabel', () => {
+  it('starts, continues or shows results, and cannot start a small pool', () => {
+    expect(startLabel(home({}))).toBe('Start the test')
+    expect(startLabel(home({ baseline: { assessment_id: 1, status: 'in_progress' } }))).toBe('Continue the test')
+    expect(startLabel(home({ baseline: { assessment_id: 1, status: 'submitted' } }))).toBe('See my results')
+    expect(startLabel(home({ pool: { ...pool, ready: false } }))).toBeNull()
+  })
+})
+
+describe('poolShortfall', () => {
+  it('shows the counts when the pool is too small', () => {
+    expect(poolShortfall(pool)).toBeNull()
+    expect(poolShortfall({ ...pool, mistake_positions: 3, ready: false })).toContain('3 of 16 mistake positions')
+  })
+})
+
+describe('board helpers', () => {
+  const fen = '4k3/4q2R/8/8/8/8/3B4/6K1 w - - 0 1'
+  it('reads piece colours from a FEN', () => {
+    expect(pieceColorAt(fen, 'h7')).toBe('w')
+    expect(pieceColorAt(fen, 'e7')).toBe('b')
+    expect(pieceColorAt(fen, 'e4')).toBeNull()
+    expect(pieceColorAt(fen, 'z9')).toBeNull()
+  })
+  it('picks legal moves and promotes to a queen', () => {
+    const legal = ['h7h1', 'h7h2', 'a7a8q', 'a7a8n']
+    expect(pickMove(legal, 'h7', 'h1')).toBe('h7h1')
+    expect(pickMove(legal, 'a7', 'a8')).toBe('a7a8q')
+    expect(pickMove(legal, 'h7', 'a1')).toBeNull()
+    expect(targetsFrom(legal, 'h7')).toEqual(['h1', 'h2'])
+    expect(targetsFrom(legal, null)).toEqual([])
+  })
+})
+
+describe('words', () => {
+  it('always puts a score next to its guessing rate', () => {
+    expect(scoreLine(3, 5, 0.94)).toBe('3 of 5 (guessing would get about 0.9)')
+    expect(scoreLine(3, 5, null)).toBe('3 of 5 (guessing: still calculating)')
+    expect(scoreLine(1, 5, 0.02)).toBe('1 of 5 (guessing would get almost none)')
+    expect(tapWords('none')).toBe('"No immediate threat"')
+    expect(tapWords('h7')).toBe('the piece on h7')
+  })
+})
