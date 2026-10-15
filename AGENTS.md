@@ -83,6 +83,7 @@ uv run python -m app.learner.handcheck make                           # Step 1c 
 uv run python -m app.learner.handcheck score ANSWERS.txt               # score the owner's answers (gate: 27 of 30 real)
 uv run python -m app.learner.explorer                                 # data/evidence/explorer.html: what 1a/1b built and found (practice examples only)
 uv run python -m app.learner.assessment list                         # assessments (id, type, status, question version, set aside)
+uv run python -m app.learner.assessment schedule-missing            # schedule the delayed test for a type's latest finished practice session if it has none (one-off, for sessions finished before Step 4)
 uv run python -m app.learner.assessment supersede ID --reason TEXT    # set a submitted baseline aside so it can be retaken (nothing is deleted)
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)
 uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
