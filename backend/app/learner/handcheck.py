@@ -35,7 +35,7 @@ from app.db.schema import connect
 from app.learner import seen
 from app.learner.explorer import GREEN, NAMES, ORANGE, RED, TARGET, board_svg, plain, side
 
-VERSION = 1
+VERSION = 2  # v2: v1 sampled hanging_own v3, which counted trades as hanging pieces (owner, 2026-10-15)
 MARK = f"hand_checked_v{VERSION}"
 STRATA = (("M1", "moved", 8), ("M1", "other", 7), ("M2", None, 15))
 GATE = 27
@@ -58,7 +58,8 @@ def sample(conn) -> list[dict]:
     seen.propagate(conn)
     rows = conn.execute(
         "SELECT id, game_id, ply, mistake_type, evidence_json FROM position"
-        " WHERE kind = 'MISTAKE' AND pool = 'PRACTICE' AND excluded_reason IS NULL AND " + seen.UNSEEN_BOARD
+        " WHERE kind = 'MISTAKE' AND pool = 'PRACTICE' AND retired_at IS NULL AND excluded_reason IS NULL AND "
+        + seen.UNSEEN_BOARD
     ).fetchall()
     used: set[tuple] = set()
     picked = []
@@ -146,8 +147,10 @@ def card(it: dict, e: dict, alts: list[dict]) -> str:
                   f'<figcaption>After your move</figcaption></figure>')
         story = (f"You were {side(me)}. You played <b>{html.escape(plain(board, played.uci()))}</b> (red). "
                  f"The engine says they can now play: {html.escape(line_words(after, line, me))} (orange: their first move).")
-        qa = (f'<div class="q" data-qid="A"><p><b>A.</b> After your move, could they take your {piece} on {lost_sq} '
-              f'and come out ahead (not lose as much back)?</p>{buttons(it["id"], "A")}</div>'
+        took = board.piece_at(played.to_square) if board.is_capture(played) else None
+        counted = f"Counting the {NAMES[took.piece_type]} your move took, c" if took else "C"
+        qa = (f'<div class="q" data-qid="A"><p><b>A.</b> {counted}ould they win your {piece} on {lost_sq} '
+              f'and come out ahead overall?</p>{buttons(it["id"], "A")}</div>'
               f'<div class="q" data-qid="B"><p><b>B.</b> Could you have kept it safe instead? For example: '
               f'{html.escape(plain(board, first_alt.uci())) if first_alt else "another move"} (green).</p>'
               f'{buttons(it["id"], "B")}</div>')
@@ -226,8 +229,10 @@ button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 from the board. <b>"Can't tell" is a fine answer</b>; nothing is timed and there are no tricks. Your answers are saved in this
 browser, so you can stop and come back.</p>
 <p class="note key">Arrows: <b class="r">red</b> your move · <b class="o">orange</b> their reply · <b class="g">green</b> a
-better move or the free capture · <b class="y">yellow</b> the piece that mattered. "Come out ahead" means winning more than
-you (or they) lose back.</p>
+better move or the free capture · <b class="y">yellow</b> the piece that mattered. "Come out ahead" counts the whole
+exchange: everything taken by both sides, including what your own move took.</p>
+<p class="note">This is version 2. Version 1 counted a trade (you take, they take back) as a hanging piece; you spotted that,
+and those positions are gone.</p>
 <p class="note">None of these positions will appear in your future tests: they all come from the practice pool.</p>
 __CARDS__
 <section class="card"><h2>When you are done</h2>

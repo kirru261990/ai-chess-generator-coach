@@ -13,6 +13,7 @@
      CLEAN checks, in a fixed pseudo-random order; the first one the evidence engine confirms is kept (at most one per game).
 3. Each MISTAKE position stores its evidence record and its verified alternatives (the top engine moves that are sound).
 4. A summary (outcome and reason counts, timings, config, pool counts) is written to `data/evidence/` (git-ignored).
+5. After a full run, positions from detector versions that are no longer current are retired (kept, never used again).
 
 Results for rejected candidates are not stored as positions, but their engine searches are cached, so a re-run is fast and
 gives the same answer.
@@ -34,19 +35,19 @@ import chess
 
 from app import config
 from app.db.schema import connect, default_path
-from app.detectors import clean, hanging_own_v3, missed_free_v3
+from app.detectors import clean, hanging_own_v4, missed_free_v3
 from app.detectors import prd_rules as R
 from app.detectors.hanging_own import hanging_pieces
 from app.detectors.missed_free import free_pieces
 from app.engine.batch import SCHEMA, game_id
-from app.learner import pools
+from app.learner import pools, seen
 from app.learner.review import rank_for_mover
 
 PREFILTER_LOSS_CP = 100
 PREFILTER_DECIDED_CP = 700  # a little looser than DECIDED_LIMIT_CP: depth 10 and depth 18 differ
 PREFILTER_MATERIAL = 2
 CLEAN_TRIES = 3
-DETECTORS = {"M1": hanging_own_v3, "M2": missed_free_v3}
+DETECTORS = {"M1": hanging_own_v4, "M2": missed_free_v3}
 
 
 def detector_tag(module) -> str:
@@ -205,6 +206,7 @@ def run(workers: int, limit: int | None) -> dict:
             if i % 25 == 0 or i == len(tasks):
                 elapsed = time.monotonic() - started
                 print(f"  {i}/{len(tasks)} games, {added} positions stored, {elapsed / 60:.1f} min", flush=True)
+    retired = retire_stale(conn) if limit is None else 0  # only a full run may retire: a partial one did not recheck all
     summary = {
         "finished_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "engine_config_id": config_id,
@@ -219,6 +221,7 @@ def run(workers: int, limit: int | None) -> dict:
         "outcomes": dict(sorted(outcomes.items())),
         "reasons": dict(sorted(reasons.items())),
         "positions_added": added,
+        "positions_retired": retired,
         "pool_counts": pools.pool_counts(conn),
         "positions": position_counts(conn),
     }
@@ -229,10 +232,29 @@ def run(workers: int, limit: int | None) -> dict:
     return summary
 
 
+def current_tags() -> set[str]:
+    return {detector_tag(m) for m in DETECTORS.values()} | {detector_tag(clean)}
+
+
+def retire_stale(conn) -> int:
+    """Retire positions made by a detector version that is no longer current (schema v3). "Seen" marks are first copied to
+    the current rows of the same board (`seen.propagate`), so a board the owner saw stays seen."""
+    seen.propagate(conn)
+    tags = sorted(current_tags())
+    cur = conn.execute(
+        f"UPDATE position SET retired_at = ? WHERE retired_at IS NULL AND detector_version NOT IN"
+        f" ({','.join('?' * len(tags))})",
+        (datetime.now(UTC).isoformat(timespec="seconds"), *tags),
+    )
+    return cur.rowcount
+
+
 def position_counts(conn) -> dict:
+    """Active (not retired) positions by kind, mistake type and pool."""
     out: dict = {}
     for row in conn.execute(
-        "SELECT kind, IFNULL(mistake_type, '-') AS t, pool, COUNT(*) AS n FROM position GROUP BY kind, t, pool"
+        "SELECT kind, IFNULL(mistake_type, '-') AS t, pool, COUNT(*) AS n FROM position WHERE retired_at IS NULL"
+        " GROUP BY kind, t, pool"
     ):
         out.setdefault(f"{row['kind']}:{row['t']}", {})[row["pool"]] = row["n"]
     return out
@@ -245,8 +267,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--limit", type=int, default=None, help="only the N most recent games with candidates")
     sub.add_parser("summary")
+    sub.add_parser("retire", help="retire positions from detector versions that are no longer current")
     args = p.parse_args(argv)
-    if args.cmd == "run":
+    if args.cmd == "retire":
+        print(f"{retire_stale(connect())} positions retired")
+    elif args.cmd == "run":
         summary = run(args.workers, args.limit)
         print(json.dumps({k: summary[k] for k in ("minutes", "outcomes", "positions")}, indent=1))
     else:
