@@ -5,9 +5,10 @@ A position (before the player's move) is CLEAN when:
 - the player's move lost less than CLEAN_MAX_LOSS_CP against the best move, at the evidence config;
 - at least one piece (knight, bishop, rook or queen, either side) is attacked, so the answer is not trivially "nothing";
 - the player is not in check;
-- there is no M1 or M2 opportunity (decision 6): none of the player's pieces can be won for MATERIAL_MIN or more by a legal
-  capture (static exchange), the player has no capture netting MATERIAL_MIN or more (static exchange), and the engine's best
-  line does not start with a capture that nets MATERIAL_MIN along the line.
+- there is nothing to win for either side (decision 6, tightened in v2 by decision 27): no capture by the opponent wins
+  anything of the player's, and none by the player wins anything of theirs (static exchange, NO_GAIN = 1 point or more), and
+  the engine's best line does not start with a capture that wins anything along the line. v1 used MATERIAL_MIN (3), which let
+  through a bishop attacked by a defended pawn (net 2) and a free pawn: the owner caught one in a baseline test.
 
 Pawns and kings do not count as "attacked pieces" (a reading: an attacked pawn is on nearly every board).
 """
@@ -21,7 +22,8 @@ from app.detectors.hanging_own_v4 import Finding, gates
 from app.detectors.see import capture_net
 
 DETECTOR = "clean"
-VERSION = "1"
+VERSION = "2"  # v2: no capture wins anything for either side (v1 only looked at 3 points or more)
+NO_GAIN = 1  # a capture netting this much or more is a threat or a free pickup, so the position is not CLEAN
 COUNTED = (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
 
 
@@ -43,17 +45,23 @@ def best_capture_net(board: chess.Board, side: chess.Color) -> int:
     return max((capture_net(b, m) for m in b.legal_moves if b.is_capture(m)), default=0)
 
 
+def threat_reason(board: chess.Board) -> str | None:
+    """Why "No immediate threat" would not be a fair answer in this position (the player to move), or None: a capture that
+    wins anything for either side (static exchange), or the player in check. Engine-free."""
+    if best_capture_net(board, board.turn) >= NO_GAIN:
+        return "player_has_free_capture"
+    if board.is_check():
+        return "in_check"
+    if best_capture_net(board, not board.turn) >= NO_GAIN:
+        return "player_piece_can_be_won"
+    return None
+
+
 def static_reason(board: chess.Board) -> str | None:
     """The engine-free checks, run first because they are cheap. Returns why the position is not CLEAN, or None."""
     if not attacked_pieces(board):
         return "nothing_attacked"
-    if best_capture_net(board, board.turn) >= R.MATERIAL_MIN:
-        return "player_has_free_capture"
-    if board.is_check():
-        return "in_check"
-    if best_capture_net(board, not board.turn) >= R.MATERIAL_MIN:
-        return "player_piece_can_be_won"
-    return None
+    return threat_reason(board)
 
 
 def detect(board: chess.Board, move: chess.Move, ply: int, analyser) -> Finding:
@@ -71,7 +79,7 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser) -> Finding:
     if skip:
         return Finding("skipped", skip)
     first = chess.Move.from_uci(before.best.move)
-    if board.is_capture(first) and R.line_swing(board, before.best.pv, mover)[0] >= R.MATERIAL_MIN:
+    if board.is_capture(first) and R.line_swing(board, before.best.pv, mover)[0] >= NO_GAIN:
         return Finding("not_clean", "best_line_wins_material")
     after_board = board.copy(stack=False)
     after_board.push(move)

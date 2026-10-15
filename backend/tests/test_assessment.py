@@ -567,3 +567,42 @@ def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_p
     assert c.execute("PRAGMA user_version").fetchone()[0] == 6
     row = c.execute("SELECT question_version, superseded_at FROM assessment").fetchone()
     assert tuple(row) == ("1", None)
+
+
+# --- a "nothing is wrong" position with a small threat is left out of the score (ADR 0006 decision 27) ---------------------
+
+# The owner's case: Black's bishop on g4 is attacked by the h3 pawn and defended only by a knight (loses 3 for 1).
+OWNER_FEN = "r3kb1r/ppp2pp1/2nq1n1p/3pp3/3P2b1/1BP2N1P/PP3PP1/RNBQK2R b KQkq - 0 10"
+
+
+def test_a_clean_position_with_a_small_threat_is_left_out_of_score_denominator_and_chance(store):
+    conn = store.conn
+    aid = start(conn, "M1")
+    rows = allocated(conn, aid)
+    flawed = next(r for r in rows if r["kind"] == "CLEAN")
+    conn.execute("UPDATE position SET fen = ? WHERE id = ?", (OWNER_FEN, flawed["id"]))
+    view = A.get_assessment(conn, aid, now=T0)
+    while view["current"]:  # tap "No immediate threat" and play the first legal move everywhere
+        cur = view["current"]
+        view = A.submit_item(conn, aid, cur["ord"], "none", cur["legal_moves"][0], FakeAnalyser(), now=T0 + timedelta(seconds=9))
+    A.submit(conn, aid, now=T0 + timedelta(minutes=5))
+    for pid in A.missing_move_chances(conn, aid):
+        A.compute_move_chance(conn, pid, FakeAnalyser())
+    r = A.results(conn, aid)
+    out = [i for i in r["items"] if i["left_out"]]
+    assert len(out) == 1 and out[0]["fen"] == OWNER_FEN
+    assert "something of yours could be won" in out[0]["left_out"] and out[0]["explanation"] == out[0]["left_out"]
+    assert r["total"] == 4 and r["left_out_count"] == 1 and r["versions"]["clean"] == "2"
+    counted = [i for i in r["items"] if not i["left_out"]]
+    assert r["scores"]["recognition"] == sum(i["tap_correct"] for i in counted)
+    assert r["scores"]["move"] == sum(i["move_sound"] for i in counted)
+    assert r["chance"]["recognition"] == round(sum(i["recognition_chance"] for i in counted), 2)
+    assert r["chance"]["move"] == round(sum(i["move_chance"] for i in counted), 2)
+
+
+def test_fair_clean_positions_and_mistake_positions_are_never_left_out(store):
+    conn = store.conn
+    aid = start(conn, "M2")
+    finish_v1(conn, aid)
+    r = A.results(conn, aid)
+    assert r["left_out_count"] == 0 and r["total"] == 5 and all(i["left_out"] is None for i in r["items"])
