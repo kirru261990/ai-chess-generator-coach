@@ -262,7 +262,7 @@ def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) 
     """What the player may see after the move: the original mistake, the verdict, what it allowed, whether the new move avoids
     it. Built from the evidence record and the stored verdict only (PRD §12)."""
     ev = json.loads(pos["evidence_json"])
-    verdict = json.loads(attempt["verdict_json"])
+    verdict = A.with_mate(conn, json.loads(attempt["verdict_json"]), pos["fen"], pos["engine_config_id"])
     sound_ = bool(attempt["move_sound"])
     line = ev["refutation_line"]
     game_move = ev["player_move"]
@@ -288,7 +288,7 @@ def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) 
         "your_move": verdict["move"],
         "sound": sound_,
         "verdict": "SOUND" if sound_ else "NOT SOUND",
-        "avoids": A.move_reason(verdict, sound_),
+        "avoids": A.move_reason(verdict, sound_, pos["mistake_type"]),
         "good_moves": [{"uci": m["uci"], "san": m["san"]} for m in alternatives],
         "hint_level": attempt["hint_level"],
     }
@@ -386,8 +386,7 @@ def submit_move(conn: sqlite3.Connection, session_id: int, ord_: int, move_uci: 
     elapsed = min(ELAPSED_CAP_MS, max(0, int((now - datetime.fromisoformat(attempt["created_at"])).total_seconds() * 1000)))
     conn.execute(
         "UPDATE practice_attempt SET move = ?, move_sound = ?, elapsed_ms = ?, verdict_json = ? WHERE id = ?",
-        (move.uci(), int(verdict.sound), elapsed,
-         json.dumps({"eval_loss": verdict.eval_loss, "failed": list(verdict.failed), "move": verdict.move}), attempt["id"]),
+        (move.uci(), int(verdict.sound), elapsed, A.verdict_json(verdict), attempt["id"]),
     )
     return get_session(conn, session_id, now=now)
 

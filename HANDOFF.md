@@ -8,7 +8,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 1. `cd ~/Projects/ai-chess-generator-coach`. Read `AGENTS.md`, this file, then `REVIEW.md`. Spec: `docs/spec.md` (v0.4, with the Practice changes in `docs/decisions/0005-practice-assistance.md`). Decisions: `docs/decisions/`.
 2. `git checkout main && git pull`. **`main` holds everything the owner practises with**; check `gh pr list` for anything open (the docs PR `docs/handoff-51-53` may still be waiting for the owner to say merge).
-3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**811 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**74 tests**; `oxlint` has 4 known warnings in `App.tsx`).
+3. Check the machine: `cd backend && uv sync && uv run pytest -q && uv run ruff check .` (**819 passed, 1 skipped** on 2026-10-15; run it alone, overlapping `uv run` jobs queue behind each other). `cd ../web && pnpm install && pnpm test && pnpm exec tsc -b` (**74 tests**; `oxlint` has 4 known warnings in `App.tsx`).
 4. Ask the owner what to do first (see "Next up" and "Decisions waiting on the owner"), take one task per branch `feat/<name>` or `fix/<name>`, one PR each. **Do not switch branches in the folder the owner's dev server serves while they practise**: use `git worktree add`.
 
 ## Current state
@@ -68,6 +68,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 ---
 
 ## Log
+
+### 2026-10-15 · second Mac · Claude Code (session 27, part 5): the owner's first practice session
+- **The owner played one M1 practice session** (5 positions, 9 tries, no hints, no errors in the log); the real-game "before" window for M1 is frozen (the M2 window is not: no M2 session yet). The numbers are not in the repo (owner's games).
+- **Wording fix on `fix/stronger-move-wording`** (ADR 0006 decision 36, owner-approved text): a move that failed only the strict 100 cp rule now says what it did ("This saves your piece, but a stronger move existed (about 1.1 pawns better)"), and from 3 points of loss up "something else went wrong". **Counting is unchanged.** `assessment.stronger_move_words`, `move_reason`, `_move_words`; used by the practice feedback and the results page.
+- **Review on PR 73 (1 finding, reproduced and fixed):** a loss caused by a mate score was worded as "about N pawns better" (`R.MATE_CP` is a stand-in). The verdict now records `mate` (`sound.mate_flag`; schema unchanged, it is in the stored JSON) and the sentence says "allows checkmate" / "there was a forced checkmate for you"; older verdicts are resolved from the cached searches (`assessment.with_mate`). None of the owner's real moves involved a mate.
+- **Tests:** backend 819 passed (1 skipped), ruff clean. Web unchanged (the text comes from the server).
 
 ### 2026-10-15 · second Mac · Claude Code (session 27, part 4): PRD v2 Step 3, Replay My Mistakes
 - **Built on `feat/step3-replay`:** `learner/practice.py` (start with the baseline lock and the frozen real-game window, selection, question step, move check with the sound rules, hint ladder H1 to H3, feedback, retry, next, summary, resume), routes under `/coach/practice/...` in `api/coach.py`, schema **v7**, web: practice block on the My mistakes home (start, continue, last summary), the practice page and the summary page. ADR 0006 decisions 30 to 35.

@@ -351,8 +351,7 @@ def submit_item(conn: sqlite3.Connection, assessment_id: int, ord_: int, recogni
             " move_sound, elapsed_ms, interrupted, verdict_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (assessment_id, current["position_id"], recognition,
              int(recognition_correct(current["kind"], evidence, recognition)), move.uci(), int(verdict.sound), elapsed,
-             int(interrupted), json.dumps({"eval_loss": verdict.eval_loss, "failed": list(verdict.failed),
-                                           "move": verdict.move})),
+             int(interrupted), verdict_json(verdict)),
         )
     except sqlite3.IntegrityError:
         raise AssessmentError("not_current_position", "this position is already answered") from None
@@ -457,7 +456,66 @@ _REASONS = {
 }
 
 
-def move_reason(verdict: dict, sound_: bool) -> str:
+def verdict_json(verdict: sound.Verdict) -> str:
+    """The verdict as stored on an assessment answer or a practice attempt."""
+    return json.dumps({"eval_loss": verdict.eval_loss, "failed": list(verdict.failed), "move": verdict.move,
+                       "mate": verdict.mate})
+
+
+def with_mate(conn: sqlite3.Connection, verdict: dict, fen: str, engine_config_id: str) -> dict:
+    """The stored verdict with its `mate` flag. Verdicts stored before the flag existed (review on PR 73) are worked out from
+    the position's cached searches at its own engine config; if they are not cached the flag stays None (the pawn wording)."""
+    if "mate" in verdict:
+        return verdict
+    board = chess.Board(fen)
+    try:
+        move = chess.Move.from_uci(verdict["move"]["uci"])
+        mover = board.turn
+        before = cached_analysis(conn, fen, engine_config_id)
+        board.push(move)
+        after = cached_analysis(conn, board.fen(), engine_config_id)
+    except (KeyError, ValueError):
+        return {**verdict, "mate": None}
+    flag = sound.mate_flag(mover, before, after, verdict["eval_loss"]) if before and after else None
+    return {**verdict, "mate": flag}
+
+
+_MATE_WORDS = {
+    # kind -> (the move allows a forced mate against you, you had a forced mate and did not play it)
+    "M1": ("This deals with the original danger, but it allows checkmate.",
+           "This saves your piece, but there was a forced checkmate for you."),
+    "M2": ("This takes the free piece, but it allows checkmate.",
+           "This takes the free piece, but there was a forced checkmate for you."),
+    "CLEAN": ("That allows checkmate.", "There was a forced checkmate for you."),
+}
+
+
+def stronger_move_words(verdict: dict, kind: str) -> str | None:
+    """The sentence for a move that passed the other sound rules and failed only the strict one (the loss against the engine's
+    best move is over SOUND_MAX_LOSS_CP). The counting does not change: this is still "not sound". It only says what the move
+    did, because "it gave away too much" is misleading for a retreat that saves the piece. `kind` is M1, M2 or CLEAN.
+    When a forced mate is behind the loss it says so and shows no number (a mate score is a stand-in, never an amount).
+    Otherwise, below MATERIAL_MIN points the move is said to do its job and a stronger one existed; from there up something
+    else went wrong and the sentence says so instead of claiming the piece is safe. None when another rule failed too."""
+    if list(verdict["failed"]) != ["eval_loss_too_large"]:
+        return None
+    mate = verdict.get("mate")
+    if mate in ("allowed", "missed"):
+        return _MATE_WORDS[kind][0 if mate == "allowed" else 1]
+    pawns = f"{verdict['eval_loss'] / 100:.1f}"
+    big = verdict["eval_loss"] >= R.MATERIAL_MIN * 100
+    if kind == "M1":
+        if big:
+            return f"This deals with the original danger, but something else went wrong: the best move was about {pawns} pawns better."
+        return f"This saves your piece, but a stronger move existed (about {pawns} pawns better)."
+    if kind == "M2":
+        if big:
+            return f"This takes the free piece, but something else went wrong: the best move was about {pawns} pawns better."
+        return f"This takes the free piece, but a stronger move existed (about {pawns} pawns better)."
+    return f"A stronger move existed (about {pawns} pawns better)."
+
+
+def move_reason(verdict: dict, sound_: bool, kind: str) -> str:
     """One sentence on what the move did about the problem (no repeat of the move or the verdict), for the practice feedback."""
     if sound_:
         return "That deals with the problem."
@@ -465,13 +523,16 @@ def move_reason(verdict: dict, sound_: bool) -> str:
         return "They could still win the piece."
     if "free_piece_not_taken" in verdict["failed"]:
         return "The free piece was left, and it gave away too much."
-    return "It gave away too much."
+    return stronger_move_words(verdict, kind) or "It gave away too much."
 
 
-def _move_words(verdict: dict, sound_: bool) -> str:
+def _move_words(verdict: dict, sound_: bool, kind: str) -> str:
     san = verdict["move"]["san"]
     if sound_:
         return f"Your move {san} was sound."
+    soft = stronger_move_words(verdict, kind)
+    if soft:
+        return f"Your move {san} was not sound. {soft}"
     reasons = [_REASONS[c] for c in verdict["failed"] if c in _REASONS]
     if "refutation_still_wins" in verdict["failed"]:
         reasons = [_REASONS["refutation_still_wins"]]
@@ -514,7 +575,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
     items = []
     for r in rows:
         evidence = json.loads(r["evidence_json"])
-        verdict = json.loads(r["verdict_json"])
+        verdict = with_mate(conn, json.loads(r["verdict_json"]), r["fen"], r["engine_config_id"])
         board = chess.Board(r["fen"])
         out = left_out_reason(r["kind"], board, conn=conn, engine_config_id=r["engine_config_id"])
         if r["kind"] == "CLEAN":
@@ -537,7 +598,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "move_sound": bool(r["move_sound"]),
             "correct": bool(r["recognition_correct"] and r["move_sound"]),
             "explanation": out or explain(r["kind"], evidence, r["fen"]),
-            "move_explanation": _move_words(verdict, bool(r["move_sound"])),
+            "move_explanation": _move_words(verdict, bool(r["move_sound"]), "CLEAN" if r["kind"] == "CLEAN" else a["mistake_type"]),
             "good_moves": [{"uci": m["uci"], "san": m["san"]} for m in good_moves],
             "game_move": evidence["player_move"],
             "line": line,  # MISTAKE: the refutation (M1, played after the game move) or the capture (M2)
