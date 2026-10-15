@@ -98,3 +98,4 @@
 button.primary { background: #3caa5a; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
 button.primary:disabled { opacity: 0.5; cursor: default; }
 .side-col .controls { justify-content: flex-start; flex-wrap: wrap; margin: 0; }
+.feedback button.on { background: #fff3c4; border-color: #e0b030; color: #403d39; font-weight: 600; }
