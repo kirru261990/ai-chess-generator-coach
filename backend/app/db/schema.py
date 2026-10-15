@@ -11,6 +11,7 @@ be broken are enforced by the database itself, not only by the code that writes 
 - a game-derived position is stored once per (game, ply, kind, mistake type, config, detector version), CLEAN included
 - at most one unsubmitted assessment per user and mistake type
 - a board (game and ply) is assessed once, ever, whichever of its rows (M1, M2) was allocated
+- a submitted assessment can be set aside (never deleted, its positions stay TESTED), and only once
 - a frozen real-game baseline window is never edited or deleted
 
 `connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
@@ -28,7 +29,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -312,8 +313,28 @@ CREATE TABLE position_move_chance (
 ALTER TABLE assessment_result ADD COLUMN verdict_json TEXT;
 """
 
+_SCHEMA_V6 = """
+-- The wording of the recognition (tap) step. '1' let the player tap a piece of either side and was easy to mix up with the
+-- move; '2' (ADR 0006 decision 24) only accepts the side the question is about. Assessments taken before v6 are '1'.
+ALTER TABLE assessment ADD COLUMN question_version TEXT NOT NULL DEFAULT '1';
+
+-- A submitted assessment can be set aside, with a reason (for example a question that turned out to be confusing). It is
+-- kept, its positions stay TESTED and are never used again, and it no longer counts as the baseline.
+ALTER TABLE assessment ADD COLUMN superseded_at TEXT;
+ALTER TABLE assessment ADD COLUMN superseded_reason TEXT;
+
+CREATE TRIGGER assessment_supersede_only_submitted BEFORE UPDATE OF superseded_at ON assessment
+WHEN NEW.superseded_at IS NOT NULL AND NEW.status <> 'submitted'
+BEGIN SELECT RAISE(ABORT, 'only a submitted assessment can be set aside'); END;
+
+CREATE TRIGGER assessment_supersede_is_final BEFORE UPDATE OF superseded_at, superseded_reason ON assessment
+WHEN OLD.superseded_at IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'a set-aside assessment stays set aside'); END;
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
-_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5}
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5,
+               6: _SCHEMA_V6}
 
 
 class SchemaError(Exception):

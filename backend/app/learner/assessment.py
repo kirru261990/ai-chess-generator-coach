@@ -9,6 +9,9 @@ The web API and, later, the MCP server call these functions; neither has scoring
   where the piece was left in danger (ADR 0006 decision 14). The database refuses anything else (`app/db/schema.py`).
 - **Before the final submit (§7.4, §11)** a response holds the current board and its legal moves only: never the kind, the
   answer, the best move, an eval, a line or a verdict. Answers are scored when given and revealed only after the final submit.
+- **The tap (question version 2, ADR 0006 decision 24):** M1 asks about the player's own pieces, M2 about the opponent's, and
+  only those can be tapped; the server refuses any other tap. Assessments taken before v6 are version 1 (either side could be
+  tapped) and keep their own random-guess rate.
 - **Scoring (§7.5):** recognition is correct when the tapped square is a target square (MISTAKE) or the answer is "No
   immediate threat" (CLEAN). The move is judged with the sound-move rules (`detectors/sound.py`) at the position's own engine
   config; a different config is refused, never compared. Combined = both. Random-guess rates sit next to every score.
@@ -39,14 +42,19 @@ MIN_HELDOUT_CLEAN = 8
 TIME_CAP_MS = 300_000
 RESHOW_GAP_S = 10  # a page that asks for the same board twice in a row is not an interruption
 NO_THREAT = "none"
+QUESTION_VERSION = "2"  # the recognition wording; schema v6 records it on each assessment
 
 LABELS = {"M1": "Pieces left in danger", "M2": "Free pieces to take"}
 CUES = {
-    "M1": "This test is about pieces left in danger. In each position, tap your piece that can be won, or tap "
-          "\"No immediate threat\". Then make your move. There is no help and no feedback until the end.",
-    "M2": "This test is about free pieces. In each position, tap their piece you can win, or tap \"No immediate threat\". "
-          "Then make your move. There is no help and no feedback until the end.",
+    "M1": "This test is about pieces left in danger. Each position has two steps. Step 1 is a question: tap one of YOUR "
+          "pieces that the other side can win, or choose \"No immediate threat\". It is not a move yet. Step 2 is your move. "
+          "There is no help and no feedback until the end.",
+    "M2": "This test is about free pieces. Each position has two steps. Step 1 is a question: tap one of THEIR pieces that "
+          "you can win for free, or choose \"No immediate threat\". It is not a move yet. Step 2 is your move. "
+          "There is no help and no feedback until the end.",
 }
+V1_NOTE = ("This test used the first wording of the tap question, which let you tap a piece of either side and was easy to "
+           "mix up with your move. Trust the move score. The tap score cannot be compared with later tests.")
 
 # A held-out position that can still be assessed. Unaliased `position` (UNSEEN_BOARD refers to it).
 _ASSESSABLE = (
@@ -79,6 +87,15 @@ def _now(now: datetime | None) -> datetime:
 
 def _iso(t: datetime) -> str:
     return t.isoformat(timespec="milliseconds")
+
+
+def tap_squares(board: chess.Board, mistake_type: str, question_version: str = QUESTION_VERSION) -> list[str]:
+    """The squares the player may tap at the question step: M1 their own pieces, M2 the opponent's (version 2); any piece
+    in version 1."""
+    if question_version == "1":
+        return sorted(chess.square_name(sq) for sq in board.piece_map())
+    side = board.turn if mistake_type == "M1" else not board.turn
+    return sorted(chess.square_name(sq) for sq, piece in board.piece_map().items() if piece.color == side)
 
 
 def _check_type(mistake_type: str) -> None:
@@ -115,7 +132,7 @@ def home(conn: sqlite3.Connection) -> dict:
     for t in TYPES:
         row = conn.execute(
             "SELECT id, status FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'BASELINE'"
-            " ORDER BY id DESC LIMIT 1",
+            " AND superseded_at IS NULL ORDER BY id DESC LIMIT 1",
             (user(), t),
         ).fetchone()
         baseline = {"assessment_id": row["id"], "status": row["status"]} if row else None
@@ -148,7 +165,8 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
     """Create the BASELINE assessment for a type, or return the open one (resume). One baseline per type, ever."""
     _check_type(mistake_type)
     row = conn.execute(
-        "SELECT id, status FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'BASELINE' ORDER BY id DESC LIMIT 1",
+        "SELECT id, status FROM assessment WHERE user = ? AND mistake_type = ? AND kind = 'BASELINE'"
+        " AND superseded_at IS NULL ORDER BY id DESC LIMIT 1",
         (user(), mistake_type),
     ).fetchone()
     if row and row["status"] == "submitted":
@@ -172,9 +190,9 @@ def start_baseline(conn: sqlite3.Connection, mistake_type: str, *, rng: random.R
     t = _iso(_now(now))
     with transaction(conn):
         aid = conn.execute(
-            "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
-            " VALUES (?, ?, 'BASELINE', ?, ?, 'pending')",
-            (user(), mistake_type, t, t),
+            "INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status, question_version)"
+            " VALUES (?, ?, 'BASELINE', ?, ?, 'pending', ?)",
+            (user(), mistake_type, t, t, QUESTION_VERSION),
         ).lastrowid
         for ord_, r in enumerate(chosen):
             conn.execute(
@@ -255,6 +273,7 @@ def get_assessment(conn: sqlite3.Connection, assessment_id: int, *, now: datetim
         "fen": current["fen"],
         "side_to_move": "white" if board.turn == chess.WHITE else "black",
         "legal_moves": sorted(m.uci() for m in board.legal_moves),
+        "tap_squares": tap_squares(board, a["mistake_type"], a["question_version"]),
     }
     return view
 
@@ -290,13 +309,11 @@ def submit_item(conn: sqlite3.Connection, assessment_id: int, ord_: int, recogni
     if current is None or current["ord"] != ord_:
         raise AssessmentError("not_current_position", "answer the position on the board; a submitted one cannot be changed")
     board = chess.Board(current["fen"])
-    if recognition != NO_THREAT:
-        try:
-            square = chess.parse_square(recognition)
-        except ValueError:
-            raise AssessmentError("tap_a_piece", "tap a piece, or choose \"No immediate threat\"") from None
-        if board.piece_at(square) is None:
-            raise AssessmentError("tap_a_piece", "tap a piece, or choose \"No immediate threat\"")
+    if recognition != NO_THREAT and recognition not in tap_squares(board, a["mistake_type"], a["question_version"]):
+        raise AssessmentError(
+            "tap_a_piece",
+            "tap one of " + ("your" if a["mistake_type"] == "M1" else "their") + " pieces, or choose \"No immediate threat\"",
+        )
     try:
         move = chess.Move.from_uci(move_uci)
     except ValueError:
@@ -353,11 +370,13 @@ def submit(conn: sqlite3.Connection, assessment_id: int, *, now: datetime | None
 # --- random-guess rates --------------------------------------------------------------------------------------------------
 
 
-def recognition_chance(kind: str, evidence: dict, fen: str) -> float:
-    """PRD §7.5 with ADR 0006 decision 7: right answers ÷ (pieces on the board + 1 for "No immediate threat")."""
+def recognition_chance(kind: str, evidence: dict, fen: str, mistake_type: str,
+                       question_version: str = QUESTION_VERSION) -> float:
+    """PRD §7.5 with ADR 0006 decisions 7 and 24: right answers ÷ (pieces that can be tapped + 1 for "No immediate threat").
+    Version 2 counts only the side the question is about; version 1 counted every piece on the board."""
     board = chess.Board(fen)
     right = 1 if kind == "CLEAN" else len(evidence["target_squares"])
-    return right / (len(board.piece_map()) + 1)
+    return right / (len(tap_squares(board, mistake_type, question_version)) + 1)
 
 
 def move_chance(conn: sqlite3.Connection, position_id: int, engine_config_id: str) -> float | None:
@@ -482,7 +501,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "line": line,  # MISTAKE: the refutation (M1, played after the game move) or the capture (M2)
             "seconds": None if r["elapsed_ms"] is None else round(r["elapsed_ms"] / 1000),
             "interrupted": bool(r["interrupted"]),
-            "recognition_chance": recognition_chance(r["kind"], evidence, r["fen"]),
+            "recognition_chance": recognition_chance(r["kind"], evidence, r["fen"], a["mistake_type"], a["question_version"]),
             "move_chance": move_chance(conn, r["position_id"], r["engine_config_id"]),
         })
     n = len(items)
@@ -495,6 +514,9 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
         "assessment_kind": a["kind"],
         "mistake_type": a["mistake_type"],
         "label": LABELS[a["mistake_type"]],
+        "question_version": a["question_version"],
+        "notes": [V1_NOTE] if a["question_version"] == "1" else [],
+        "set_aside": a["superseded_at"] is not None,
         "submitted_at": a["submitted_at"],
         "total": n,
         "scores": {
@@ -514,3 +536,50 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
         "items": items,
         "versions": {"sound": sound.VERSION, "rules": R.RULES_VERSION},
     }
+
+
+# --- setting a baseline aside --------------------------------------------------------------------------------------------
+
+
+def supersede_baseline(conn: sqlite3.Connection, assessment_id: int, reason: str, *, now: datetime | None = None) -> dict:
+    """Set a submitted baseline aside so the type can be taken again (ADR 0006 decision 25). Nothing is deleted: the answers
+    stay, its positions stay TESTED and are never used again, and it simply stops being the baseline."""
+    a = _load(conn, assessment_id)
+    if a["kind"] != "BASELINE":
+        raise AssessmentError("not_a_baseline", "only a baseline can be set aside")
+    if a["status"] != "submitted":
+        raise AssessmentError("not_finished", "only a submitted assessment can be set aside")
+    if a["superseded_at"] is not None:
+        raise AssessmentError("already_set_aside", "this baseline is already set aside")
+    if not reason.strip():
+        raise AssessmentError("reason_needed", "say why it is set aside")
+    conn.execute(
+        "UPDATE assessment SET superseded_at = ?, superseded_reason = ? WHERE id = ?",
+        (_iso(_now(now)), reason.strip(), assessment_id),
+    )
+    return {"assessment_id": assessment_id, "mistake_type": a["mistake_type"], "set_aside": True}
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    from app.db.schema import connect
+
+    parser = argparse.ArgumentParser(prog="python -m app.learner.assessment")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    one = sub.add_parser("supersede", help="set a submitted baseline aside so it can be retaken (nothing is deleted)")
+    one.add_argument("assessment_id", type=int)
+    one.add_argument("--reason", required=True)
+    sub.add_parser("list", help="list assessments")
+    args = parser.parse_args(argv)
+    conn = connect()
+    if args.cmd == "list":
+        for r in conn.execute("SELECT id, mistake_type, kind, status, question_version, superseded_at FROM assessment"):
+            print(dict(r))
+        return 0
+    print(supersede_baseline(conn, args.assessment_id, args.reason))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

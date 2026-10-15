@@ -36,6 +36,7 @@ export type AssessmentView = {
     fen: string
     side_to_move: 'white' | 'black'
     legal_moves: string[]
+    tap_squares: string[] // the pieces that may be tapped at the question step (the server decides which side)
   } | null
 }
 
@@ -152,4 +153,21 @@ export function scoreLine(score: number, total: number, chance: number | null): 
 /** The tap in words, for the results page. */
 export function tapWords(tap: string): string {
   return tap === NO_THREAT ? '"No immediate threat"' : `the piece on ${tap}`
+}
+
+/**
+ * Why a click at the question step does nothing, or null when it sets the answer. The server decides which pieces can be
+ * tapped (M1 your own, M2 theirs); this only explains. "No immediate threat" is never replaced by a click on the board.
+ */
+export function tapRefusal(
+  tap: string | null,
+  square: string,
+  tapSquares: string[],
+  type: 'M1' | 'M2',
+): string | null {
+  if (tap === NO_THREAT) return 'You chose "No immediate threat". Press that button again if you want to change your answer.'
+  if (!tapSquares.includes(square)) {
+    return type === 'M1' ? 'Tap one of your own pieces, or choose "No immediate threat".' : 'Tap one of their pieces, or choose "No immediate threat".'
+  }
+  return null
 }

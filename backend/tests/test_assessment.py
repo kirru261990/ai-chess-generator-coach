@@ -147,10 +147,12 @@ def answer(conn, aid, view, good=True, now=None, analyser=None):
         "SELECT kind, mistake_type FROM position p JOIN assessment_position ap ON ap.position_id = p.id"
         " WHERE ap.assessment_id = ? AND ap.ord = ?", (aid, cur["ord"])).fetchone()
     kind = pos["mistake_type"] or "CLEAN"
+    right = {"M1": "h7", "M2": "d5"}.get(kind)
+    wrong = next(sq for sq in cur["tap_squares"] if sq != right)  # a tappable square that is not the answer
     tap, move = {
-        ("M1", True): ("h7", "h7h1"), ("M1", False): ("d2", "g1f1"),
-        ("M2", True): ("d5", "d2d5"), ("M2", False): ("d2", "g1f1"),
-        ("CLEAN", True): ("none", "e1f1"), ("CLEAN", False): ("d2", "e1f1"),
+        ("M1", True): ("h7", "h7h1"), ("M1", False): (wrong, "g1f1"),
+        ("M2", True): ("d5", "d2d5"), ("M2", False): (wrong, "g1f1"),
+        ("CLEAN", True): ("none", "e1f1"), ("CLEAN", False): (wrong, "e1f1"),
     }[(kind, good)]
     return A.submit_item(conn, aid, cur["ord"], tap, move, analyser or FakeAnalyser(), now=now or T0 + timedelta(seconds=7))
 
@@ -399,8 +401,9 @@ def test_random_guess_rates(store):
     finish(conn, aid)
     r = A.results(conn, aid)
     assert r["chance_pending"] and r["chance"]["move"] is None
-    # recognition: right answers / (pieces + 1): M1 board has 5 pieces, CLEAN board 3
-    expected = sum(1 / 6 if i["kind"] == "MISTAKE" else 1 / 4 for i in r["items"])
+    # recognition (question version 2): right answers / (pieces of the asked side + 1). M1 asks about the player's own
+    # pieces: the MISTAKE board has 3 (rook, bishop, king), the CLEAN board 2 (bishop, king)
+    expected = sum(1 / 4 if i["kind"] == "MISTAKE" else 1 / 3 for i in r["items"])
     assert r["chance"]["recognition"] == round(expected, 2)
     pending = A.missing_move_chances(conn, aid)
     assert len(pending) == 5
@@ -453,3 +456,114 @@ def test_baseline_window_freezes_the_last_30_games_per_time_control_once(conn):
     assert realgame.frozen_windows(conn, "M2") == []
     with pytest.raises(sqlite3.IntegrityError, match="never edited"):
         conn.execute("UPDATE baseline_window SET game_ids_json = '[]'")
+
+
+# --- the tap step, question version 2 (ADR 0006 decision 24) -----------------------------------------------------------------
+
+
+def current_of(conn, aid):
+    return A.get_assessment(conn, aid, now=T0)["current"]
+
+
+def test_m1_taps_only_the_players_own_pieces_and_m2_only_the_opponents(store):
+    conn = store.conn
+    for t, own_side in (("M1", True), ("M2", False)):
+        aid = start(conn, t)
+        cur = current_of(conn, aid)
+        board = chess.Board(cur["fen"])
+        side = board.turn if own_side else not board.turn
+        assert cur["tap_squares"] == sorted(chess.square_name(sq) for sq, p in board.piece_map().items() if p.color == side)
+        other = next(chess.square_name(sq) for sq, p in board.piece_map().items() if p.color != side)
+        with pytest.raises(A.AssessmentError) as e:
+            A.submit_item(conn, aid, cur["ord"], other, cur["legal_moves"][0], FakeAnalyser())
+        assert e.value.code == "tap_a_piece" and ("your" if own_side else "their") in str(e.value)
+        A.submit_item(conn, aid, cur["ord"], cur["tap_squares"][0], cur["legal_moves"][0], FakeAnalyser(), now=T0)
+
+
+def test_new_baselines_are_question_version_2_and_old_ones_stay_version_1(store):
+    conn = store.conn
+    aid = start(conn)
+    assert conn.execute("SELECT question_version FROM assessment WHERE id = ?", (aid,)).fetchone()[0] == A.QUESTION_VERSION
+    conn.execute("UPDATE assessment SET question_version = '1' WHERE id = ?", (aid,))  # as if taken before v6
+    cur = current_of(conn, aid)
+    assert len(cur["tap_squares"]) == len(chess.Board(cur["fen"]).piece_map())  # version 1: any piece
+    finish_v1(conn, aid)
+    r = A.results(conn, aid)
+    assert r["question_version"] == "1" and r["notes"] == [A.V1_NOTE]
+    # version 1 keeps its own random-guess rate: right answers / (all pieces + 1)
+    first = r["items"][0]
+    n_pieces = len(chess.Board(first["fen"]).piece_map())
+    assert first["recognition_chance"] == pytest.approx(1 / (n_pieces + 1))
+
+
+def finish_v1(conn, aid):
+    view = A.get_assessment(conn, aid, now=T0)
+    while view["current"]:
+        cur = view["current"]
+        view = A.submit_item(conn, aid, cur["ord"], cur["tap_squares"][0], cur["legal_moves"][0], FakeAnalyser(),
+                             now=T0 + timedelta(seconds=5))
+    A.submit(conn, aid, now=T0 + timedelta(minutes=5))
+
+
+# --- setting a baseline aside (ADR 0006 decision 25) ---------------------------------------------------------------------
+
+
+def test_a_submitted_baseline_can_be_set_aside_and_retaken_with_fresh_positions(store):
+    conn = store.conn
+    for _ in range(6):  # the pool minimum (16) still has to hold for the retake after the first test used 3-4
+        store.position("M1")
+    first = start(conn)
+    first_ids = {r["id"] for r in allocated(conn, first)}
+    finish(conn, first)
+    assert A.home(conn)["types"][0]["baseline"] == {"assessment_id": first, "status": "submitted"}
+    out = A.supersede_baseline(conn, first, "the tap question was confusing", now=T0)
+    assert out == {"assessment_id": first, "mistake_type": "M1", "set_aside": True}
+    assert A.home(conn)["types"][0]["baseline"] is None  # no longer the baseline
+    second = A.start_baseline(conn, "M1", rng=random.Random(2), now=T0)
+    assert second["resumed"] is False and second["assessment_id"] != first
+    new_ids = {r["id"] for r in allocated(conn, second["assessment_id"])}
+    assert not first_ids & new_ids  # the set-aside test's positions stay TESTED, never reused
+    assert all(r["exposure_status"] == "TESTED" for r in allocated(conn, first))
+    assert A.results(conn, first)["set_aside"] is True  # nothing deleted
+
+
+def test_only_a_submitted_baseline_can_be_set_aside_and_only_once(store):
+    conn = store.conn
+    aid = start(conn)
+    for bad, code in (("", "reason_needed"),):
+        with pytest.raises(A.AssessmentError) as e:
+            A.supersede_baseline(conn, aid, bad)
+        assert e.value.code in ("not_finished", code)  # not submitted yet
+    with pytest.raises(A.AssessmentError) as e:
+        A.supersede_baseline(conn, aid, "why")
+    assert e.value.code == "not_finished"
+    with pytest.raises(sqlite3.IntegrityError, match="only a submitted"):
+        conn.execute("UPDATE assessment SET superseded_at = 'x' WHERE id = ?", (aid,))
+    finish(conn, aid)
+    with pytest.raises(A.AssessmentError) as e:
+        A.supersede_baseline(conn, aid, "  ")
+    assert e.value.code == "reason_needed"
+    A.supersede_baseline(conn, aid, "why")
+    with pytest.raises(A.AssessmentError) as e:
+        A.supersede_baseline(conn, aid, "again")
+    assert e.value.code == "already_set_aside"
+    with pytest.raises(sqlite3.IntegrityError, match="stays set aside"):
+        conn.execute("UPDATE assessment SET superseded_at = NULL WHERE id = ?", (aid,))
+
+
+def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    c = connect(path)
+    c.execute("PRAGMA user_version = 5")
+    c.execute("DROP TRIGGER assessment_supersede_only_submitted")
+    c.execute("DROP TRIGGER assessment_supersede_is_final")
+    c.execute("ALTER TABLE assessment DROP COLUMN question_version")
+    c.execute("ALTER TABLE assessment DROP COLUMN superseded_at")
+    c.execute("ALTER TABLE assessment DROP COLUMN superseded_reason")
+    c.execute("INSERT INTO assessment (user, mistake_type, kind, created_at, due_at, status)"
+              " VALUES ('u', 'M1', 'BASELINE', 'x', 'x', 'submitted')")
+    c.close()
+    c = connect(path)
+    assert c.execute("PRAGMA user_version").fetchone()[0] == 6
+    row = c.execute("SELECT question_version, superseded_at FROM assessment").fetchone()
+    assert tuple(row) == ("1", None)

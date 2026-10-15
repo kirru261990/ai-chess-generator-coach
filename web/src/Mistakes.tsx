@@ -7,6 +7,7 @@ import {
   pieceColorAt,
   poolShortfall,
   scoreLine,
+  tapRefusal,
   startLabel,
   tapWords,
   targetsFrom,
@@ -140,7 +141,10 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
     if (!cur || busy) return
     const color = pieceColorAt(cur.fen, square)
     if (step === 'tap') {
-      if (color) setTap(square === tap ? null : square)
+      if (!color) return
+      const why = tapRefusal(tap, square, cur.tap_squares, view!.mistake_type)
+      setNote(why)
+      if (!why) setTap(square === tap ? null : square)
       return
     }
     const castle = from ? castleMove(cur.legal_moves, cur.fen, from, square) : null
@@ -187,8 +191,8 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
   }
   const arrows = move ? [{ startSquare: move.slice(0, 2), endSquare: move.slice(2, 4), color: 'rgba(80, 140, 230, 0.85)' }] : []
   const askWhat = view.mistake_type === 'M1'
-    ? 'Tap your piece that can be won, or choose "No immediate threat".'
-    : 'Tap their piece you can win, or choose "No immediate threat".'
+    ? 'Which of YOUR pieces can the other side win? Tap it, or choose "No immediate threat".'
+    : 'Which of THEIR pieces can you win for free? Tap it, or choose "No immediate threat".'
 
   return (
     <div className="app">
@@ -208,12 +212,13 @@ function Test({ id, onDone }: { id: number; onDone: () => void }) {
       </div>
       {step === 'tap' ? (
         <div className="feedback">
-          <p><strong>1. What is happening here?</strong> {askWhat}</p>
+          <p><strong>1. A question first. This is not your move yet.</strong> {askWhat}</p>
+          {note && <p className="fb-wrong">{note}</p>}
           <div className="controls">
-            <button className={tap === NO_THREAT ? 'on' : ''} onClick={() => setTap(tap === NO_THREAT ? null : NO_THREAT)}>
+            <button className={tap === NO_THREAT ? 'on' : ''} onClick={() => { setNote(null); setTap(tap === NO_THREAT ? null : NO_THREAT) }}>
               No immediate threat
             </button>
-            <button disabled={!tap} onClick={() => setStep('move')}>Next: make your move</button>
+            <button disabled={!tap} onClick={() => { setNote(null); setStep('move') }}>Next: make your move</button>
           </div>
           {tap && <p>Your answer: {tapWords(tap)}.</p>}
         </div>
