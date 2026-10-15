@@ -607,3 +607,80 @@ def test_stronger_move_words_only_when_that_is_the_only_rule_that_failed():
     v = {**soft, "move": {"uci": "a1b1", "san": "Rb1"}}
     assert A._move_words(v, False, "M1") == "Your move Rb1 was not sound. This saves your piece, but a stronger move existed (about 1.2 pawns better)."
     assert A._move_words({**v, "failed": ["refutation_still_wins"]}, False, "M1") == "Your move Rb1 was not sound: they could still win the piece."
+
+
+# --- review on PR 73: a mate score is never shown as a pawn amount -----------------------------------------------------------
+
+
+class MateAnalyser(FakeAnalyser):
+    """The scripted engine, except that one position is a forced mate for one side (`sign`: +1 White mates, -1 Black mates)."""
+
+    def __init__(self, fen, sign, before_fen=None):
+        self.fen, self.sign, self.before_fen = fen, sign, before_fen
+
+    def analyse(self, board, depth=None):
+        if board.fen() not in (self.fen, self.before_fen):
+            return super().analyse(board, depth)
+        moves = sorted(m.uci() for m in board.legal_moves)[:3]
+        return EvidenceAnalysis(board.fen(), CFG.id, tuple(Line(m, (m,), None, 2 * self.sign, self.sign, 18) for m in moves))
+
+
+def _rook_to_b1(conn, store):
+    sid, view = begin(conn)
+    cur = view["current"]
+    board = chess.Board(cur["fen"])
+    after = board.copy()
+    after.push_uci("a1b1")  # the rook leaves the bishop's diagonal: the original problem is gone
+    P.submit_recognition(conn, sid, cur["ord"], "a1", now=at(1))
+    return sid, cur, board, after
+
+
+def test_a_move_that_allows_mate_says_so_and_never_shows_a_pawn_amount(store):
+    conn = store.conn
+    sid, cur, _, after = _rook_to_b1(conn, store)
+    fb = P.submit_move(conn, sid, cur["ord"], "a1b1", MateAnalyser(after.fen(), -1), now=at(5))["current"]["feedback"]
+    assert fb["sound"] is False
+    assert fb["avoids"] == "This deals with the original danger, but it allows checkmate."
+    assert "pawn" not in fb["avoids"]
+    stored = json.loads(conn.execute("SELECT verdict_json FROM practice_attempt WHERE move IS NOT NULL").fetchone()[0])
+    assert stored["mate"] == "allowed"
+
+
+def test_a_move_that_misses_a_forced_mate_says_so(store):
+    conn = store.conn
+    sid, cur, board, _ = _rook_to_b1(conn, store)
+    fb = P.submit_move(conn, sid, cur["ord"], "a1b1", MateAnalyser(board.fen(), 1), now=at(5))["current"]["feedback"]
+    assert fb["avoids"] == "This saves your piece, but there was a forced checkmate for you."
+    assert json.loads(conn.execute("SELECT verdict_json FROM practice_attempt WHERE move IS NOT NULL").fetchone()[0])["mate"] == "missed"
+
+
+def test_mate_wording_for_every_kind_and_no_numbers():
+    base = {"failed": ["eval_loss_too_large"], "eval_loss": 1200}
+    for kind, allowed, missed in (
+        ("M1", "This deals with the original danger, but it allows checkmate.",
+         "This saves your piece, but there was a forced checkmate for you."),
+        ("M2", "This takes the free piece, but it allows checkmate.",
+         "This takes the free piece, but there was a forced checkmate for you."),
+        ("CLEAN", "That allows checkmate.", "There was a forced checkmate for you."),
+    ):
+        assert A.stronger_move_words({**base, "mate": "allowed"}, kind) == allowed
+        assert A.stronger_move_words({**base, "mate": "missed"}, kind) == missed
+    # another rule failing too keeps its own words, and no mate falls back to the pawn amount
+    assert A.move_reason({**base, "failed": ["refutation_still_wins", "eval_loss_too_large"], "mate": "allowed"}, False, "M1") \
+        == "They could still win the piece."
+    assert "pawns better" in A.stronger_move_words({**base, "mate": None}, "M1")
+
+
+def test_an_older_verdict_without_the_flag_is_read_from_the_cached_search(store):
+    """Verdicts stored before this fix have no `mate` key: it is worked out from the position's cached engine searches."""
+    from app.engine.evidence import store_analysis
+
+    conn = store.conn
+    _, cur, board, after = _rook_to_b1(conn, store)
+    config_id = conn.execute("SELECT engine_config_id FROM position WHERE fen = ?", (cur["fen"],)).fetchone()[0]
+    old = {"failed": ["eval_loss_too_large"], "eval_loss": 1200, "move": {"uci": "a1b1", "san": "Rb1"}}
+    assert A.with_mate(conn, old, cur["fen"], config_id)["mate"] is None  # nothing cached for either position
+    store_analysis(conn, EvidenceAnalysis(board.fen(), config_id, (Line("a1a2", ("a1a2",), 200, None, None, 18),)))
+    store_analysis(conn, EvidenceAnalysis(after.fen(), config_id, (Line("c3a1", ("c3a1",), None, -2, -1, 18),)))
+    assert A.with_mate(conn, old, cur["fen"], config_id)["mate"] == "allowed"
+    assert A.with_mate(conn, {**old, "mate": None}, cur["fen"], config_id)["mate"] is None  # a stored flag is never recomputed

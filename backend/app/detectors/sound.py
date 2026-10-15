@@ -28,6 +28,19 @@ class Verdict:
     eval_loss: int
     failed: tuple[str, ...]  # rule codes, empty when sound
     move: dict  # {uci, san}
+    mate: str | None = None  # "allowed": the engine's best reply is a forced mate against the mover; "missed": the mover had one
+
+
+def mate_flag(mover: chess.Color, before, after, loss: int) -> str | None:
+    """Whether a forced mate is behind the loss. `R.MATE_CP` is a stand-in number for a mate score, never an amount to show, so
+    the wording needs to know. "allowed": after the move the engine's best line is a mate against the mover. "missed": before
+    the move the mover had a forced mate and the move lost more than SOUND_MAX_LOSS_CP (review on PR 73)."""
+    if after is not None and after.best is not None and after.best.mate is not None and R.line_score(after.best, mover) < 0:
+        return "allowed"
+    if (before is not None and before.best is not None and before.best.mate is not None
+            and R.line_score(before.best, mover) > 0 and loss > R.SOUND_MAX_LOSS_CP):
+        return "missed"
+    return None
 
 
 def check_move(board: chess.Board, move: chess.Move, evidence: dict, analyser) -> Verdict:
@@ -59,7 +72,7 @@ def check_move(board: chess.Board, move: chess.Move, evidence: dict, analyser) -
             failed.append("free_piece_not_taken")
     if loss > R.SOUND_MAX_LOSS_CP:
         failed.append("eval_loss_too_large")
-    return Verdict(not failed, loss, tuple(failed), ref)
+    return Verdict(not failed, loss, tuple(failed), ref, mate_flag(mover, before, after, loss))
 
 
 def check_clean_move(board: chess.Board, move: chess.Move, analyser) -> Verdict:
@@ -75,7 +88,7 @@ def check_clean_move(board: chess.Board, move: chess.Move, analyser) -> Verdict:
     eval_after = R.line_score(after.best, mover) if after.best else R.terminal_score(after_board, mover)
     loss = R.line_score(before.best, mover) - eval_after
     failed = ("eval_loss_too_large",) if loss > R.SOUND_MAX_LOSS_CP else ()
-    return Verdict(not failed, loss, failed, R.move_ref(board, move.uci()))
+    return Verdict(not failed, loss, failed, R.move_ref(board, move.uci()), mate_flag(mover, before, after, loss))
 
 
 def verified_alternatives(board: chess.Board, evidence: dict, analyser) -> list[dict]:
