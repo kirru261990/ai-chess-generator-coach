@@ -556,7 +556,9 @@ def test_schema_v6_upgrades_a_v5_store_and_marks_old_assessments_version_1(tmp_p
     path = tmp_path / "old.sqlite3"
     c = connect(path)
     c.execute("PRAGMA user_version = 5")
-    # undo what v7 (practice sessions) added, then what v6 added
+    # undo what v9 (stored scheduling outcome), v8 (delayed assessments), v7 (practice sessions) and v6 added
+    c.execute("ALTER TABLE practice_session DROP COLUMN delayed_status")
+    c.execute("DROP INDEX one_delayed_assessment_per_session")
     c.execute("DROP INDEX one_open_practice_session_per_type")
     c.execute("DROP TRIGGER practice_attempt_in_session")
     c.execute("DROP TABLE practice_session_position")

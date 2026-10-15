@@ -85,7 +85,8 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] P2b Question version 2 (tap only the asked side, own for M1 and theirs for M2) and setting a baseline aside; M1 retaken (ADR 0006 decisions 24 to 26)
 - [x] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, template feedback, summary, resume; ADR 0006 decisions 30 to 35). Built 2026-10-15 on `feat/step3-replay`
 - [ ] P3b Feedback wording by the LLM with the PRD §12 output check (parse every move and square in the text, reject and fall back to the template if one is not in the evidence record); needs a spend plan (October budget is nearly used)
-- [ ] P4 Delayed assessments, results reveal, Progress screen, real-game rates with floors
+- [x] P4a Delayed assessments (72 hours after a session, one waiting per type, opens exactly when due), results, Progress screen with assisted practice kept apart (ADR 0006 decisions 37 to 40). Built 2026-10-15 on `feat/step4-delayed`
+- [ ] P4b Real-game rates with floors (PRD §8): M1 per 100 player moves and M2 missed ÷ available, frozen baseline window against the games after it, 20-game / 20-opportunity floors; needs every player move of those games checked at the evidence config (ADR 0006 decision 41)
 - [ ] P5 MCP tools over the same service layer
 
 ## Next (proposed order for the next session)

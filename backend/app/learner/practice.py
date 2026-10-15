@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import sqlite3
 from datetime import datetime
 
@@ -35,6 +36,8 @@ from app.learner import assessment as A
 from app.learner import realgame
 from app.learner.assessment import NO_THREAT, AssessmentError
 from app.learner.seen import UNSEEN_BOARD
+
+log = logging.getLogger(__name__)
 
 SIZE = 5
 MIN_SIZE = 3  # fewer positions than this is not a session
@@ -411,6 +414,22 @@ def retry(conn: sqlite3.Connection, session_id: int, ord_: int, *, now: datetime
     return get_session(conn, session_id, now=now)
 
 
+def _schedule_delayed(conn: sqlite3.Connection, s: sqlite3.Row, now: datetime) -> None:
+    """Set the delayed test (opens 72 hours from now, §7.2) and store what happened. Scheduling runs in a savepoint: if it fails
+    for any database reason the session is still completed, the failure is logged, and the outcome is `error` (review on PR 74).
+    `assessment.py schedule-missing` can set it later."""
+    conn.execute("SAVEPOINT schedule_delayed")
+    try:
+        outcome = A.schedule_delayed(conn, s["mistake_type"], s["id"], now)["status"]
+        conn.execute("RELEASE schedule_delayed")
+    except sqlite3.Error:
+        log.exception("could not schedule the delayed test for practice session %s", s["id"])
+        conn.execute("ROLLBACK TO schedule_delayed")
+        conn.execute("RELEASE schedule_delayed")
+        outcome = "error"
+    conn.execute("UPDATE practice_session SET delayed_status = ? WHERE id = ?", (outcome, s["id"]))
+
+
 def next_position(conn: sqlite3.Connection, session_id: int, ord_: int, *, now: datetime | None = None) -> dict:
     """Finish this position and go to the next; the last one completes the session."""
     now = A._now(now)
@@ -420,6 +439,7 @@ def next_position(conn: sqlite3.Connection, session_id: int, ord_: int, *, now: 
                      (A._iso(now), session_id, pos["position_id"]))
         if all(p["done_at"] or p["position_id"] == pos["position_id"] for p in _positions(conn, session_id)):
             _complete(conn, s, now)
+            _schedule_delayed(conn, s, now)
     return get_session(conn, session_id, now=now)
 
 
@@ -458,6 +478,7 @@ def summary(conn: sqlite3.Connection, session_id: int) -> dict:
         "needed_retry": sum(i["needed_retry"] for i in items),
         "recognized": sum(i["recognized"] for i in items),
         "repeat_games": bool(s["repeat_games"]),
+        "delayed_test": A.delayed_for_session(conn, session_id, s["mistake_type"]),
         "items": items,
     }
 

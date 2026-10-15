@@ -222,9 +222,13 @@ def run(workers: int, limit: int | None) -> dict:
         "reasons": dict(sorted(reasons.items())),
         "positions_added": added,
         "positions_retired": retired,
+        "retired_in_waiting_tests": pending_positions_retired(conn),
         "pool_counts": pools.pool_counts(conn),
         "positions": position_counts(conn),
     }
+    if summary["retired_in_waiting_tests"]:
+        print(f"WARNING: {summary['retired_in_waiting_tests']} retired position(s) are inside a test that is waiting; it keeps them "
+              "(an allocation is never changed). Prefer rebuilding when no test is waiting.", flush=True)
     out = config.DATA_DIR / "evidence" / f"run_{datetime.now(UTC):%Y%m%dT%H%M%S}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(summary, indent=1) + "\n")
@@ -249,6 +253,16 @@ def retire_stale(conn) -> int:
     return cur.rowcount
 
 
+def pending_positions_retired(conn) -> int:
+    """Positions retired while they sit inside an assessment that has not been taken (a delayed test is allocated up to 72 hours
+    before it opens). The test keeps them (an allocation is never changed), so a rebuild while a test is waiting should be
+    known about (review on PR 74)."""
+    return conn.execute(
+        "SELECT COUNT(*) FROM assessment_position ap JOIN assessment a ON a.id = ap.assessment_id"
+        " JOIN position p ON p.id = ap.position_id WHERE a.status <> 'submitted' AND p.retired_at IS NOT NULL"
+    ).fetchone()[0]
+
+
 def position_counts(conn) -> dict:
     """Active (not retired) positions by kind, mistake type and pool."""
     out: dict = {}
@@ -270,7 +284,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("retire", help="retire positions from detector versions that are no longer current")
     args = p.parse_args(argv)
     if args.cmd == "retire":
-        print(f"{retire_stale(connect())} positions retired")
+        conn = connect()
+        print(f"{retire_stale(conn)} positions retired; {pending_positions_retired(conn)} of them inside a waiting test")
     elif args.cmd == "run":
         summary = run(args.workers, args.limit)
         print(json.dumps({k: summary[k] for k in ("minutes", "outcomes", "positions")}, indent=1))

@@ -4,6 +4,7 @@
  */
 
 import type { PracticeStatus } from './practiceState'
+import type { DelayedHome } from './progressState'
 
 export const NO_THREAT = 'none'
 
@@ -21,6 +22,7 @@ export type HomeType = {
   pool: PoolStatus
   baseline: { assessment_id: number; status: 'pending' | 'in_progress' | 'submitted' } | null
   practice: PracticeStatus
+  delayed: DelayedHome
 }
 
 export type AssessmentView = {
@@ -30,8 +32,10 @@ export type AssessmentView = {
   label: string
   cue: string
   status: string
-  total: number
+  total: number | null // null while a delayed test is not open yet
   answered: number
+  available?: boolean
+  due_at?: string | null
   ready_to_submit: boolean
   current: {
     ord: number
@@ -70,6 +74,7 @@ export type ResultItem = {
 
 export type Results = {
   assessment_id: number
+  assessment_kind: 'BASELINE' | 'DELAYED'
   mistake_type: 'M1' | 'M2'
   label: string
   total: number // positions that count

@@ -14,6 +14,7 @@ be broken are enforced by the database itself, not only by the code that writes 
 - a submitted assessment can be set aside (never deleted, its positions stay TESTED), and only once
 - a practice session holds only practice-pool positions that are not retired, and an attempt belongs to one of them
 - at most one unfinished practice session per user and mistake type (it resumes)
+- a practice session creates at most one delayed assessment (Step 4)
 - a frozen real-game baseline window is never edited or deleted
 
 `connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
@@ -31,7 +32,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 9
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -367,9 +368,23 @@ CREATE UNIQUE INDEX one_open_practice_session_per_type
 ON practice_session (user, mistake_type) WHERE status IN ('created', 'in_progress');
 """
 
+_SCHEMA_V8 = """
+-- Step 4: a completed practice session schedules at most one DELAYED assessment (so scheduling can safely be repeated).
+CREATE UNIQUE INDEX one_delayed_assessment_per_session
+ON assessment (source_session_id) WHERE source_session_id IS NOT NULL;
+"""
+
+_SCHEMA_V9 = """
+-- What happened when the session was completed and its delayed test was to be scheduled: scheduled, pending_exists (another test
+-- was waiting), no_positions (fewer than 5 unused held-out positions) or error. Stored, because it cannot be worked out later
+-- from state that changes (review on PR 74). NULL for sessions completed before Step 4.
+ALTER TABLE practice_session ADD COLUMN delayed_status TEXT
+    CHECK (delayed_status IN ('scheduled', 'pending_exists', 'no_positions', 'error'));
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
 _MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5,
-               6: _SCHEMA_V6, 7: _SCHEMA_V7}
+               6: _SCHEMA_V6, 7: _SCHEMA_V7, 8: _SCHEMA_V8, 9: _SCHEMA_V9}
 
 
 class SchemaError(Exception):
