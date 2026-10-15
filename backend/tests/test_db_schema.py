@@ -308,3 +308,9 @@ def test_a_retired_position_is_never_assessed_or_practised(db):
     with pytest.raises(sqlite3.IntegrityError, match="retired"):
         db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
                    " VALUES (?, ?, 1, ?)", (sid, practice, NOW))
+    # Review finding (PR 65): an attempt on an active position could be pointed at a retired one afterwards.
+    active = add_position(db, "g-practice", "PRACTICE", ply=14)
+    attempt = db.execute("INSERT INTO practice_attempt (session_id, position_id, attempt_number, created_at)"
+                         " VALUES (?, ?, 1, ?)", (sid, active, NOW)).lastrowid
+    with pytest.raises(sqlite3.IntegrityError, match="retired"):
+        db.execute("UPDATE practice_attempt SET position_id = ? WHERE id = ?", (practice, attempt))

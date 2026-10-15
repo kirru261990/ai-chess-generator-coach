@@ -75,7 +75,9 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Hand-check v1 superseded; v2 built** (`data/evidence/handcheck_v2.html`, 30 new boards, none from v1; question A now says "counting what your move took"). The owner had not submitted v1 answers.
 - **Tests:** backend 740 passed (1 skipped), ruff clean. **Branch / PR:** `fix/m1-net-material`
 - **Hand-check v2 scored: 28 of 30 real (gate 27), Step 1 exit gate met.** M1 14/15 (one can't tell on B), M2 14/15 (one no: a capture that nets 3 only after a queen trade, where the real loss was walking into mate; recorded as a watch item). PRD default thresholds kept; ADR 0006 updated.
-- **Next:** the owner's (a)/(b) choice for "moved into danger" recognition; then **Step 2** (pool-size check, baseline assessment end to end, scoring with random-guess rates, PRD real-game windows).
+- **Owner chose (a):** recognition uses only M1 positions where the piece was left in danger (ADR 0006 decision 14; 44 held-out, 38 unseen practice).
+- **Review of PR 65 (1 finding, reproduced and fixed):** the retired guard ran on INSERT only; schema **v4** adds it to UPDATE of `practice_attempt.position_id`.
+- **Next:** **Step 2** (pool-size check, baseline assessment end to end, scoring with random-guess rates, PRD real-game windows).
 
 ### 2026-10-14 · MacBook · Claude Code (session 25, part 5): Step 1c hand-check page
 - **Built `app/learner/handcheck.py`:** `make` freezes a sample of 30 PRACTICE-pool MISTAKE positions (8 M1 moved into danger, 7 M1 left behind, 15 M2; none already seen; one per game and ply) in `data/evidence/handcheck_v1.json`, marks them `hand_checked_v1`, and writes `data/evidence/handcheck_v1.html` (boards, arrows, plain words, Yes / No / Can't tell, answers saved in the browser, a Copy button). `score` applies the rule fixed before answering: real only when every question asked is yes; can't tell is not real; **gate 27 of 30**.

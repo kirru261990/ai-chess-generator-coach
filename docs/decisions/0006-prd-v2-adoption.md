@@ -48,10 +48,7 @@ A game's pool never changes. A position takes its game's pool and never changes 
 | 12 | A detector fix **retires** old rows (schema v3, `position.retired_at`) instead of deleting them: they keep their history and seen marks, and SQLite refuses to assess or practise them. A full `evidence_run` retires rows from non-current detector versions after copying seen marks to the current rows. | Deleting would forget which boards the owner saw | n/a |
 | 13 | Hand-check **v1 is superseded** (it sampled v3). v2 samples the v4 store; the v1 boards stay marked as seen. | Decision 11 | n/a |
 
-**Open for the owner (Step 1c):** in an M1 position where the player moved a piece *into* danger (`lost_piece = moved`), nothing is
-wrong on the board before the move, so "What is happening here?" has no visible answer. The record stores `target_squares` (the
-square the piece moved from) and `lost_piece_square_after`. Options: ask such positions differently, or keep only `lost_piece = other`
-positions for recognition. The Step 1c page reports how many of each there are.
+| 14 | **Recognition uses only M1 positions where the piece was left in danger** (`lost_piece = other`). Positions where the player moved the piece into danger (`lost_piece = moved`) have nothing visible to tap before the move, so they are left out of the tap-a-square step, in practice and in assessments. They stay stored. | **Owner chose (a), 2026-10-15** (the alternative was asking them differently). Enough remain: 44 held-out (16 needed) and 38 unseen in practice. | Allow `moved` with a different question |
 
 ## Calibrated thresholds (PRD §4.2): Step 1 exit gate met (2026-10-15)
 

@@ -80,7 +80,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] P1a SQLite store with the PRD rules enforced by the database; pinned evidence engine (Stockfish 19, depth 18, MultiPV 3) with recorded config and a (FEN, config) cache
 - [x] P1b `hanging_own` v3 (M1), `missed_free` v3 (M2), sound-move validator, CLEAN selector, evidence records, run over all synced games (`app.learner.evidence_run`)
 - [x] P1c Hand-check: v2 passed 28 of 30 (gate 27), 2026-10-15; PRD default thresholds kept (ADR 0006). v1 superseded after the owner found the trade flaw (hanging_own v4)
-- [ ] P2 Pools, baseline assessment, scoring with random-guess rates, PRD real-game windows
+- [ ] P2 Pools, baseline assessment (M1 uses `lost_piece = other` only, ADR 0006 decision 14), scoring with random-guess rates, PRD real-game windows
 - [ ] P3 Replay My Mistakes (sessions, tap-a-square, 3-step hints, feedback with the output check, resume)
 - [ ] P4 Delayed assessments, results reveal, Progress screen, real-game rates with floors
 - [ ] P5 MCP tools over the same service layer

@@ -27,7 +27,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -263,8 +263,18 @@ def _v3_retired(conn: sqlite3.Connection) -> None:
         )
 
 
+def _v4_retired_on_update(conn: sqlite3.Connection) -> None:
+    """v4 (review on PR 65): the v3 guard ran on INSERT only, so an existing practice attempt could be pointed at a retired
+    position. Assessment answers need no new guard: they must match an allocation, and allocations are never changed."""
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS practice_attempt_not_retired_on_update BEFORE UPDATE OF position_id ON practice_attempt"
+        " WHEN (SELECT retired_at FROM position WHERE id = NEW.position_id) IS NOT NULL"
+        " BEGIN SELECT RAISE(ABORT, 'a retired position is never practised'); END"
+    )
+
+
 # version -> SQL text, or a function, that brings version - 1 up to it
-_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired}
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update}
 
 
 class SchemaError(Exception):
