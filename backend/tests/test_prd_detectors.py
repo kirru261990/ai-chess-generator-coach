@@ -302,6 +302,20 @@ def test_clean_static_rules(fen, reason):
     assert clean.static_reason(chess.Board(fen)) == reason
 
 
+def test_a_free_en_passant_pawn_is_a_free_capture_even_when_another_move_is_best():
+    """Review on PR 70: `capture_net` returns 0 for en passant (no piece on the target square), so the static check missed
+    it. Both rooks are defended (Rxb8+ Kxb8 nets 0), the only gain is exd6 e.p."""
+    fen = "1rk5/8/8/3pP3/8/8/8/1RK5 w - d6 0 1"
+    board = chess.Board(fen)
+    assert clean.static_reason(board) == "player_has_free_capture"
+    assert clean.threat_reason(board) == "player_has_free_capture"
+    assert clean.best_capture_net(board, chess.WHITE) == 1
+    # a defended pawn taken en passant is a trade, not a free capture: the capturing pawn is retaken on d6
+    defended = chess.Board("1rk5/2p5/8/3pP3/8/8/8/1RK5 w - d6 0 1")
+    assert clean.best_capture_net(defended, chess.WHITE) == 0
+    assert clean.static_reason(defended) is None
+
+
 def test_threat_reason_is_the_answer_check_without_the_attacked_piece_condition():
     assert clean.threat_reason(chess.Board(chess.STARTING_FEN)) is None  # nothing attacked, nothing to win
     assert clean.static_reason(chess.Board(chess.STARTING_FEN)) == "nothing_attacked"

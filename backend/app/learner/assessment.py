@@ -32,6 +32,7 @@ from app import config
 from app.db.schema import transaction
 from app.detectors import clean, sound
 from app.detectors import prd_rules as R
+from app.engine.evidence import cached_analysis
 from app.learner.seen import UNSEEN_BOARD
 
 TYPES = ("M1", "M2")
@@ -58,6 +59,7 @@ LEFT_OUT_WORDS = {
     "player_has_free_capture": "you could win something here, even if only a pawn",
     "player_piece_can_be_won": "something of yours could be won, even for a small gain",
     "in_check": "you were in check",
+    "best_line_wins_material": "the engine's best line started by winning something",
 }
 V1_NOTE = ("This test used the first wording of the tap question, which let you tap a piece of either side and was easy to "
            "mix up with your move. Trust the move score. The tap score cannot be compared with later tests.")
@@ -462,14 +464,19 @@ def _move_words(verdict: dict, sound_: bool) -> str:
     return f"Your move {san} was not sound: {reasons[0] if reasons else 'it gave away too much'}."
 
 
-def left_out_reason(kind: str, board: chess.Board) -> str | None:
+def left_out_reason(kind: str, board: chess.Board, *, conn: sqlite3.Connection | None = None,
+                    engine_config_id: str | None = None) -> str | None:
     """Why a position is left out of the score, in plain words, or None. Only a "nothing is wrong" position can be unfair:
     a capture that wins anything for either side (or a check) makes "No immediate threat" the wrong answer. It is judged by
-    the current CLEAN rule (`clean.threat_reason`, engine-free), so a position chosen under the looser v1 rule is left out
-    of the score whichever way the player answered (abstain rather than guess, AGENTS rule 5)."""
+    the whole current CLEAN rule, so a position chosen under the looser v1 rule is left out of the score whichever way the
+    player answered (abstain rather than guess, AGENTS rule 5): the engine-free part (`clean.threat_reason`) and the engine's
+    best line, read from the position's own cached search (`clean.best_line_reason`). A position whose search is not in the
+    cache cannot be judged on the engine part and stays in."""
     if kind != "CLEAN":
         return None
     why = clean.threat_reason(board)
+    if why is None and conn is not None and engine_config_id is not None:
+        why = clean.best_line_reason(board, cached_analysis(conn, board.fen(), engine_config_id))
     if why is None:
         return None
     return (f"Left out of your score: {LEFT_OUT_WORDS[why]}, so \"No immediate threat\" was not a fair answer. "
@@ -495,7 +502,7 @@ def results(conn: sqlite3.Connection, assessment_id: int) -> dict:
         evidence = json.loads(r["evidence_json"])
         verdict = json.loads(r["verdict_json"])
         board = chess.Board(r["fen"])
-        out = left_out_reason(r["kind"], board)
+        out = left_out_reason(r["kind"], board, conn=conn, engine_config_id=r["engine_config_id"])
         if r["kind"] == "CLEAN":
             good_moves = [evidence["best_move"]]
             answer: list[str] = []

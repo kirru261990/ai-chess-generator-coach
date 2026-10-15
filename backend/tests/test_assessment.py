@@ -606,3 +606,46 @@ def test_fair_clean_positions_and_mistake_positions_are_never_left_out(store):
     finish_v1(conn, aid)
     r = A.results(conn, aid)
     assert r["left_out_count"] == 0 and r["total"] == 5 and all(i["left_out"] is None for i in r["items"])
+
+
+# Review on PR 70: the retrospective exclusion has to apply the whole CLEAN v2 rule, including the engine's best line.
+# Both pawn captures here are trades (net 0), so the static check is satisfied.
+BEST_LINE_FEN = "4k3/8/2p5/3p4/4P3/3P4/8/4K3 w - - 0 1"
+FAIR_FEN = "4k3/8/8/8/8/8/3B4/4K3 w - - 0 1"
+
+
+def put_analysis(conn, fen, config_id, lines):
+    from app.engine.evidence import store_analysis
+
+    store_analysis(conn, EvidenceAnalysis(fen, config_id, tuple(lines)))
+
+
+def test_left_out_also_applies_the_engines_best_line_condition_from_the_cache(store):
+    conn = store.conn
+    board = chess.Board(BEST_LINE_FEN)
+    assert A.clean.threat_reason(board) is None  # the static exchange alone does not flag it
+    # scripted best line: e4xd5 and Black does not retake (what the engine's line would have to show)
+    put_analysis(conn, board.fen(), CFG.id, [Line("e4d5", ("e4d5", "e8e7"), 100, None, None, 18)])
+    why = A.left_out_reason("CLEAN", board, conn=conn, engine_config_id=CFG.id)
+    assert why is not None and "best line started by winning something" in why
+    # without the cache the engine part cannot be applied: the position stays in (documented)
+    assert A.left_out_reason("CLEAN", chess.Board(FAIR_FEN), conn=conn, engine_config_id=CFG.id) is None
+    # a best line that starts with a quiet move keeps a fair position in
+    put_analysis(conn, FAIR_FEN, CFG.id, [Line("e1f1", ("e1f1",), 0, None, None, 18)])
+    assert A.left_out_reason("CLEAN", chess.Board(FAIR_FEN), conn=conn, engine_config_id=CFG.id) is None
+
+
+def test_results_leave_out_a_position_whose_best_line_wins_something(store):
+    conn = store.conn
+    aid = start(conn, "M1")
+    flawed = next(r for r in allocated(conn, aid) if r["kind"] == "CLEAN")
+    conn.execute("UPDATE position SET fen = ? WHERE id = ?", (BEST_LINE_FEN, flawed["id"]))
+    put_analysis(conn, BEST_LINE_FEN, CFG.id, [Line("e4d5", ("e4d5", "e8e7"), 100, None, None, 18)])
+    view = A.get_assessment(conn, aid, now=T0)
+    while view["current"]:
+        cur = view["current"]
+        view = A.submit_item(conn, aid, cur["ord"], "none", cur["legal_moves"][0], FakeAnalyser(), now=T0 + timedelta(seconds=9))
+    A.submit(conn, aid, now=T0 + timedelta(minutes=5))
+    r = A.results(conn, aid)
+    assert r["left_out_count"] == 1 and r["total"] == 4
+    assert [i["fen"] for i in r["items"] if i["left_out"]] == [BEST_LINE_FEN]

@@ -19,7 +19,7 @@ import chess
 
 from app.detectors import prd_rules as R
 from app.detectors.hanging_own_v4 import Finding, gates
-from app.detectors.see import capture_net
+from app.detectors.see import VALUES, capture_net, see
 
 DETECTOR = "clean"
 VERSION = "2"  # v2: no capture wins anything for either side (v1 only looked at 3 points or more)
@@ -35,14 +35,26 @@ def attacked_pieces(board: chess.Board) -> list[str]:
     return sorted(out)
 
 
+def move_net(board: chess.Board, move: chess.Move) -> int:
+    """Net material the mover gets from one legal capture by static exchange. `capture_net` returns 0 for en passant (there is
+    no piece on the target square), so that case is counted here: the pawn taken, minus what is lost on the target square
+    (review on PR 70)."""
+    if board.is_en_passant(move):
+        after = board.copy(stack=False)
+        after.push(move)
+        return VALUES[chess.PAWN] - see(after, move.to_square, not board.turn)
+    return capture_net(board, move)
+
+
 def best_capture_net(board: chess.Board, side: chess.Color) -> int:
-    """The most `side` can net with one legal capture (static exchange), as if `side` were to move."""
+    """The most `side` can net with one legal capture (static exchange), as if `side` were to move. En passant counts for the
+    side to move only (the other side's en passant right does not exist in this position)."""
     b = board
     if board.turn != side:
         b = board.copy(stack=False)
         b.turn = side
         b.ep_square = None
-    return max((capture_net(b, m) for m in b.legal_moves if b.is_capture(m)), default=0)
+    return max((move_net(b, m) for m in b.legal_moves if b.is_capture(m)), default=0)
 
 
 def threat_reason(board: chess.Board) -> str | None:
@@ -54,6 +66,17 @@ def threat_reason(board: chess.Board) -> str | None:
         return "in_check"
     if best_capture_net(board, not board.turn) >= NO_GAIN:
         return "player_piece_can_be_won"
+    return None
+
+
+def best_line_reason(board: chess.Board, before) -> str | None:
+    """The engine part of the "nothing to win" rule: the best line starts with a capture that wins anything along the line
+    (NO_GAIN). `before` is the evidence analysis of `board`. Shared by `detect` and by the retrospective check on results."""
+    if before is None or before.best is None:
+        return None
+    first = chess.Move.from_uci(before.best.move)
+    if board.is_capture(first) and R.line_swing(board, before.best.pv, board.turn)[0] >= NO_GAIN:
+        return "best_line_wins_material"
     return None
 
 
@@ -78,8 +101,7 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser) -> Finding:
     skip = gates(board, ply, before)
     if skip:
         return Finding("skipped", skip)
-    first = chess.Move.from_uci(before.best.move)
-    if board.is_capture(first) and R.line_swing(board, before.best.pv, mover)[0] >= NO_GAIN:
+    if best_line_reason(board, before):
         return Finding("not_clean", "best_line_wins_material")
     after_board = board.copy(stack=False)
     after_board.push(move)
