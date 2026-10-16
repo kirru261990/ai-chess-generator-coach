@@ -9,7 +9,6 @@ from app.api import tools
 from app.api.main import app
 from app.api.store import GAMES
 from app.core.game import new_game
-from app.mcp.server import get_game as mcp_get_game
 
 client = TestClient(app)
 needs_engine = pytest.mark.skipif(
@@ -84,10 +83,10 @@ def test_resign_ends_game_and_blocks_moves():
     assert move(gid, "e2e4", r["revision"], engine_reply=False).status_code == 400
 
 
-def test_mcp_get_game_matches_api():
+def test_tool_layer_get_game_matches_api():  # the MCP get_game wrapper was retired with the practice server
     gid = client.post("/games", json={"mode": "practice", "color": "white"}).json()["id"]
-    assert mcp_get_game(gid) == client.get(f"/games/{gid}").json()
-    assert mcp_get_game(gid)["assisted"] is True
+    assert tools.get_game(gid) == client.get(f"/games/{gid}").json()
+    assert tools.get_game(gid)["assisted"] is True
 
 
 def test_game_view_has_engine_level():

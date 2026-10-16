@@ -86,7 +86,7 @@ def test_a_baseline_works_end_to_end_and_reveals_nothing_before_the_final_submit
     # each board appears only while it is the board on screen
     for body in responses:
         shown = (body.get("current") or {}).get("fen")
-        assert [f for f in fens if f in json.dumps(body)] == ([shown] if shown else [])
+        assert [f for f in fens if json.dumps(f) in json.dumps(body)] == ([shown] if shown else [])
 
     done = client.post(f"/coach/assessments/{aid}/submit").json()
     assert done["scores"] == {"recognition": 5, "move": 5, "combined": 5}
@@ -135,9 +135,9 @@ def test_heldout_boards_never_leave_the_assessment_endpoints(store):
         if path.startswith("/coach/assessments") or path in ("/docs", "/redoc", "/openapi.json"):
             continue
         body = client.get(path).text
-        assert not [f for f in fens if f in body], path
+        assert not [f for f in fens if json.dumps(f) in body], path
     body = client.get("/coach/home").text
-    assert not [f for f in fens if f in body]
+    assert not [f for f in fens if json.dumps(f) in body]
 
 
 def _imports(path: Path) -> set[str]:
@@ -152,12 +152,17 @@ def _imports(path: Path) -> set[str]:
     return out
 
 
+ALLOWED_STORE_IMPORTERS = {"coach.py", "practice_tools.py", "server.py"}
+
+
 def test_only_the_coach_routes_reach_the_position_store():
-    """Static guard: in the API and the MCP server, only `api/coach.py` imports the store or the assessment service."""
+    """Static guard: in the API and the MCP server, only `api/coach.py` imports the store or the assessment service. The only
+    other modules allowed are `mcp/practice_tools.py` and `mcp/server.py` (which opens the store for it): practice as chat tools is the second client of the same service layer
+    (PRD §11, `docs/mcp-practice-plan.md`). It reaches only practice, progress and the assessment errors, never a test."""
     store_modules = {"app.db", "app.db.schema", "app.learner.assessment", "app.learner.realgame", "app.learner.practice"}
     offenders = []
     for path in sorted([*(APP_DIR / "api").glob("*.py"), *(APP_DIR / "mcp").glob("*.py")]):
-        if path.name == "coach.py":
+        if path.name in ALLOWED_STORE_IMPORTERS:
             continue
         if _imports(path) & store_modules:
             offenders.append(path.name)

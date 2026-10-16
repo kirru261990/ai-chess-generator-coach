@@ -271,7 +271,7 @@ def test_nothing_about_the_answer_is_shown_before_the_first_attempt_and_only_the
     cur = view["current"]
     for body in (view, P.get_session(conn, sid, now=at(1))):  # fetching twice changes nothing
         assert not PRACTICE_KEYS & set(keys(body)), PRACTICE_KEYS & set(keys(body))
-        assert [f for f in fens if f in json.dumps(body)] == [cur["fen"]]  # no later board
+        assert [f for f in fens if json.dumps(f) in json.dumps(body)] == [cur["fen"]]  # no later board
         assert body["current"]["hints"] == [] and body["current"]["feedback"] is None
     # after the question is answered the answer is still not shown
     body = P.submit_recognition(conn, sid, cur["ord"], "a1", now=at(3))

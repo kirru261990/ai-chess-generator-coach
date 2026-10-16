@@ -248,7 +248,7 @@ def test_views_before_submit_show_only_the_current_board(store):
         assert not FORBIDDEN_KEYS & set(keys(view)), FORBIDDEN_KEYS & set(keys(view))
         text = json.dumps(view)
         assert view["current"]["fen"] == fens[i]
-        assert [f for f in fens if f in text] == [fens[i]]  # no other board, earlier or later
+        assert [f for f in fens if json.dumps(f) in text] == [fens[i]]  # no other board, earlier or later
         assert view["current"]["legal_moves"] == sorted(m.uci() for m in chess.Board(fens[i]).legal_moves)
         view = answer(conn, aid, view, good=i % 2 == 0)
         if i < 4:

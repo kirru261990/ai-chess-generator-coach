@@ -83,7 +83,7 @@ def test_the_test_is_closed_until_exactly_72_hours_and_shows_nothing_before(stor
         view = A.get_assessment(conn, row["id"], now=now)
         assert view["available"] is False and view["current"] is None and view["total"] is None and view["answered"] == 0
         assert not FORBIDDEN_KEYS & set(keys(view))
-        assert not [f for f in held if f in json.dumps(view)]
+        assert not [f for f in held if json.dumps(f) in json.dumps(view)]
         for step in (lambda n=now: A.submit_item(conn, row["id"], 0, "none", "a1a2", FakeAnalyser(), now=n),
                      lambda n=now: A.submit(conn, row["id"], now=n)):
             with pytest.raises(A.AssessmentError) as e:
