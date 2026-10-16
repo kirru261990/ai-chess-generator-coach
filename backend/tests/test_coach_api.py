@@ -152,12 +152,12 @@ def _imports(path: Path) -> set[str]:
     return out
 
 
-ALLOWED_STORE_IMPORTERS = {"coach.py", "practice_tools.py"}
+ALLOWED_STORE_IMPORTERS = {"coach.py", "practice_tools.py", "server.py"}
 
 
 def test_only_the_coach_routes_reach_the_position_store():
-    """Static guard: in the API and the MCP server, only `api/coach.py` imports the store or the assessment service. The one
-    other module allowed is `mcp/practice_tools.py`: practice as chat tools is the second client of the same service layer
+    """Static guard: in the API and the MCP server, only `api/coach.py` imports the store or the assessment service. The only
+    other modules allowed are `mcp/practice_tools.py` and `mcp/server.py` (which opens the store for it): practice as chat tools is the second client of the same service layer
     (PRD §11, `docs/mcp-practice-plan.md`). It reaches only practice, progress and the assessment errors, never a test."""
     store_modules = {"app.db", "app.db.schema", "app.learner.assessment", "app.learner.realgame", "app.learner.practice"}
     offenders = []
