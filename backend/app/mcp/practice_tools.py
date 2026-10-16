@@ -112,10 +112,10 @@ def render_session(conn: sqlite3.Connection, session_id: int) -> str:
     if marks:
         parts.append("Squares in [brackets] are the ones to look at.")
     if stage == "recognition":
-        who = "YOUR" if view["mistake_type"] == "M1" else "THEIR"
-        what = "the other side can win" if view["mistake_type"] == "M1" else "you can win for free"
+        ask = ("Which of YOUR pieces can the other side win?" if view["mistake_type"] == "M1"
+               else "Which of THEIR pieces can you win for free?")
         side = _tap_side(view, cur)
-        parts += [f"**Step 1, a question first (not a move yet).** Which of {who} pieces {what}?",
+        parts += [f"**Step 1, a question first (not a move yet).** {ask}",
                   'Reply with its square (for example g5), or say "no immediate threat".',
                   f"Pieces you can name ({side}): {piece_list(cur['fen'], side)}.",
                   "Use practice_answer with the square, or \"none\"."]

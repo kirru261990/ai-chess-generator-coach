@@ -48,6 +48,7 @@ def test_a_full_session_through_the_tools(store):
     conn = store.conn
     sid, text = started(conn)
     assert "position 1 of 5" in text and "assisted practice" in text and "Step 1" in text
+    assert "Which of YOUR pieces can the other side win?" in text
     for i in range(5):
         text = T.practice_answer(conn, sid, "a1")
         assert "Step 2" in text and "the piece on a1" in text
