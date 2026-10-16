@@ -26,7 +26,7 @@ An AI chess coach for players rated under ~1200. It **plays** games, **analyses*
 | Web | TypeScript, Vite + React, `react-chessboard` (MIT); packages via `pnpm` |
 | Coach LLM | Claude Sonnet-class via Anthropic API (`COACH_MODEL`); every call is logged and stops at `MONTHLY_BUDGET_USD` |
 | Eval baseline | GPT model, no tools, evals only (`BASELINE_MODEL`) |
-| MCP | MCP server exposing the same tool layer as the web API |
+| MCP | MCP server exposing practice over the same service layer (ADR 0007, `docs/mcp-setup.md`) |
 
 ## Repository layout
 
@@ -85,6 +85,8 @@ uv run python -m app.learner.explorer                                 # data/evi
 uv run python -m app.learner.assessment list                         # assessments (id, type, status, question version, set aside)
 uv run python -m app.learner.assessment schedule-missing            # schedule the delayed test for a type's latest finished practice session if it has none (one-off, for sessions finished before Step 4)
 uv run python -m app.learner.assessment supersede ID --reason TEXT    # set a submitted baseline aside so it can be retaken (nothing is deleted)
+uv run python -m app.mcp.setup                                        # choose the chat connector's login password (hidden prompt, stored hashed)
+uv run python -m app.mcp.server http|stdio                            # practice tools for Claude chat / ChatGPT (http, behind a tunnel; see docs/mcp-setup.md) or a local client (stdio)
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)
 uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
 uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a hand-check's answers with the labels

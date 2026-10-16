@@ -1,7 +1,8 @@
 # Practice mode as a chat tool (Claude chat and ChatGPT): design and plan
 
-**Status:** design only (2026-10-16). Nothing is built. Written so a new session can read this file, `HANDOFF.md`, `docs/prd-v2.md`
-§11 and ADR 0006, and start building at step 1. Task: `TASKS.md` P5 / T45.
+**Status:** steps 1 to 6 built on `feat/mcp-practice` (2026-10-16); **step 7 (connect from Claude and ChatGPT) is not done**: it needs a
+Mac where a tunnel is allowed. See `docs/mcp-setup.md` and ADR 0007. Originally written so a new session could read this file, `HANDOFF.md`,
+`docs/prd-v2.md` §11 and ADR 0006, and start building at step 1. Task: `TASKS.md` P5 / T45.
 
 ## 1. What and why
 

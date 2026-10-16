@@ -1,0 +1,70 @@
+# Practice in Claude chat and ChatGPT: setup
+
+Practice mode (Replay My Mistakes) as chat tools. Design: `docs/mcp-practice-plan.md`; decisions: ADR 0007. **Practice only**: the
+starting and delayed tests stay in the web app, and no tool can reach them.
+
+You need a Mac where a tunnel program is allowed (not a locked-down work laptop), with this repo, `data/coach.sqlite3`, `.env`
+(with `STOCKFISH_PATH`) and the pinned Stockfish. The Mac must be on, with the server and the tunnel running, whenever the chat
+uses it. Your games never leave the Mac.
+
+## Steps
+
+1. **Get the code.** `git fetch && git checkout feat/mcp-practice` (or `main` once merged). Use `git worktree add` if the web app is
+   being served from this folder.
+2. **Choose the login password** (at least 12 characters; it is stored hashed, locally, and never printed):
+   ```bash
+   cd backend && uv run python -m app.mcp.setup
+   ```
+3. **Start the tunnel** (Cloudflare quick tunnel: no account, but a **new address every run**):
+   ```bash
+   cloudflared tunnel --url http://127.0.0.1:8765
+   ```
+   Copy the `https://….trycloudflare.com` address. `cloudflared` is Cloudflare's program: Homebrew has it
+   (`brew install cloudflared`), or use the release from https://github.com/cloudflare/cloudflared/releases. For a stable address
+   use a named Cloudflare tunnel (free account and a domain) or ngrok's free static domain.
+4. **Put the address in `.env`** (git-ignored; no trailing slash or path): `MCP_PUBLIC_URL=https://….trycloudflare.com`
+   (`MCP_PORT` defaults to 8765).
+5. **Start the server** and leave it running:
+   ```bash
+   cd backend && uv run python -m app.mcp.server http
+   ```
+   It refuses to start without an https `MCP_PUBLIC_URL` and a password.
+6. **Claude:** Customize → Connectors → add a custom connector, address `<MCP_PUBLIC_URL>/mcp`. Sign in on the page that opens,
+   with your password. Then say: "Practise my pieces left in danger."
+7. **ChatGPT** (Plus: expect problems, see below): Settings → Connectors → Advanced → Developer mode → New connector, same
+   address, authentication OAuth, sign in.
+
+A quick tunnel gets a new address each run: change `MCP_PUBLIC_URL`, restart the server and add the connector again.
+
+## Using it from Claude Desktop or Claude Code on the same Mac (no tunnel, no login)
+
+```bash
+cd backend && uv run python -m app.mcp.server stdio
+```
+Add it to the client as a local MCP server with that command (working directory `backend/`). It never opens a network port.
+
+## What it does
+
+`practice_status`, `practice_start` (`pieces_in_danger` or `free_pieces`), `practice_show`, `practice_answer` (a square or
+`none`), `practice_move` (`Nf3`, `O-O`, `g1f3`), `practice_hint`, `practice_retry`, `practice_next`, `practice_summary`,
+`progress`. Every move is checked by the engine; the wording is the same as on the web page. Practice is always assisted.
+
+## Security
+
+- Sign-in is OAuth with one password. Five wrong passwords lock it for 15 minutes. Tokens are random and stored only as hashes in
+  `data/mcp_auth.sqlite3` (git-ignored, separate from the learning store). Access tokens last 1 hour, refresh tokens 30 days.
+- Only Claude, ChatGPT and localhost redirect addresses can register. Any other `Host` header is refused.
+- **Anyone who can sign in can read your practice data and make attempts.** Use a password you use nowhere else. To sign
+  everything out: stop the server, delete `data/mcp_auth.sqlite3`, run the setup again.
+- The password, the auth database and the tunnel address never go into a commit (the repo is public).
+- The chat model can see the board and may try to analyse it. The server's instructions tell it to only relay the tool; that is
+  guidance, not enforcement. Practice is assisted, so this does not affect any score.
+
+## Verified
+
+Run end to end on 2026-10-16 on a scratch copy of the store with the real engine, over HTTP and the full login, from the `mcp`
+Python client (a five-position session, a refused step, no token → 401, foreign host → 421). **Not yet tried with the real
+Claude or ChatGPT clients** (plan step 7). Record here what each client does: whether Claude's `/revoke` works for its client
+type (the library asks for a client secret), and whether ChatGPT Plus allows the tools that change data (`practice_start`,
+`practice_answer`, `practice_move`, `practice_hint`, `practice_retry`, `practice_next`). If it refuses them, ChatGPT can still
+use `practice_status`, `practice_show`, `practice_summary` and `progress`; practice itself stays on Claude and the web app.

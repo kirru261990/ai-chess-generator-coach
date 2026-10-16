@@ -19,7 +19,7 @@ Players under ~1200 lose most games to the same misses — hanging pieces and mi
 ## How it fits together
 
 ```
-Web app (board, review, blind spots)                 MCP server (skeleton)
+Web app (board, review, blind spots)                 MCP server (practice tools)
               \                                          /
                +------------- FastAPI + shared tool layer -----------+
                                   |
@@ -42,6 +42,7 @@ the engine and rules confirmed, with a note.
 | Review tab: say what you were thinking at a key moment and see what was really on the board (your words saved as written) | Peer benchmark (needs a Lichess games sample) |
 | Detectors `hanging_own` and `missed_free` (versioned), run over a frozen 100-game baseline; a Blind spots page with 10\|0 and 15\|10 side by side | Forks and pins; recency windows and example links on the map |
 | Coach "Why?" with a claim verifier and one repair attempt (needs `ANTHROPIC_API_KEY`; without it you get the checked facts) | |
+| Practice in Claude chat from your own Mac: ten tools (start, answer, move, hint, retry, next, summary, progress) behind a password login, engine-checked, practice only (built; not yet tried with the real Claude and ChatGPT clients: [setup](docs/mcp-setup.md)) | Tests cannot be taken from chat, by design |
 | **My mistakes** (the learning loop): a starting test of five unseen positions from your own games with no help, **Replay My Mistakes** practice (five positions, a question, your move, engine-checked feedback, a three-step hint ladder, always marked assisted), a **delayed test** that opens 72 hours after a session, and a **Progress** screen that keeps tests and assisted practice apart, with the random-guess level next to every score | MCP tools beyond `get_game`; a demo clip |
 
 ## Proof, not claims
