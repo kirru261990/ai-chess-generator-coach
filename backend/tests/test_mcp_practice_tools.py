@@ -233,3 +233,43 @@ def test_an_unexpected_error_is_a_sentence_without_details(store, monkeypatch):
     monkeypatch.setattr(P, "get_session", boom)
     text = T.practice_show(store.conn, 1)
     assert text.startswith("I could not do that") and "secret" not in text and "DROP" not in text
+
+
+# --- read-only tools really are read-only (review on PR 77) -------------------------------------------------------------------
+
+
+def _writes(conn):
+    return (conn.execute("SELECT COUNT(*) FROM practice_attempt").fetchone()[0],
+            conn.execute("SELECT status FROM practice_session").fetchall()[0][0],
+            conn.execute("SELECT COUNT(*) FROM position WHERE exposure_status = 'PRACTICED'").fetchone()[0])
+
+
+def test_practice_summary_changes_nothing_even_on_an_unopened_session(store):
+    conn = store.conn
+    sid = P.start_session(conn, "M1")["session_id"]  # started through the web API: no attempt exists yet
+    before = _writes(conn)
+    assert T.practice_summary(conn, sid).startswith("I could not do that: the summary is shown when")
+    assert _writes(conn) == before
+    assert T.practice_summary(conn, 9999).startswith("I could not do that: there is no practice session")
+
+
+def test_the_first_view_of_a_new_session_saves_its_first_attempt_so_show_is_not_read_only(store):
+    conn = store.conn
+    sid = P.start_session(conn, "M1")["session_id"]
+    before = _writes(conn)
+    T.practice_show(conn, sid)
+    assert _writes(conn) != before  # it writes: the annotation must say so
+
+
+def test_every_tool_annotated_read_only_leaves_the_whole_store_unchanged(store):
+    conn = store.conn
+    sid = P.start_session(conn, "M1")["session_id"]  # an unopened session: the case a lazy read would write on
+
+    def dump():
+        return "\n".join(conn.iterdump())
+    before = dump()
+    T.practice_status(conn)
+    T.progress(conn)
+    T.practice_summary(conn, sid)
+    T.practice_summary(conn, 9999)
+    assert dump() == before

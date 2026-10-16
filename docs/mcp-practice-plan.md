@@ -73,7 +73,7 @@ All take plain arguments and return **one markdown message** (what the chat show
 |---|---|---|---|
 | `practice_status` | none | per mistake type: locked or ready, positions left, open session, the delayed test and when it opens | read-only |
 | `practice_start` | `mistake_type`: `pieces_in_danger` or `free_pieces` | start a session or resume the open one; returns position 1 | changes data |
-| `practice_show` | `session_id` | the current position and what to do next (safe to call again) | read-only |
+| `practice_show` | `session_id` | the current position and what to do next (safe to call again; the first view of a new session saves its first attempt) | changes data |
 | `practice_answer` | `session_id`, `square` (`g5`, or `none` / "no immediate threat") | step 1 (the question); accepts only pieces of the asked side | changes data |
 | `practice_move` | `session_id`, `move` (SAN `Bf4`, `Nxe5`, `O-O`, or UCI `g5f4`) | step 2; the engine checks it (about 2 s); feedback follows | changes data |
 | `practice_hint` | `session_id` | the next of three hints; marks the try assisted | changes data |
@@ -122,8 +122,8 @@ Hints are optional (3 left): practice_hint.
   it would blur "what the engine verified" and "what the model says". Put this in the server `instructions` (sent to the client):
   *you only relay this tool; never analyse the position, suggest a move or say whether an answer is right before the tool does;
   never call practice_hint unless the player asks; show the tool's text as is.* This is guidance, not enforcement: say so in the docs.
-- Tool descriptions must say plainly which tools change data (annotations: `readOnlyHint` true only for status, show, summary,
-  progress; `destructiveHint` false everywhere; no tool deletes anything).
+- Tool descriptions must say plainly which tools change data (annotations: `readOnlyHint` true only for status, summary,
+  progress (show is not: the first view of a new session writes its first attempt, found in the PR 77 review); `destructiveHint` false everywhere; no tool deletes anything).
 - Errors never expose paths, SQL or tracebacks.
 
 ## 8. The login (OAuth for one person)
@@ -202,7 +202,7 @@ because none exists).
 ## 11. Risks and open items
 
 - **ChatGPT Plus may refuse tools that change data.** If it does: ChatGPT can still use the read-only tools (`practice_status`,
-  `practice_show`, `practice_summary`, `progress`), and practice itself stays on Claude chat and the web app. Do not weaken the
+  `practice_summary`, `progress`; `practice_show` is a write on a new session, see the PR 77 review), and practice itself stays on Claude chat and the web app. Do not weaken the
   design to fit (for example a move tool marked read-only that still records attempts: that would hide a write).
 - **The Mac must be on and the tunnel running.** A cloud deployment would remove that but puts the games in the cloud (decision 1).
 - **Anyone who can sign in can read your practice data.** Hence the password page, lock-out, hashed tokens and the redirect allowlist.

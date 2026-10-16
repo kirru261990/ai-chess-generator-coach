@@ -69,9 +69,9 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
         with store() as c:
             return T.practice_start(c, mistake_type)
 
-    @mcp.tool(annotations=READ)
+    @mcp.tool(annotations=WRITE)
     def practice_show(session_id: int) -> str:
-        """Show the current position and what to do next. Safe to call again. Changes nothing."""
+        """Show the current position and what to do next. Safe to call again. The first view of a new session saves its first attempt."""
         with store() as c:
             return T.practice_show(c, session_id)
 

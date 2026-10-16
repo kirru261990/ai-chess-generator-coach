@@ -11,7 +11,7 @@ from tests.test_practice import FakeAnalyser, make_store
 
 EXPECTED = {"practice_status", "practice_start", "practice_show", "practice_answer", "practice_move", "practice_hint",
             "practice_retry", "practice_next", "practice_summary", "progress"}
-READ_ONLY = {"practice_status", "practice_show", "practice_summary", "progress"}
+READ_ONLY = {"practice_status", "practice_summary", "progress"}  # practice_show saves the first attempt of a new session
 
 
 @contextmanager

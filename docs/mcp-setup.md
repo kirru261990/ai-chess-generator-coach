@@ -67,4 +67,4 @@ Python client (a five-position session, a refused step, no token → 401, foreig
 Claude or ChatGPT clients** (plan step 7). Record here what each client does: whether Claude's `/revoke` works for its client
 type (the library asks for a client secret), and whether ChatGPT Plus allows the tools that change data (`practice_start`,
 `practice_answer`, `practice_move`, `practice_hint`, `practice_retry`, `practice_next`). If it refuses them, ChatGPT can still
-use `practice_status`, `practice_show`, `practice_summary` and `progress`; practice itself stays on Claude and the web app.
+use `practice_status`, `practice_summary` and `progress` (the only read-only tools: `practice_show` saves the first attempt of a new session, so it counts as a write); practice itself stays on Claude and the web app.

@@ -304,11 +304,13 @@ def practice_next(conn: sqlite3.Connection, session_id: int) -> str:
 
 def practice_summary(conn: sqlite3.Connection, session_id: int) -> str:
     def run() -> str:
-        _view(conn, session_id)
+        # no `_view` here: opening a session writes its first attempt, and this tool must change nothing
         try:
             return _render_finished(conn, session_id)
-        except A.AssessmentError:
-            raise Refused("the summary is shown when the session is finished. Use practice_show to carry on.") from None
+        except A.AssessmentError as e:
+            if e.code == "not_found":
+                raise Refused(f"there is no practice session {session_id}. Use practice_status to find yours.") from e
+            raise Refused("the summary is shown when the session is finished. Use practice_show to carry on.") from e
     return _guard(run)
 
 
