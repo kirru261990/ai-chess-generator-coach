@@ -87,7 +87,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [ ] P3b Feedback wording by the LLM with the PRD §12 output check (parse every move and square in the text, reject and fall back to the template if one is not in the evidence record); needs a spend plan (October budget is nearly used)
 - [x] P4a Delayed assessments (72 hours after a session, one waiting per type, opens exactly when due), results, Progress screen with assisted practice kept apart (ADR 0006 decisions 37 to 40). Built 2026-10-15 on `feat/step4-delayed`
 - [ ] P4b Real-game rates with floors (PRD §8): M1 per 100 player moves and M2 missed ÷ available, frozen baseline window against the games after it, 20-game / 20-opportunity floors; needs every player move of those games checked at the evidence config (ADR 0006 decision 41)
-- [ ] P5 MCP tools over the same service layer
+- [ ] P5 MCP tools over the same service layer: **practice mode in Claude chat and ChatGPT** (remote server from the owner's Mac, OAuth login, practice tools only). Design and build order: `docs/mcp-practice-plan.md` (design done 2026-10-16, not built)
 
 ## Next (proposed order for the next session)
 1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)
