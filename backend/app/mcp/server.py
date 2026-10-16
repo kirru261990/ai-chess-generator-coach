@@ -6,21 +6,27 @@ Practice only. No tool starts or takes a test, so a chat assistant cannot help w
 not practice.
 
     python -m app.mcp.server stdio    # Claude Desktop / Claude Code on this Mac (no login needed locally)
-    python -m app.mcp.server http     # remote clients behind a tunnel; needs the login (not built yet: refuses to start)
+    python -m app.mcp.server http     # remote clients behind a tunnel; needs MCP_PUBLIC_URL and a password (python -m app.mcp.setup)
 """
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import sys
+import time
 from collections.abc import Callable
 from contextlib import contextmanager
+from urllib.parse import urlparse
 
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from app.db.schema import connect
 from app.engine.evidence import open_evidence
+from app.mcp import auth
 from app.mcp import practice_tools as T
 
 NAME = "chess-coach"
@@ -114,15 +120,70 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
     return mcp
 
 
+DEFAULT_PORT = 8765
+BROWSER_ORIGINS = ["https://claude.ai", "https://claude.com", "https://chatgpt.com", "https://chat.openai.com"]
+
+
+class HostGuard:
+    """Refuse any request whose Host header is not ours, on every route (the library checks only the /mcp endpoint). Defends
+    against DNS rebinding and against the tunnel being reached under another name."""
+
+    def __init__(self, app, allowed_hosts: set[str]):
+        self.app, self.allowed = app, {h.lower() for h in allowed_hosts}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            host = dict(scope["headers"]).get(b"host", b"").decode("latin-1").lower()
+            if host not in self.allowed:
+                if scope["type"] == "http":
+                    await send({"type": "http.response.start", "status": 421, "headers": [(b"content-type", b"text/plain")]})
+                    await send({"type": "http.response.body", "body": b"misdirected request"})
+                return
+        await self.app(scope, receive, send)
+
+
+def build_http_app(public_url: str, *, auth_path=None, conn_factory: ConnFactory = connect, opener=open_evidence,
+                   port: int = DEFAULT_PORT, clock: Callable[[], float] = time.time):
+    """The remote app: the tools behind OAuth, the login page, and the host checks. Returns (ASGI app, provider)."""
+    public_url = public_url.rstrip("/")
+    provider = auth.PracticeAuthProvider(public_url, auth_path, clock)
+    settings = AuthSettings(
+        issuer_url=public_url, resource_server_url=public_url + "/mcp", validate_token_resource=True,
+        client_registration_options=ClientRegistrationOptions(enabled=True, default_scopes=[auth.SCOPE]),
+        revocation_options=RevocationOptions(enabled=True), required_scopes=[auth.SCOPE])
+    mcp = build_server(conn_factory, opener, auth_server_provider=provider, auth=settings)
+    auth.register_login(mcp, provider)
+    hosts = {urlparse(public_url).netloc, f"127.0.0.1:{port}", f"localhost:{port}"}
+    security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=sorted(hosts),
+                                         allowed_origins=[public_url, *BROWSER_ORIGINS])
+    app = mcp.streamable_http_app(stateless_http=True, json_response=True, transport_security=security)
+    return HostGuard(app, hosts), provider
+
+
+def _run_http() -> int:
+    public = os.environ.get("MCP_PUBLIC_URL", "").strip().rstrip("/")
+    port = int(os.environ.get("MCP_PORT", DEFAULT_PORT))
+    host = urlparse(public).hostname
+    if not public or not (public.startswith("https://") or host in auth.LOCAL_HOSTS):
+        print("Set MCP_PUBLIC_URL in .env to the tunnel's https address (no trailing path).", file=sys.stderr)
+        return 2
+    if not auth.password_is_set(auth.connect()):
+        print("No password is set. Run: python -m app.mcp.setup", file=sys.stderr)
+        return 2
+    import uvicorn
+
+    app, _ = build_http_app(public, port=port)
+    uvicorn.run(app, host="127.0.0.1", port=port, proxy_headers=False, server_header=False)
+    return 0
+
+
 def main(argv: list[str]) -> int:
     mode = argv[0] if argv else ""
     if mode == "stdio":
         build_server().run("stdio")
         return 0
     if mode == "http":
-        print("http mode needs the login (app/mcp/auth.py), which is not built yet; it refuses to start without it.",
-              file=sys.stderr)
-        return 2
+        return _run_http()
     print("usage: python -m app.mcp.server stdio|http", file=sys.stderr)
     return 2
 

@@ -80,6 +80,12 @@ def test_a_refusal_comes_back_as_text_not_an_error(server):
     assert call(server, "practice_start", mistake_type="forks").startswith("I could not do that")
 
 
-def test_http_mode_refuses_until_the_login_exists(capsys):
-    assert S.main(["http"]) == 2 and "login" in capsys.readouterr().err
+def test_http_mode_refuses_without_a_public_url_or_a_password(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("MCP_PUBLIC_URL", raising=False)
+    assert S.main(["http"]) == 2 and "MCP_PUBLIC_URL" in capsys.readouterr().err
+    monkeypatch.setenv("MCP_PUBLIC_URL", "http://example.com")  # plain http is only for this machine
+    assert S.main(["http"]) == 2 and "MCP_PUBLIC_URL" in capsys.readouterr().err
+    monkeypatch.setenv("MCP_PUBLIC_URL", "https://coach.example.com")
+    monkeypatch.setattr("app.config.DATA_DIR", tmp_path)
+    assert S.main(["http"]) == 2 and "setup" in capsys.readouterr().err
     assert S.main([]) == 2
