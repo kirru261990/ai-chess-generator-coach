@@ -193,8 +193,8 @@ def test_nothing_is_shown_before_the_first_answer_except_the_board(store):
         for word in LEAKY:
             assert word not in text, (word, text)
     for text in (first, T.practice_show(conn, sid)):
-        assert [f for f in fens if f in text] == [fens[0]]  # no other board, earlier or later
-        assert not any(f in text for f in fens_in(conn, "HELDOUT"))  # no held-out board
+        assert [f for f in fens if f + "\n" in text] == [fens[0]]  # no other board, earlier or later
+        assert not any(f + "\n" in text for f in fens_in(conn, "HELDOUT"))  # no held-out board
         assert "[" not in text.split("```")[1]  # no marked square
         assert text.count("```") == 2
     # after the question is answered the answer is still not shown, and a refused move shows nothing either

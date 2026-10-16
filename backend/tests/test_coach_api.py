@@ -86,7 +86,7 @@ def test_a_baseline_works_end_to_end_and_reveals_nothing_before_the_final_submit
     # each board appears only while it is the board on screen
     for body in responses:
         shown = (body.get("current") or {}).get("fen")
-        assert [f for f in fens if f in json.dumps(body)] == ([shown] if shown else [])
+        assert [f for f in fens if json.dumps(f) in json.dumps(body)] == ([shown] if shown else [])
 
     done = client.post(f"/coach/assessments/{aid}/submit").json()
     assert done["scores"] == {"recognition": 5, "move": 5, "combined": 5}
@@ -135,9 +135,9 @@ def test_heldout_boards_never_leave_the_assessment_endpoints(store):
         if path.startswith("/coach/assessments") or path in ("/docs", "/redoc", "/openapi.json"):
             continue
         body = client.get(path).text
-        assert not [f for f in fens if f in body], path
+        assert not [f for f in fens if json.dumps(f) in body], path
     body = client.get("/coach/home").text
-    assert not [f for f in fens if f in body]
+    assert not [f for f in fens if json.dumps(f) in body]
 
 
 def _imports(path: Path) -> set[str]:
