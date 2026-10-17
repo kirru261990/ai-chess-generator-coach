@@ -1,5 +1,6 @@
 """Plain-text boards for chat clients (no picture support needed). Words only: this module draws what it is given and decides
-nothing about the position (AGENTS rule 1)."""
+nothing about the position (AGENTS rule 1). Pieces are letters (CAPITALS White, lowercase Black), not chess symbols: symbol glyphs
+fall back to another font in chat clients, come out in uneven widths and, for White, as tiny outlines, so columns drift."""
 
 from __future__ import annotations
 
@@ -7,32 +8,29 @@ from collections.abc import Iterable
 
 import chess
 
-_GLYPH = {
-    "K": "♔", "Q": "♕", "R": "♖", "B": "♗", "N": "♘", "P": "♙",
-    "k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟",
-}
 _ORDER = "KQRBN"
 
 
 def render_board(fen: str, side: str = "white", marks: Iterable[str] = ()) -> str:
-    """The board drawn from `side`'s point of view. Squares in `marks` are shown as [x]; others as ' x '. White pieces are the
-    outlined glyphs, black the filled ones."""
+    """The board drawn from `side`'s point of view. Squares in `marks` are shown as [x]; others as ' x '. Pieces are letters,
+    CAPITALS for White and lowercase for Black; an empty square is a dot."""
     board = chess.Board(fen)
     marked = {chess.parse_square(m) for m in marks}
     white = side != "black"
     files = range(8) if white else range(7, -1, -1)
     ranks = range(7, -1, -1) if white else range(8)
-    header = "    " + "  ".join(chess.FILE_NAMES[f] for f in files)
+    header = "  " + "".join(f" {chess.FILE_NAMES[f]} " for f in files)
     lines = [header]
     for r in ranks:
         cells = []
         for f in files:
             sq = chess.square(f, r)
             piece = board.piece_at(sq)
-            glyph = _GLYPH[piece.symbol()] if piece else "·"
+            glyph = piece.symbol() if piece else "."
             cells.append(f"[{glyph}]" if sq in marked else f" {glyph} ")
         lines.append(f"{r + 1} {''.join(cells)} {r + 1}")
     lines.append(header)
+    lines.append("CAPITALS = White, lowercase = Black")
     return "\n".join(lines)
 
 

@@ -43,6 +43,14 @@ cd backend && uv run python -m app.mcp.server stdio
 ```
 Add it to the client as a local MCP server with that command (working directory `backend/`). It never opens a network port.
 
+## The interactive board (ADR 0008)
+
+In Claude and ChatGPT the practice tools also draw the web app's board inside the chat (tap a piece, click a move, the yellow and green
+arrows, the star, and the replay with the arrow keys). A client that cannot show it still gets the text board (letters: CAPITALS White,
+lowercase Black). The board is one HTML file, `backend/app/mcp/ui/board.html`, built from `web/` with `pnpm build:mcp` and committed;
+rebuild it after changing the Practice page. Restart the server, and in Claude remove and add the connector again (or start a new
+chat) so it re-reads the tool list.
+
 ## What it does
 
 `practice_status`, `practice_start` (`pieces_in_danger` or `free_pieces`), `practice_show`, `practice_answer` (a square or
@@ -68,3 +76,11 @@ Claude or ChatGPT clients** (plan step 7). Record here what each client does: wh
 type (the library asks for a client secret), and whether ChatGPT Plus allows the tools that change data (`practice_start`,
 `practice_answer`, `practice_move`, `practice_hint`, `practice_retry`, `practice_next`). If it refuses them, ChatGPT can still
 use `practice_status`, `practice_summary` and `progress` (the only read-only tools: `practice_show` saves the first attempt of a new session, so it counts as a write); practice itself stays on Claude and the web app.
+
+### Tried in the real Claude (2026-10-17, claude.ai in Chrome, Pro plan)
+- **Added as a custom connector** (form: sign in now, register automatically, no headers). The sign-in page asked for the password and Claude listed all ten tools, sorted as read-only (3) and write (7). The server log showed the whole OAuth flow (register, authorize, login, token).
+- **The interactive board works** (ADR 0008): after `practice_show` Claude read `ui://chess-coach/board.html`, drew the board, and its clicks came back as `practice_answer`, `practice_move`, `practice_retry` and `practice_next` calls. The owner played several positions with it ("worked fine").
+- **Claude caches the tool list** from when the connector was added. After the tools change (for example the board binding) remove and add the connector again; a new chat alone is not enough.
+- **The model adds its own commentary** to relayed text (it explained why a piece hung) although the server's instructions say to only relay: guidance, not enforcement. The board hides this because the board itself carries the feedback.
+- **Not yet checked:** ChatGPT, Claude Desktop with the remote connector, and `/revoke`.
+

@@ -72,7 +72,7 @@ def test_a_wrong_move_gets_the_checked_feedback_and_good_moves(store):
     T.practice_answer(conn, sid, "g1")
     text = T.practice_move(conn, sid, "Kf1", opener)
     assert "NOT SOUND" in text and "You chose the piece on g1: not right." in text
-    assert "Squares in [brackets]" in text and "[♖]" in text  # the piece at risk is marked after the move
+    assert "Squares in [brackets]" in text and "[R]" in text  # the piece at risk is marked after the move
     assert "practice_retry" in text and "practice_next" in text
 
 
@@ -136,7 +136,7 @@ def test_hints_come_one_rung_at_a_time_and_stop_at_three(store):
     t1 = T.practice_hint(conn, sid)
     assert "Hint 1:" in t1 and "Hint 2:" not in t1
     t2 = T.practice_hint(conn, sid)
-    assert "Hint 2:" in t2 and "[♖]" in t2  # the piece at risk is marked
+    assert "Hint 2:" in t2 and "[R]" in t2  # the piece at risk is marked
     t3 = T.practice_hint(conn, sid)
     assert "Hint 3:" in t3 and "Bxa1" in t3 and "No hints left" in t3
     assert T.practice_hint(conn, sid).startswith("I could not do that: you have used all three hints")
@@ -273,3 +273,15 @@ def test_every_tool_annotated_read_only_leaves_the_whole_store_unchanged(store):
     T.practice_summary(conn, sid)
     T.practice_summary(conn, 9999)
     assert dump() == before
+
+
+def test_a_stale_widget_cannot_answer_a_different_position(store):
+    conn = store.conn
+    sid, _ = started(conn)
+    T.practice_answer(conn, sid, "a1")
+    T.practice_move(conn, sid, "Ra2", opener)
+    T.practice_next(conn, sid)  # the session is now at position 2 (ord 1)
+    for text in (T.practice_answer(conn, sid, "a1", 0), T.practice_move(conn, sid, "Ra2", opener, 0),
+                 T.practice_hint(conn, sid, 0), T.practice_retry(conn, sid, 0), T.practice_next(conn, sid, 0)):
+        assert T.is_refusal(text) and "not the position on the board" in text
+    assert "Step 2" in T.practice_answer(conn, sid, "a1", 1)  # the right position is accepted

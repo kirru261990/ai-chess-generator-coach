@@ -89,3 +89,53 @@ def test_http_mode_refuses_without_a_public_url_or_a_password(monkeypatch, tmp_p
     monkeypatch.setattr("app.config.DATA_DIR", tmp_path)
     assert S.main(["http"]) == 2 and "setup" in capsys.readouterr().err
     assert S.main([]) == 2
+
+
+# --- the interactive board (MCP Apps) -----------------------------------------------------------------------------------
+
+BOARD_TOOLS = EXPECTED - READ_ONLY
+
+
+def test_board_tools_point_at_the_board_and_read_only_tools_do_not(server):
+    for t in asyncio.run(server.list_tools()):
+        ui = (t.meta or {}).get("ui")
+        if t.name in BOARD_TOOLS:
+            assert ui and ui["resourceUri"] == S.BOARD_URI, t.name
+        else:
+            assert not ui, t.name
+
+
+def test_the_board_is_served_as_an_app_resource(server):
+    res = asyncio.run(server.list_resources())
+    board = next(r for r in res if str(r.uri) == S.BOARD_URI)
+    assert board.mime_type == "text/html;profile=mcp-app"
+    body = asyncio.run(server.read_resource(S.BOARD_URI))
+    assert "<" in body[0].content  # some HTML (the built board, or the not-built notice)
+
+
+def test_a_board_tool_returns_the_text_and_the_data_the_board_draws(server):
+    result = asyncio.run(server.call_tool("practice_start", {"mistake_type": "pieces_in_danger"}))
+    assert not result.is_error and "position 1 of 5" in result.content[0].text
+    data = result.structured_content
+    assert data["summary"] is None and data["view"]["mistake_type"] == "M1" and data["view"]["total"] == 5
+    cur = data["view"]["current"]
+    assert cur["stage"] == "recognition" and cur["feedback"] is None  # nothing is revealed before the answer
+    again = asyncio.run(server.call_tool("practice_show", {"session_id": data["view"]["session_id"]}))
+    assert again.structured_content["view"]["current"]["fen"] == cur["fen"]
+
+
+def test_a_refusal_has_no_board_data(server):
+    result = asyncio.run(server.call_tool("practice_show", {"session_id": 999}))
+    assert result.content[0].text.startswith("I could not do that") and not result.structured_content
+
+
+def test_the_data_for_the_board_matches_the_web_pages(server, path):
+    # one source: the same function the web app's API serves
+    from app.learner import practice as P
+    result = asyncio.run(server.call_tool("practice_start", {"mistake_type": "pieces_in_danger"}))
+    sid = result.structured_content["view"]["session_id"]
+    conn = connect(path)
+    try:
+        assert result.structured_content["view"] == P.get_session(conn, sid)
+    finally:
+        conn.close()

@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:mcp": "vite build --config vite.mcp.config.ts"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -17,6 +18,9 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/core": "^2.3.1",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
@@ -24,6 +28,8 @@
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
-    "vitest": "^5.0.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.3",
+    "zod": "^4.6.7"
   }
 }
