@@ -16,6 +16,12 @@ def test_a_piece_the_opponent_can_win_is_reported_with_its_square():
     assert kinds("4k3/8/8/3p4/4N3/8/8/4K3 w - - 0 1") == [("piece_can_be_taken", "e4")]
 
 
+def test_a_threat_carries_the_capture_so_the_board_can_draw_an_arrow():
+    # The knight on e4 can be taken by the pawn on d5 (d5xe4).
+    t = threats(chess.Board("4k3/8/8/3p4/4N3/8/8/4K3 w - - 0 1"))["threats"][0]
+    assert t["square"] == "e4" and t["capture"] == "d5e4"
+
+
 def test_a_defended_or_safe_position_has_no_threats():
     assert kinds(chess.STARTING_FEN) == []
     assert kinds("4k3/8/5n2/8/4N3/3B4/8/4K3 w - - 0 1") == []  # an even trade: the bishop defends e4

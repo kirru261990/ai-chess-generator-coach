@@ -113,3 +113,4 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .replay { display: flex; align-items: center; justify-content: center; gap: 12px; max-width: 520px; margin: 8px auto; }
 .replay button { min-width: 44px; font-size: 1.1em; }
 .replay-caption { flex: 1; text-align: center; font-size: 0.95em; }
+.threat-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }

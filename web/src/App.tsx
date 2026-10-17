@@ -18,6 +18,7 @@ import {
   storeFeedback,
   whyLabel,
   type Why,
+  threatArrows,
   threatsAreCurrent,
   type Threats,
   type Feedback,
@@ -56,6 +57,7 @@ export default function App() {
   const [why, setWhy] = useState<{ key: string; loading: boolean; data: Why | null } | null>(null)
   const [threats, setThreats] = useState<(Threats & { gameId: string }) | null>(null)
   const askedThreats = useRef('')
+  const [showThreats, setShowThreats] = useState(true) // Practice: draw the opponent's threats on the board; the player can switch it off
 
   // Responses can arrive out of order (the engine's reply is shown after a delay), so an
   // older snapshot must never replace a newer one or one for a game that was left behind.
@@ -221,7 +223,8 @@ export default function App() {
   const hintFrom = shownHint?.steps.find((st) => st.kind === 'piece')?.from ?? null // step 3: which piece
   const hintUci = shownHint?.steps.find((st) => st.kind === 'move')?.uci ?? null // last step: the move itself
   const warn = game && threats && threatsAreCurrent(threats, game) ? threats : null
-  if (warn) {
+  const threatsOn = !!game && game.mode === 'practice' && showThreats && !!warn // Practice only (rule 4)
+  if (warn && threatsOn) {
     for (const t of warn.threats) {
       if (t.square) highlights[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
     }
@@ -246,9 +249,10 @@ export default function App() {
     </div>
   )
   // A suggestion only: nothing stops the player from playing anything.
-  const hintArrows = hintUci
-    ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }]
-    : []
+  const hintArrows = [
+    ...(hintUci ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }] : []),
+    ...(warn && threatsOn ? threatArrows(warn) : []),
+  ]
   if (game && selected) {
     highlights[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
     for (const m of game.legal_moves) {
@@ -477,54 +481,24 @@ export default function App() {
               )}
             </section>
           )}
-          {game.mode === 'practice' && (
-            <section className={`feedback ${fb ? fb.verdict : ''}`} aria-live="polite">
-              {fb ? (
-                <>
-                  <p className="fb-head">
-                    <strong>{moveBadge(fb.classification.key, fb.classification.opening).symbol} {fb.headline}</strong> <span className="fb-move">You played {fb.played.text}.</span>
-                  </p>
-                  {fb.right.map((t) => (
-                    <p key={t} className="fb-right">✓ {t}</p>
-                  ))}
-                  {fb.wrong.map((t) => (
-                    <p key={t} className="fb-wrong">✗ {t}</p>
-                  ))}
-                  {(marks.hanging.length > 0 || marks.missed.length > 0) && (
-                    <p className="fb-legend">
-                      {marks.hanging.length > 0 && <span><i className="sw red" /> your piece that can be taken (or was taken here) </span>}
-                      {marks.missed.length > 0 && <span><i className="sw green" /> a free piece you could have taken</span>}
-                    </p>
-                  )}
-                  {(() => {
-                    const mine = why && why.key === feedbackKey(fb) ? why : null
-                    if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
-                    if (mine?.data)
-                      return (
-                        <div className="why">
-                          <p>{mine.data.text}</p>
-                          <p className="fb-wait">{mine.data.note ?? whyLabel(mine.data.status)}</p>
-                        </div>
-                      )
-                    return (
-                      <button onClick={() => void askWhy(fb)}>
-                        {mine ? 'Could not load it. Try again' : 'Why?'}
-                      </button>
-                    )
-                  })()}{' '}
-                </>
-              ) : (
-                <p className="fb-wait">Make a move and I will tell you what was right or wrong with it.</p>
-              )}
-            </section>
-          )}
-          {game.mode === 'practice' && warn && (warn.in_check || warn.threats.length > 0) && (
-            <section className="threats" aria-live="polite">
-              <strong>Watch out</strong>
-              {warn.in_check && <p>You are in check.</p>}
-              {warn.threats.map((t) => (
-                <p key={t.text}>⚠ {t.text}</p>
-              ))}
+          {game.mode === 'practice' && fb && (
+            <section className="why-box" aria-live="polite">
+              {(() => {
+                const mine = why && why.key === feedbackKey(fb) ? why : null
+                if (mine?.loading) return <p className="fb-wait">Checking the explanation…</p>
+                if (mine?.data)
+                  return (
+                    <div className="why">
+                      <p>{mine.data.text}</p>
+                      <p className="fb-wait">{mine.data.note ?? whyLabel(mine.data.status)}</p>
+                    </div>
+                  )
+                return (
+                  <button onClick={() => void askWhy(fb)}>
+                    {mine ? 'Could not load it. Try again' : 'Why?'}
+                  </button>
+                )
+              })()}
             </section>
           )}
           <div className="controls">
@@ -534,6 +508,11 @@ export default function App() {
             >
               {game.mode === 'play' ? 'Switch to Practice' : 'Switch to Play'}
             </button>
+            {game.mode === 'practice' && (
+              <label className="threat-toggle" title="Draw the pieces the opponent can win as red arrows">
+                <input type="checkbox" checked={showThreats} onChange={(e) => setShowThreats(e.target.checked)} /> Show threats
+              </label>
+            )}
             {game.mode === 'practice' && (
               <button onClick={() => void undo()} disabled={busy || !game.can_take_back} title="Undo (left arrow key)">
                 Undo

@@ -86,7 +86,14 @@ export function feedbackIsCurrent(
 export type Threats = {
   revision: number
   in_check: boolean
-  threats: { kind: 'piece_can_be_taken' | 'mate_threat'; square?: string; text: string }[]
+  threats: { kind: 'piece_can_be_taken' | 'mate_threat'; square?: string; capture?: string; text: string }[]
+}
+
+/** One red arrow per piece of yours the opponent can win: from the capturing piece to yours. */
+export function threatArrows(t: Threats): { startSquare: string; endSquare: string; color: string }[] {
+  return t.threats
+    .filter((x) => x.kind === 'piece_can_be_taken' && x.capture && x.capture.length >= 4)
+    .map((x) => ({ startSquare: x.capture!.slice(0, 2), endSquare: x.capture!.slice(2, 4), color: 'rgba(220, 60, 50, 0.85)' }))
 }
 
 /** Threat warnings belong to one position: show them only for the revision they were computed for. */
