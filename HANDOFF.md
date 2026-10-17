@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-17 · MacBook · Claude Code: Practice feedback drawn on the board (branch `feat/numbered-move-arrows`)
+- **Done (owner's request, tried by playing):** Practice feedback no longer prints "In the game you played…", the verdict sentence or the good-moves list. A **sound** move shows the position after it with the Play board's green ★ badge on the moved piece and no arrows. A **not sound** move shows yellow (your move) and green (the engine's verified moves) arrows; a series with two or more moves is numbered 1, 2, 3 on its own, a lone move is just an arrow. A button **Show what I played in the game** adds the red series (your game move, then the line it allowed) on the position before the move; it resets on each position. A swimlane legend sits under the board. New `web/src/MoveArrows.tsx` (SVG overlay) and `feedbackLanes` / `squareCentre` in `practiceState.ts`.
+- **Backend:** the practice feedback now also carries `board_line_san` and `fen_after` (python-chess, so the backend still owns chess state). The MCP text tools are unchanged. The engine's verified alternatives hold only a first move, so the green series is a ranked list, not a continuation.
+- **Not done / not verified:** the summary page still prints one sentence per position. The star case was checked on a throwaway page and then by the owner playing; the numbered red line is not shown for a sound move until the button is pressed.
+- **Branch:** `feat/numbered-move-arrows`. Nothing from `data/`, `.env` or the owner's games was committed.
+
 ### 2026-10-16 · second Mac (work laptop: no tunnel allowed) · Claude Code: practice as MCP tools, steps 1 to 6
 - **Built on `feat/mcp-practice`** (worktree `~/Projects/acc-mcp`; branched from `docs/mcp-practice-design`, which holds the plan), following `docs/mcp-practice-plan.md`: `app/mcp/board_text.py` (text board, piece list), `practice_tools.py` (the ten tools, move parsing, refusals as sentences), `server.py` (the `MCPServer`, annotations, instructions, `stdio` and `http` entry points, host guard), `auth.py` and `setup.py` (OAuth provider and login page for one owner, scrypt password, 5-try lock-out, hashed tokens). Docs: `docs/mcp-setup.md`, ADR 0007.
 - **Verified:** 918 backend tests, ruff clean. Run end to end over HTTP with the real engine and the full login on a scratch copy of the store (a five-position session, refused steps, no token 401, foreign host 421). Found and fixed a grammar bug in the step 1 question.

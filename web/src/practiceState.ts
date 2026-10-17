@@ -20,6 +20,8 @@ export type PracticeFeedback = {
   game_move: MoveRef
   allowed: string
   board_line: string[] // M1: your move in the game, then what it allowed. M2: the capture
+  board_line_san: string[] // the same moves in standard notation
+  fen_after: string // the position once your move is played
   target_squares: string[]
   your_tap: string
   tap_correct: boolean
@@ -127,6 +129,49 @@ export function feedbackMarks(fb: PracticeFeedback, fen: string, sideToMove: 'wh
     color: i === 0 ? 'rgba(80, 140, 230, 0.8)' : 'rgba(220, 60, 50, 0.85)',
   }))
   return { squares, arrows }
+}
+
+export type Series = 'game' | 'now' | 'best'
+export type Lane = { series: Series; n: number; who: 'You' | 'Opponent'; san: string; uci: string; notSound?: boolean }
+export type SeriesStyle = { title: string; color: string; text: string; shift: number }
+
+/** One colour per series, each numbered from 1: red is the game, yellow is the move just played, green is the engine's. */
+export const SERIES: Record<Series, SeriesStyle> = {
+  game: { title: 'In the game', color: '#dc3c32', text: '#fff', shift: -0.22 },
+  now: { title: 'Your move now', color: '#f2c200', text: '#3a3000', shift: 0 },
+  best: { title: 'Engine suggests', color: '#2e9e55', text: '#fff', shift: 0.22 },
+}
+
+const MAX_GAME_MOVES = 4
+
+/** The feedback as separately numbered series. Game (red): the move you played, then the line it allowed (M1), sides alternating.
+ *  A sound move gets no arrows of its own (the board shows the position after it, with a star on the piece); an unsound one is
+ *  drawn in yellow with the engine's moves in green. */
+export function feedbackLanes(fb: PracticeFeedback, type: 'M1' | 'M2'): Lane[] {
+  const lanes: Lane[] = []
+  const add = (series: Series, who: Lane['who'], san: string, uci: string, extra: Partial<Lane> = {}) => {
+    const n = lanes.filter((l) => l.series === series).length + 1
+    lanes.push({ series, n, who, san, uci, ...extra })
+  }
+  add('game', 'You', fb.game_move.san, fb.game_move.uci)
+  if (type === 'M1') {
+    fb.board_line.slice(1, MAX_GAME_MOVES).forEach((uci, i) => add('game', i % 2 === 0 ? 'Opponent' : 'You', fb.board_line_san[i + 1], uci))
+  }
+  if (fb.sound) return lanes
+  add('now', 'You', fb.your_move.san, fb.your_move.uci, { notSound: true })
+  if (type === 'M2') {
+    fb.board_line.slice(0, 3).forEach((uci, i) => add('best', i % 2 === 0 ? 'You' : 'Opponent', fb.board_line_san[i], uci))
+  } else {
+    for (const m of fb.good_moves.slice(0, 3)) add('best', 'You', m.san, m.uci)
+  }
+  return lanes
+}
+
+/** Centre of a square in an 8x8 viewBox, for the given board orientation. */
+export function squareCentre(sq: string, orientation: 'white' | 'black'): { x: number; y: number } {
+  const file = sq.charCodeAt(0) - 97
+  const rank = Number(sq[1]) - 1
+  return orientation === 'white' ? { x: file + 0.5, y: 7 - rank + 0.5 } : { x: 7 - file + 0.5, y: rank + 0.5 }
 }
 
 /** The line a mistake allowed, in words for the caption under the board. */

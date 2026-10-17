@@ -271,20 +271,26 @@ def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) 
     game_move = ev["player_move"]
     if pos["mistake_type"] == "M1":
         board_line = [game_move["uci"], *line["uci"]]  # your move in the game, then what it allowed
+        board_line_san = [game_move["san"], *line["san"]]
         allowed = (f"In the game you played {game_move['san']}. That allowed {line['san'][0]}, which wins "
                    f"{ev['material_swing']} points of material. One line the engine found (not the only one): "
                    f"{' '.join(line['san'])}.")
     else:
         board_line = list(line["uci"])
+        board_line_san = list(line["san"])
         allowed = (f"In the game you played {game_move['san']}. You could have won material with {line['san'][0]} "
                    f"(worth {ev['material_swing']} points). One line the engine found (not the only one): "
                    f"{' '.join(line['san'])}.")
     alternatives = json.loads(pos["verified_alternatives_json"] or "[]")
+    after = chess.Board(pos["fen"])
+    after.push_uci(verdict["move"]["uci"])
     return {
+        "fen_after": after.fen(),  # the position once the player's move is played (the board shows it for a sound move)
         "original": A.explain("MISTAKE", ev, pos["fen"]),
         "game_move": game_move,
         "allowed": allowed,
         "board_line": board_line,
+        "board_line_san": board_line_san,
         "target_squares": ev["target_squares"],
         "your_tap": attempt["recognition_response"],
         "tap_correct": bool(attempt["recognition_correct"]),

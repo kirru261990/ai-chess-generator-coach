@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  feedbackMarks, hintButton, hintMarks, practiceLabel, stepTitle, summaryLines,
+  feedbackLanes, feedbackMarks, hintButton, hintMarks, practiceLabel, squareCentre, stepTitle, summaryLines,
   type Hint, type PracticeFeedback, type PracticeStatus, type PracticeSummary,
 } from './practiceState'
 
@@ -65,5 +65,40 @@ describe('practiceLabel', () => {
     expect(practiceLabel({ ...base, session: { session_id: 1, done: 2, total: 5 } }).button).toContain('2 of 5')
     expect(practiceLabel(base).button).toBe('Start practice')
     expect(practiceLabel({ ...base, positions: { unseen: 1, to_repeat: 1 } }).button).toBeNull()
+  })
+})
+
+describe('feedbackLanes', () => {
+  const fb = {
+    game_move: { uci: 'g1g2', san: 'Kg2' },
+    board_line: ['g1g2', 'c3a1', 'h1h2', 'a1b2', 'x'], board_line_san: ['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'x'],
+    your_move: { uci: 'a1a8', san: 'Ra8+' }, sound: false,
+    good_moves: [{ uci: 'a1b1', san: 'Rb1' }, { uci: 'a1c1', san: 'Rc1' }],
+  } as PracticeFeedback
+  const row = (l: ReturnType<typeof feedbackLanes>, s: string) => l.filter((x) => x.series === s).map((x) => [x.n, x.who, x.san])
+  it('numbers each series from 1 on its own', () => {
+    const l = feedbackLanes(fb, 'M1')
+    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2'], [2, 'Opponent', 'Bxa1'], [3, 'You', 'Rh2'], [4, 'Opponent', 'Bb2']])
+    expect(row(l, 'now')).toEqual([[1, 'You', 'Ra8+']])
+    expect(row(l, 'best')).toEqual([[1, 'You', 'Rb1'], [2, 'You', 'Rc1']])
+  })
+  it('draws no arrows for a sound move except the game line on request', () => {
+    const l = feedbackLanes({ ...fb, sound: true }, 'M1')
+    expect(l.every((x) => x.series === 'game')).toBe(true)
+  })
+  it('marks an unsound move as such', () => {
+    expect(feedbackLanes(fb, 'M1').find((x) => x.series === 'now')?.notSound).toBe(true)
+  })
+  it('for free pieces: your game move in red, the capture line in green when the move was not sound', () => {
+    const l = feedbackLanes({ ...fb, board_line: ['c3a1', 'b2a1'], board_line_san: ['Bxa1', 'Kxa1'] }, 'M2')
+    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2']])
+    expect(row(l, 'best')).toEqual([[1, 'You', 'Bxa1'], [2, 'Opponent', 'Kxa1']])
+  })
+})
+
+describe('squareCentre', () => {
+  it('flips for black', () => {
+    expect(squareCentre('a1', 'white')).toEqual({ x: 0.5, y: 7.5 })
+    expect(squareCentre('a1', 'black')).toEqual({ x: 7.5, y: 0.5 })
   })
 })
