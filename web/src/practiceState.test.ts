@@ -78,9 +78,15 @@ describe('feedbackLanes', () => {
   const row = (l: ReturnType<typeof feedbackLanes>, s: string) => l.filter((x) => x.series === s).map((x) => [x.n, x.who, x.san])
   it('numbers each series from 1 on its own', () => {
     const l = feedbackLanes(fb, 'M1')
-    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2'], [2, 'Opponent', 'Bxa1'], [3, 'You', 'Rh2'], [4, 'Opponent', 'Bb2']])
+    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2'], [2, 'Opponent', 'Bxa1'], [3, 'You', 'Rh2'], [4, 'Opponent', 'Bb2'], [5, 'You', 'x']])
     expect(row(l, 'now')).toEqual([[1, 'You', 'Ra8+']])
     expect(row(l, 'best')).toEqual([[1, 'You', 'Rb1'], [2, 'You', 'Rc1']])
+  })
+  it('keeps the whole verified line, including its last reply', () => {
+    const long = { ...fb, board_line: ['g1g2', 'c3a1', 'h1h2', 'a1b2', 'b2c1'], board_line_san: ['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'Bc1'] } as PracticeFeedback
+    expect(row(feedbackLanes(long, 'M1'), 'game').map((x) => x[2])).toEqual(['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'Bc1'])
+    const cap = { ...fb, board_line: ['d1d5', 'e6d5', 'c4c6', 'e8c6'], board_line_san: ['Rxd5+', 'exd5', 'Bxc6+', 'Kxc6'] } as PracticeFeedback
+    expect(row(feedbackLanes(cap, 'M2'), 'best').map((x) => x[2])).toEqual(['Rxd5+', 'exd5', 'Bxc6+', 'Kxc6'])
   })
   it('draws no arrows for a sound move except the game line on request', () => {
     const l = feedbackLanes({ ...fb, sound: true }, 'M1')

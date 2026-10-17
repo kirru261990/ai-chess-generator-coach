@@ -142,8 +142,6 @@ export const SERIES: Record<Series, SeriesStyle> = {
   best: { title: 'Engine suggests', color: '#2e9e55', text: '#fff', shift: 0.22 },
 }
 
-const MAX_GAME_MOVES = 4
-
 /** The feedback as separately numbered series. Game (red): the move you played, then the line it allowed (M1), sides alternating.
  *  A sound move gets no arrows of its own (the board shows the position after it, with a star on the piece); an unsound one is
  *  drawn in yellow with the engine's moves in green. */
@@ -155,12 +153,12 @@ export function feedbackLanes(fb: PracticeFeedback, type: 'M1' | 'M2'): Lane[] {
   }
   add('game', 'You', fb.game_move.san, fb.game_move.uci)
   if (type === 'M1') {
-    fb.board_line.slice(1, MAX_GAME_MOVES).forEach((uci, i) => add('game', i % 2 === 0 ? 'Opponent' : 'You', fb.board_line_san[i + 1], uci))
+    fb.board_line.slice(1).forEach((uci, i) => add('game', i % 2 === 0 ? 'Opponent' : 'You', fb.board_line_san[i + 1], uci))
   }
   if (fb.sound) return lanes
   add('now', 'You', fb.your_move.san, fb.your_move.uci, { notSound: true })
   if (type === 'M2') {
-    fb.board_line.slice(0, 3).forEach((uci, i) => add('best', i % 2 === 0 ? 'You' : 'Opponent', fb.board_line_san[i], uci))
+    fb.board_line.forEach((uci, i) => add('best', i % 2 === 0 ? 'You' : 'Opponent', fb.board_line_san[i], uci))
   } else {
     for (const m of fb.good_moves.slice(0, 3)) add('best', 'You', m.san, m.uci)
   }
