@@ -32,6 +32,7 @@ from app.db.schema import connect
 from app.engine.evidence import open_evidence
 from app.learner import assessment as A
 from app.mcp import auth
+from app.mcp import game_tools as G
 from app.mcp import practice_tools as T
 
 log = logging.getLogger(__name__)
@@ -47,7 +48,11 @@ INSTRUCTIONS = (
     "This server runs Replay My Mistakes practice from the player's own games. You only relay it. Never analyse the position, "
     "suggest a move, or say whether an answer is right before the tool does. Never call practice_hint unless the player asks "
     "for a hint. Show each tool's text exactly as it is, including the board. Only the tools check chess facts; do not add "
-    "chess claims of your own. Practice is always assisted. The starting and delayed tests are taken in the web app only."
+    "chess claims of your own. Practice is always assisted. The starting and delayed tests are taken in the web app only. "
+    "The game_ tools play a game against Stockfish, either Play (no help) or Practice (assisted). In a Play game never say whether "
+    "a move is good or bad, never suggest a move, and never mention threats, hints or the evaluation; only report the tool's "
+    "text. Call game_hint, game_undo or game_threats only when the player asks, and never in a Play game. Chat games are kept in "
+    "memory only and are not saved."
 )
 
 READ = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
@@ -130,6 +135,46 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
         """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
         with store() as c:
             return board(T.practice_next(c, session_id, expected_ord), c, session_id)
+
+    def game_board(pair) -> CallToolResult:
+        """A game tool's (data, text) as a result: the text always, and the board data unless the step was refused."""
+        structured, words = pair
+        return CallToolResult(content=[TextContent(type="text", text=words)], structured_content=structured)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_new(color: str = "white", level: int = 3, mode: str = "play") -> CallToolResult:
+        """Start a game against Stockfish and show the board. color: white or black. level: 1 to 10. mode: play (no help) or practice (assisted: verdicts, hints, undo, threat arrows)."""
+        return game_board(G.game_new(color, level, mode))
+
+    @apps.tool(annotations=READ, **ui)
+    def game_show(game_id: str) -> CallToolResult:
+        """Show the board of a game and whose turn it is. Safe to call again. Changes nothing."""
+        return game_board(G.game_show(game_id))
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_move(game_id: str, move: str, expected_revision: int | None = None) -> CallToolResult:
+        """Play your move, like Nf3, exd5, O-O or g1f3. Stockfish replies in the same call (about a second)."""
+        return game_board(G.game_move(game_id, move, expected_revision))
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_resign(game_id: str) -> CallToolResult:
+        """Resign the game. It ends at once."""
+        return game_board(G.game_resign(game_id))
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_undo(game_id: str) -> CallToolResult:
+        """Practice games only, and only when the player asks: take back the last move. The game stays assisted."""
+        return game_board(G.game_undo(game_id))
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_hint(game_id: str, level: int = 1) -> CallToolResult:
+        """Practice games only, and only when the player asks: hint steps 1 to 5 for the position (5 is the move itself)."""
+        return game_board(G.game_hint(game_id, level))
+
+    @apps.tool(annotations=WRITE, **ui)
+    def game_threats(game_id: str, show: bool = True) -> CallToolResult:
+        """Practice games only: turn the threat arrows on the board on or off."""
+        return game_board(G.game_threats(game_id, show))
 
     mcp = MCPServer(NAME, instructions=INSTRUCTIONS, extensions=[apps], **server_args)
 

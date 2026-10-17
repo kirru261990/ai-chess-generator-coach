@@ -2,11 +2,15 @@ import { App } from '@modelcontextprotocol/ext-apps'
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../App.css'
+import GameBoard from '../GameBoard'
+import { gameToolBackend, isGamePayload, type GamePayload } from '../gameBackend'
 import Practice from '../Practice'
 import { toolBackend, type BoardPayload, type ToolCaller } from '../practiceBackend'
 
-/** The practice board inside a chat (an MCP app). The chat shows this page in a sandbox: it hands over the result of the tool that
- *  showed the board, and this page calls the same practice tools for every click, so the rules and the engine stay on the server. */
+/** The board inside a chat (an MCP app). The chat shows this page in a sandbox: it hands over the result of the tool that showed the
+ *  board, and this page calls the same tools for every click, so the rules and the engine stay on the server. One file serves two
+ *  pages: Replay My Mistakes practice (ADR 0008) and a game against Stockfish, Play or Practice (ADR 0009); the latest tool result
+ *  decides which. */
 const app = new App({ name: 'chess-coach-board', version: '1.0.0' })
 
 const call: ToolCaller = async (name, args) => {
@@ -15,19 +19,25 @@ const call: ToolCaller = async (name, args) => {
   return { structured: r.structuredContent ?? null, text: text && 'text' in text ? String(text.text) : '' }
 }
 
+type Shown = { kind: 'practice'; payload: BoardPayload } | { kind: 'game'; payload: GamePayload }
+
 function Board() {
-  const [payload, setPayload] = useState<BoardPayload | null>(null)
-  const backend = useMemo(() => toolBackend(call), [])
+  const [shown, setShown] = useState<Shown | null>(null)
+  const practiceBackend = useMemo(() => toolBackend(call), [])
+  const gameBackend = useMemo(() => gameToolBackend(call), [])
   useEffect(() => {
     // Set the handler before connecting: the host may send the result right after the handshake.
     app.ontoolresult = (params) => {
-      const data = params.structuredContent as BoardPayload | undefined
-      if (data?.view) setPayload(data)
+      const data = params.structuredContent
+      if (isGamePayload(data)) setShown({ kind: 'game', payload: data })
+      else if ((data as BoardPayload | undefined)?.view) setShown({ kind: 'practice', payload: data as BoardPayload })
     }
     app.connect().catch(() => {})
   }, [])
-  if (!payload) return <div className="app"><p className="note">Waiting for the board…</p></div>
-  return <Practice key={payload.view.session_id} id={payload.view.session_id} backend={backend} initial={payload} />
+  if (!shown) return <div className="app"><p className="note">Waiting for the board…</p></div>
+  if (shown.kind === 'game') return <GameBoard key={shown.payload.game.id} initial={shown.payload} backend={gameBackend} />
+  const p = shown.payload
+  return <Practice key={p.view.session_id} id={p.view.session_id} backend={practiceBackend} initial={p} />
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Board /></StrictMode>)
