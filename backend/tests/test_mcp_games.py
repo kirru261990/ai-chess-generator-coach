@@ -290,3 +290,14 @@ def test_the_two_step_flow_carries_no_help_in_play_and_the_usual_help_in_practic
     assert "practice" in d and d["practice"]["feedback"] is None  # the verdict waits for the reply step, so the move shows at once
     d, _ = G.game_engine_move(pr, 1)
     assert d["practice"]["feedback"]["headline"] == "A fine move"
+
+
+def test_a_game_ending_move_still_gets_its_verdict_from_the_engine_step():
+    gid = new("practice")
+    game = GAMES[gid]
+    game.start_fen, game.moves[:] = "k7/2Q5/2K5/8/8/8/8/8 w - - 0 1", []
+    game.revision += 1
+    first, _ = G.game_move(gid, "Qb6", game.revision, reply=False)
+    assert first["game"]["outcome"]["termination"] == "stalemate" and first["practice"]["feedback"] is None
+    second, _ = G.game_engine_move(gid, first["game"]["revision"])  # plays nothing, carries the verdict
+    assert second["game"]["moves"] == first["game"]["moves"] and second["practice"]["feedback"]["headline"] == "A fine move"

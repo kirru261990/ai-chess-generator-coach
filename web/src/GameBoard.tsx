@@ -65,7 +65,11 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     void step('Sending your move…', async () => {
       const first = await backend.move(game.id, uci, game.revision) // the player's move, at once
       accept(first)
-      if (first.game.outcome || first.game.turn === first.game.user_color) return first
+      if (first.game.outcome) {
+        // A move that ends the game has no reply, but Practice still owes its verdict: the engine step plays nothing then and carries it.
+        return first.game.mode === 'practice' ? backend.engineMove(first.game.id, first.game.revision) : first
+      }
+      if (first.game.turn === first.game.user_color) return first
       setBusy('Stockfish is thinking…')
       const shown = Date.now()
       const reply = await backend.engineMove(first.game.id, first.game.revision) // then the reply, no sooner than 1 s later
