@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-17 (night) · MacBook · Claude Code: your move shows first in chat games (branch `feat/mcp-game-two-step`, ADR 0009 addendum)
+- **Done:** app-only tools `game_apply_move` (player's move, no reply, no verdict) and `game_engine_move` (reply, guarded by `expected_revision`); the game page calls them in order, shows the move at once and the reply no sooner than 1 s later, and tints the last move. `game_move` is unchanged for text clients. Tests: two steps equal `game_move`, the first never has the reply, a stale or double reply plays nothing, no help in Play.
+- **Verified:** mock host, real Stockfish: move on the board at about 0.5 s with "Stockfish is thinking…", reply exactly 1 s later. **Unknown:** whether Claude honours `visibility: ["app"]` (the server still lists the tools; the instructions say never call them). Owner: remove and re-add the connector.
+
 ### 2026-10-17 (night) · MacBook · Claude Code: Play and assisted games in chat (branch `feat/mcp-game-board`, stacked on PR 81, ADR 0009)
 - **Done:** seven `game_` tools over `api/tools.py` (`game_new`, `game_show`, `game_move` SAN or UCI, `game_resign`; Practice only: `game_undo`, `game_hint`, `game_threats`), `backend/app/mcp/game_tools.py`, a game page in the same `board.html` (`GameBoard.tsx`, `gameBackend.ts`; `mcp-board/main.tsx` picks the page from the result's `kind`). **Rule 4:** a Play result is built from the allow-list `PLAY_KEYS` and its text has only status, the SAN record and the letter board; everything that helps sits under a `practice` object that Play never has, and the page ignores it unless the mode is practice. Regression tests scan Play data and text for help keys and words.
 - **Limits (also in ADR 0009 and `docs/mcp-setup.md`):** chat games are in memory in the MCP process, not saved, not shared with the web app's games, gone on restart, 20 kept; the server only acts on games it started. No eval bar or Why? in chat yet. The model may still comment (guidance, not enforcement).

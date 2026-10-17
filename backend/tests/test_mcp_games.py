@@ -11,7 +11,8 @@ from app.api.store import GAMES
 from app.mcp import game_tools as G
 from app.mcp import server as S
 
-GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats"}
+GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats",
+              "game_apply_move", "game_engine_move"}
 GAME_READ_ONLY: set[str] = set()  # game_show can resume a failed engine reply
 HELP_KEYS = {"verdict", "headline", "eval", "cp", "mate", "best_move", "better_move", "classification", "badge", "marks", "hint", "hints",
              "hints_used", "threat", "threats", "feedback", "practice", "can_take_back", "assisted", "show_threats", "why"}
@@ -244,3 +245,59 @@ def test_concurrent_starts_do_not_confuse_a_failed_opening(monkeypatch):
     assert d is not None and "use game_show" in t and d["game"]["id"] != ids[0]
     monkeypatch.setattr(tools, "get_engine", good)
     assert len(G.game_show(d["game"]["id"])[0]["game"]["moves"]) == 1
+
+
+APP_ONLY = {"game_apply_move", "game_engine_move"}
+
+
+def test_the_board_steps_are_marked_app_only_and_the_others_are_not(server):
+    for t in asyncio.run(server.list_tools()):
+        vis = t.meta["ui"].get("visibility") if t.name in GAME_TOOLS else None
+        assert vis == (["app"] if t.name in APP_ONLY else None), t.name
+    assert "never call them" in server.instructions
+
+
+def test_two_steps_reach_the_same_position_as_game_move_and_the_first_never_has_the_reply():
+    one, two = new("play"), new("play")
+    d_one, _ = G.game_move(one, "e4")
+    first, text = G.game_move(two, "e4", 0, reply=False)
+    assert first["game"]["moves"] == ["e2e4"] and first["game"]["turn"] == "black" and first["game"]["legal_moves"] == []
+    assert "Stockfish replied" not in text
+    second, text = G.game_engine_move(two, first["game"]["revision"])
+    assert second["game"]["moves"] == d_one["game"]["moves"] and second["game"]["fen"] == d_one["game"]["fen"]
+    assert "Stockfish replied" in text
+
+
+def test_a_stale_or_double_engine_step_never_plays_a_second_move():
+    gid = new("play")
+    first, _ = G.game_move(gid, "e4", 0, reply=False)
+    rev = first["game"]["revision"]
+    d, t = G.game_engine_move(gid, rev + 5)  # stale
+    assert d is None and "changed" in t and len(GAMES[gid].moves) == 1
+    assert len(G.game_engine_move(gid, rev)[0]["game"]["moves"]) == 2
+    d, t = G.game_engine_move(gid, rev)  # double click: the revision has moved on
+    assert d is None and len(GAMES[gid].moves) == 2
+    d, t = G.game_move(gid, "d4", rev, reply=False)  # a stale player move
+    assert d is None and len(GAMES[gid].moves) == 2
+
+
+def test_the_two_step_flow_carries_no_help_in_play_and_the_usual_help_in_practice():
+    play = new("play")
+    for d, _ in (G.game_move(play, "e4", 0, reply=False), G.game_engine_move(play, 1)):
+        assert set(d) == {"kind", "game"} and not (set(keys_of(d)) & (HELP_KEYS - {"mode"}))
+    pr = new("practice")
+    d, _ = G.game_move(pr, "e4", 0, reply=False)
+    assert "practice" in d and d["practice"]["feedback"] is None  # the verdict waits for the reply step, so the move shows at once
+    d, _ = G.game_engine_move(pr, 1)
+    assert d["practice"]["feedback"]["headline"] == "A fine move"
+
+
+def test_a_game_ending_move_still_gets_its_verdict_from_the_engine_step():
+    gid = new("practice")
+    game = GAMES[gid]
+    game.start_fen, game.moves[:] = "k7/2Q5/2K5/8/8/8/8/8 w - - 0 1", []
+    game.revision += 1
+    first, _ = G.game_move(gid, "Qb6", game.revision, reply=False)
+    assert first["game"]["outcome"]["termination"] == "stalemate" and first["practice"]["feedback"] is None
+    second, _ = G.game_engine_move(gid, first["game"]["revision"])  # plays nothing, carries the verdict
+    assert second["game"]["moves"] == first["game"]["moves"] and second["practice"]["feedback"]["headline"] == "A fine move"

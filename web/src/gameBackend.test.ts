@@ -18,13 +18,15 @@ describe('the game page backend over chat tools', () => {
     const b = gameToolBackend(async (name, args) => (calls.push([name, args]), { structured: payload, text: '' }))
     await b.show('g1')
     await b.move('g1', 'e2e4', 4)
+    await b.engineMove('g1', 5)
     await b.resign('g1')
     await b.undo('g1')
     await b.hint('g1', 3)
     await b.threats('g1', false)
     expect(calls).toEqual([
       ['game_show', { game_id: 'g1' }],
-      ['game_move', { game_id: 'g1', move: 'e2e4', expected_revision: 4 }],
+      ['game_apply_move', { game_id: 'g1', move: 'e2e4', expected_revision: 4 }],
+      ['game_engine_move', { game_id: 'g1', expected_revision: 5 }],
       ['game_resign', { game_id: 'g1' }],
       ['game_undo', { game_id: 'g1' }],
       ['game_hint', { game_id: 'g1', level: 3 }],

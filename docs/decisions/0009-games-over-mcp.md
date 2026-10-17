@@ -60,3 +60,14 @@ No test or baseline tool; no new dependency; auth, tunnel and the practice tools
 ## Reverse
 Delete `app/mcp/game_tools.py` and the `game_*` tools in `server.py`; the widget keeps working for practice (the page falls back to
 the Replay page).
+
+## Addendum 2026-10-17: the player's move shows first
+The owner saw the move appear 1 to 2 seconds late, together with Stockfish's reply, because `game_move` does both in one call. The web app shows
+the move at once and the reply no sooner than 1 s later. So the board page now uses two more tools marked `_meta.ui.visibility = ["app"]`:
+`game_apply_move(game_id, move, expected_revision)` (only the player's move, returned at once, with no verdict: the verdict needs an engine
+search, so it comes with the next step) and `game_engine_move(game_id, expected_revision)` (the reply; it plays only if it is the engine's
+turn and the game is still at that revision, so a stale or double call never plays a second move). `game_move` is unchanged for text-only
+clients (one call, both moves). The page also tints the last move. The same rule 4 gating applies: the data comes from the same builder.
+
+`visibility: ["app"]` is only metadata the **host** may honour; the server still lists these tools. Whether Claude hides them from the model is
+not known, so their descriptions and the server instructions say "never call them". Guidance, not enforcement, as before.

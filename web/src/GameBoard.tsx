@@ -7,6 +7,7 @@ import {
 } from './gameState'
 
 const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
+const ENGINE_MIN_REPLY_MS = 1000 // as in the web app: the player's move stays on the board alone for this long before the reply
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
 
 /** A game against Stockfish inside the chat (ADR 0009). Play shows the board, a status line and Resign, nothing else: every helper below
@@ -30,15 +31,18 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
   const practice = extras !== null
   useEffect(() => setSelected(null), [game.id, game.revision])
 
+  const accept = (next: GamePayload) => {
+    setPayload((cur) => (next.game.id === cur.game.id && next.game.revision < cur.game.revision ? cur : next))
+    const h = toHint(next)
+    if (h) setHint(h)
+  }
+
   async function step(label: string, fn: () => Promise<GamePayload>) {
     if (busy) return
     setBusy(label)
     setError(null)
     try {
-      const next = await fn()
-      setPayload((cur) => (next.game.id === cur.game.id && next.game.revision < cur.game.revision ? cur : next))
-      const h = toHint(next)
-      if (h) setHint(h)
+      accept(await fn())
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -58,7 +62,21 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     if (candidates.length === 0) return setSelected(null)
     const uci = candidates.find((m) => m.endsWith('q')) ?? candidates[0] // auto-queen
     setSelected(null)
-    void step('Stockfish is thinking…', () => backend.move(game.id, uci, game.revision))
+    void step('Sending your move…', async () => {
+      const first = await backend.move(game.id, uci, game.revision) // the player's move, at once
+      accept(first)
+      if (first.game.outcome) {
+        // A move that ends the game has no reply, but Practice still owes its verdict: the engine step plays nothing then and carries it.
+        return first.game.mode === 'practice' ? backend.engineMove(first.game.id, first.game.revision) : first
+      }
+      if (first.game.turn === first.game.user_color) return first
+      setBusy('Stockfish is thinking…')
+      const shown = Date.now()
+      const reply = await backend.engineMove(first.game.id, first.game.revision) // then the reply, no sooner than 1 s later
+      const wait = ENGINE_MIN_REPLY_MS - (Date.now() - shown)
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+      return reply
+    })
   }
 
   // If the engine owes a reply (its search failed after my move was saved), ask once per position; game_show plays it.
@@ -81,6 +99,8 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
   const hintUci = shownHint?.steps.find((s) => s.kind === 'move')?.uci ?? null
 
   const styles: Record<string, React.CSSProperties> = {}
+  const last = game.moves[game.moves.length - 1] // the last move played, by either side (not help: it is the move record)
+  if (last) for (const sq of [last.slice(0, 2), last.slice(2, 4)]) styles[sq] = { background: 'rgba(255, 230, 0, 0.3)' }
   for (const t of warn?.threats ?? []) if (t.square) styles[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
   for (const sq of marks.hanging) styles[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
   for (const sq of marks.missed) styles[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
