@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import { applyMove } from './applyMove'
+import { playMove } from './optimisticMove'
 import { practiceOnly, toGameView, toHint, type GameBackend, type GamePayload } from './gameBackend'
 import {
   boardMarks, feedbackToShow, gameEndBanner, hintToShow, moveBadge, storeFeedback, threatArrows, threatsAreCurrent,
@@ -7,7 +9,6 @@ import {
 } from './gameState'
 
 const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
-const ENGINE_MIN_REPLY_MS = 1000 // as in the web app: the player's move stays on the board alone for this long before the reply
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
 
 /** A game against Stockfish inside the chat (ADR 0009). Play shows the board, a status line and Resign, nothing else: every helper below
@@ -26,7 +27,14 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     if (h) setHint(h)
   }, [initial])
 
-  const game = useMemo(() => toGameView(payload), [payload])
+  const [pending, setPending] = useState<string | null>(null) // the player's move drawn before the server has confirmed it
+  const game = useMemo(() => {
+    const g = toGameView(payload)
+    // Display only: the legal move list is empty while waiting, so nothing else can be played, and the server's position replaces this.
+    return pending
+      ? { ...g, fen: applyMove(g.fen, pending), moves: [...g.moves, pending], turn: g.turn === 'white' ? 'black' as const : 'white' as const, legal_moves: [] }
+      : g
+  }, [payload, pending])
   const extras = practiceOnly(payload) // null in Play: the only door to any help
   const practice = extras !== null
   useEffect(() => setSelected(null), [game.id, game.revision])
@@ -62,21 +70,11 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     if (candidates.length === 0) return setSelected(null)
     const uci = candidates.find((m) => m.endsWith('q')) ?? candidates[0] // auto-queen
     setSelected(null)
-    void step('Sending your move…', async () => {
-      const first = await backend.move(game.id, uci, game.revision) // the player's move, at once
-      accept(first)
-      if (first.game.outcome) {
-        // A move that ends the game has no reply, but Practice still owes its verdict: the engine step plays nothing then and carries it.
-        return first.game.mode === 'practice' ? backend.engineMove(first.game.id, first.game.revision) : first
-      }
-      if (first.game.turn === first.game.user_color) return first
-      setBusy('Stockfish is thinking…')
-      const shown = Date.now()
-      const reply = await backend.engineMove(first.game.id, first.game.revision) // then the reply, no sooner than 1 s later
-      const wait = ENGINE_MIN_REPLY_MS - (Date.now() - shown)
-      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
-      return reply
-    })
+    setBusy('Sending your move…')
+    setError(null)
+    void playMove(backend, game, uci, {
+      pending: setPending, payload: accept, status: setBusy,
+    }).then((err) => err && setError(err))
   }
 
   // If the engine owes a reply (its search failed after my move was saved), ask once per position; game_show plays it.
@@ -136,7 +134,8 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
         {end && <div className={`mate-banner ${end.celebrate ? 'win' : 'loss'}`} role="status">{end.text}</div>}
         <Chessboard
           options={{
-            position: game.fen, boardOrientation: game.user_color, allowDragging: false, onSquareClick,
+            position: game.fen, showAnimations: pending === null, // my own move jumps at once; the reply slides
+            boardOrientation: game.user_color, allowDragging: false, onSquareClick,
             squareStyles: styles, arrows, squareRenderer, id: 'game-board',
           }}
         />
