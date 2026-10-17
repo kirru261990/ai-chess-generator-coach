@@ -41,7 +41,10 @@ export function toHint(p: GamePayload): Hint | null {
 /** Where the game page gets its data. The chat board turns each step into a game tool call. Each step resolves to the new state. */
 export type GameBackend = {
   show(id: string): Promise<GamePayload>
+  /** Only the player's move, returned at once with the position after it (the engine has not replied). */
   move(id: string, uci: string, revision: number): Promise<GamePayload>
+  /** Stockfish's reply to the move just shown; `revision` is the position the page is showing. Plays nothing if that is out of date. */
+  engineMove(id: string, revision: number): Promise<GamePayload>
   resign(id: string): Promise<GamePayload>
   undo(id: string): Promise<GamePayload>
   hint(id: string, level: number): Promise<GamePayload>
@@ -57,7 +60,8 @@ export function gameToolBackend(call: ToolCaller): GameBackend {
   }
   return {
     show: (id) => run('game_show', { game_id: id }),
-    move: (id, uci, revision) => run('game_move', { game_id: id, move: uci, expected_revision: revision }),
+    move: (id, uci, revision) => run('game_apply_move', { game_id: id, move: uci, expected_revision: revision }),
+    engineMove: (id, revision) => run('game_engine_move', { game_id: id, expected_revision: revision }),
     resign: (id) => run('game_resign', { game_id: id }),
     undo: (id) => run('game_undo', { game_id: id }),
     hint: (id, level) => run('game_hint', { game_id: id, level }),

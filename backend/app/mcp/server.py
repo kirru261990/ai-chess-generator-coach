@@ -52,7 +52,7 @@ INSTRUCTIONS = (
     "The game_ tools play a game against Stockfish, either Play (no help) or Practice (assisted). In a Play game never say whether "
     "a move is good or bad, never suggest a move, and never mention threats, hints or the evaluation; only report the tool's "
     "text. Call game_hint, game_undo or game_threats only when the player asks, and never in a Play game. Chat games are kept in "
-    "memory only and are not saved."
+    "memory only and are not saved. game_apply_move and game_engine_move belong to the board page: never call them."
 )
 
 READ = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
@@ -155,6 +155,18 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
     def game_move(game_id: str, move: str, expected_revision: int | None = None) -> CallToolResult:
         """Play your move, like Nf3, exd5, O-O or g1f3. Stockfish replies in the same call (about a second)."""
         return game_board(G.game_move(game_id, move, expected_revision))
+
+    app_only = {"resource_uri": BOARD_URI, "visibility": ["app"], "meta": {"openai/outputTemplate": BOARD_URI}}  # the board's own steps
+
+    @apps.tool(annotations=WRITE, **app_only)
+    def game_apply_move(game_id: str, move: str, expected_revision: int) -> CallToolResult:
+        """For the board only, not for the model: play the player's move without Stockfish's reply, so the board can show it first."""
+        return game_board(G.game_move(game_id, move, expected_revision, reply=False))
+
+    @apps.tool(annotations=WRITE, **app_only)
+    def game_engine_move(game_id: str, expected_revision: int) -> CallToolResult:
+        """For the board only, not for the model: Stockfish's reply to the move just shown. Plays nothing if the board is out of date."""
+        return game_board(G.game_engine_move(game_id, expected_revision))
 
     @apps.tool(annotations=WRITE, **ui)
     def game_resign(game_id: str) -> CallToolResult:

@@ -119,7 +119,7 @@ def _feedback(game: Game, gid: str) -> dict | None:
     return fb
 
 
-def data(gid: str, hint: dict | None = None) -> dict:
+def data(gid: str, hint: dict | None = None, judge: bool = True) -> dict:
     """What the interactive board draws. Play: the allow-listed view only. Practice: the same plus one `practice` object."""
     game = _own(gid)
     view = T.game_view(game)
@@ -128,7 +128,7 @@ def data(gid: str, hint: dict | None = None) -> dict:
         with _lock:
             show = _OWNED[gid].get("show_threats", True)
         extra = {"assisted": view["assisted"], "hints_used": view["hints_used"], "can_take_back": view["can_take_back"],
-                 "show_threats": show, "threats": None, "feedback": _feedback(game, gid), "hint": hint}
+                 "show_threats": show, "threats": None, "feedback": _feedback(game, gid) if judge else None, "hint": hint}
         if show:
             try:
                 extra["threats"] = T.current_threats(gid)
@@ -163,9 +163,10 @@ def text(gid: str, note: str = "") -> str:
     return "\n".join(lines)
 
 
-def _result(gid: str, note: str = "", hint: dict | None = None):
-    """(structured data, text) for a game just acted on."""
-    d = data(gid, hint)
+def _result(gid: str, note: str = "", hint: dict | None = None, judge: bool = True):
+    """(structured data, text) for a game just acted on. `judge=False` leaves out the verdict on the player's move (it takes an
+    engine search): the board's first step must return at once, and the next step carries the verdict."""
+    d = data(gid, hint, judge)
     note_parts = [note] if note else []
     fb = d.get("practice", {}).get("feedback") if "practice" in d else None
     if fb:
@@ -231,13 +232,26 @@ def _to_uci(game: Game, move: str) -> str:
         raise Refused(f"{s} is not a legal move here. Use game_show to see the board and the legal moves.") from e
 
 
-def game_move(game_id: str, move: str, expected_revision: int | None = None):
+def game_move(game_id: str, move: str, expected_revision: int | None = None, reply: bool = True):
+    """Play the player's move; with `reply` (the default, for text-only clients) Stockfish answers in the same call. The board page
+    uses reply=False and then `game_engine_move`, so the player's move shows before the reply."""
     def run():
         game = _own(game_id)
         with game.lock:  # read the revision and the move's meaning against the same position
             uci = _to_uci(game, move)
             revision = game.revision if expected_revision is None else expected_revision
         T.apply_move(game_id, uci, revision, engine_reply_=False)  # the move is saved first; the reply is separate
+        return _result(game_id, _reply(game_id) if reply else "", judge=reply)
+    return _guard(run)
+
+
+def game_engine_move(game_id: str, expected_revision: int):
+    """Stockfish's reply to a move made with reply=False. Plays only if it is the engine's turn *and* the game is still at
+    `expected_revision` (the position the page is showing), so a stale or double call never plays a second move."""
+    def run():
+        game = _own(game_id)
+        if game.revision != expected_revision:
+            raise GameError("revision_conflict", "")
         return _result(game_id, _reply(game_id))
     return _guard(run)
 

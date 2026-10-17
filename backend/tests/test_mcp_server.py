@@ -9,7 +9,8 @@ from app.db.schema import connect
 from app.mcp import server as S
 from tests.test_practice import FakeAnalyser, make_store
 
-GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats"}  # tests/test_mcp_games.py
+GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats",
+              "game_apply_move", "game_engine_move"}  # tests/test_mcp_games.py
 EXPECTED = GAME_TOOLS | {"practice_status", "practice_start", "practice_show", "practice_answer", "practice_move", "practice_hint",
             "practice_retry", "practice_next", "practice_summary", "progress"}
 READ_ONLY = {"practice_status", "practice_summary", "progress"}  # practice_show saves the first attempt of a new session
