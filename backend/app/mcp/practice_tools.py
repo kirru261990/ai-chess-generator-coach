@@ -68,11 +68,15 @@ def _view(conn: sqlite3.Connection, session_id: int) -> dict:
         raise Refused(f"there is no practice session {session_id}. Use practice_status to find yours.") from e
 
 
-def _current(conn: sqlite3.Connection, session_id: int) -> tuple[dict, dict]:
+def _current(conn: sqlite3.Connection, session_id: int, expected_ord: int | None = None) -> tuple[dict, dict]:
+    """The session and its current position. A widget passes the position it is showing (`expected_ord`): if the session has moved
+    on (the model or another widget advanced it) the step is refused instead of answering a different board."""
     view = _view(conn, session_id)
     cur = view["current"]
     if cur is None:
         raise Refused("this session is finished. Use practice_summary to see it.")
+    if expected_ord is not None and cur["ord"] != expected_ord:
+        raise A.AssessmentError("not_current_position", "the session has moved on")
     return view, cur
 
 
@@ -243,9 +247,9 @@ def _parse_square(text: str) -> str:
     raise Refused('give a square such as g5, or say "none" for no immediate threat.')
 
 
-def practice_answer(conn: sqlite3.Connection, session_id: int, square: str) -> str:
+def practice_answer(conn: sqlite3.Connection, session_id: int, square: str, expected_ord: int | None = None) -> str:
     def run() -> str:
-        _, cur = _current(conn, session_id)
+        _, cur = _current(conn, session_id, expected_ord)
         P.submit_recognition(conn, session_id, cur["ord"], _parse_square(square))
         return render_session(conn, session_id)
     return _guard(run)
@@ -288,9 +292,9 @@ def parse_move(board: chess.Board, text: str) -> chess.Move:
     raise Refused(f"I could not read \"{raw}\" as a move. Use a move such as Nf3, O-O or g1f3.")
 
 
-def practice_move(conn: sqlite3.Connection, session_id: int, move: str, opener: Opener) -> str:
+def practice_move(conn: sqlite3.Connection, session_id: int, move: str, opener: Opener, expected_ord: int | None = None) -> str:
     def run() -> str:
-        _, cur = _current(conn, session_id)
+        _, cur = _current(conn, session_id, expected_ord)
         if cur["stage"] != "move":  # say so before parsing: the move may be right for a step we are not at
             raise A.AssessmentError("wrong_step", f"this position is at the {cur['stage']} step")
         parsed = parse_move(chess.Board(cur["fen"]), move)
@@ -300,9 +304,9 @@ def practice_move(conn: sqlite3.Connection, session_id: int, move: str, opener: 
     return _guard(run)
 
 
-def practice_hint(conn: sqlite3.Connection, session_id: int) -> str:
+def practice_hint(conn: sqlite3.Connection, session_id: int, expected_ord: int | None = None) -> str:
     def run() -> str:
-        _, cur = _current(conn, session_id)
+        _, cur = _current(conn, session_id, expected_ord)
         if cur["stage"] == "feedback":
             raise A.AssessmentError("wrong_step", "this position is at the feedback step")
         if cur["hint_level"] >= 3:
@@ -312,17 +316,17 @@ def practice_hint(conn: sqlite3.Connection, session_id: int) -> str:
     return _guard(run)
 
 
-def practice_retry(conn: sqlite3.Connection, session_id: int) -> str:
+def practice_retry(conn: sqlite3.Connection, session_id: int, expected_ord: int | None = None) -> str:
     def run() -> str:
-        _, cur = _current(conn, session_id)
+        _, cur = _current(conn, session_id, expected_ord)
         P.retry(conn, session_id, cur["ord"])
         return render_session(conn, session_id)
     return _guard(run)
 
 
-def practice_next(conn: sqlite3.Connection, session_id: int) -> str:
+def practice_next(conn: sqlite3.Connection, session_id: int, expected_ord: int | None = None) -> str:
     def run() -> str:
-        _, cur = _current(conn, session_id)
+        _, cur = _current(conn, session_id, expected_ord)
         P.next_position(conn, session_id, cur["ord"])
         return render_session(conn, session_id)
     return _guard(run)

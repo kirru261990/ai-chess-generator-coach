@@ -102,34 +102,34 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
             return board(T.practice_show(c, session_id), c, session_id)
 
     @apps.tool(annotations=WRITE, **ui)
-    def practice_answer(session_id: int, square: str) -> CallToolResult:
+    def practice_answer(session_id: int, square: str, expected_ord: int | None = None) -> CallToolResult:
         """Step 1, the question: give the square of the piece (for example g5), or "none" for no immediate threat. Saves the answer."""
         with store() as c:
-            return board(T.practice_answer(c, session_id, square), c, session_id)
+            return board(T.practice_answer(c, session_id, square, expected_ord), c, session_id)
 
     @apps.tool(annotations=WRITE, **ui)
-    def practice_move(session_id: int, move: str) -> CallToolResult:
+    def practice_move(session_id: int, move: str, expected_ord: int | None = None) -> CallToolResult:
         """Step 2: make a move, like Nf3, Bxe5, O-O or g1f3. The engine checks it (about 2 seconds) and the feedback follows. Saves the attempt."""
         with store() as c:
-            return board(T.practice_move(c, session_id, move, opener), c, session_id)
+            return board(T.practice_move(c, session_id, move, opener, expected_ord), c, session_id)
 
     @apps.tool(annotations=WRITE, **ui)
-    def practice_hint(session_id: int) -> CallToolResult:
+    def practice_hint(session_id: int, expected_ord: int | None = None) -> CallToolResult:
         """Give the next of three hints. Only when the player asks. Marks this try as assisted."""
         with store() as c:
-            return board(T.practice_hint(c, session_id), c, session_id)
+            return board(T.practice_hint(c, session_id, expected_ord), c, session_id)
 
     @apps.tool(annotations=WRITE, **ui)
-    def practice_retry(session_id: int) -> CallToolResult:
+    def practice_retry(session_id: int, expected_ord: int | None = None) -> CallToolResult:
         """After the feedback: try the same position again as a new try."""
         with store() as c:
-            return board(T.practice_retry(c, session_id), c, session_id)
+            return board(T.practice_retry(c, session_id, expected_ord), c, session_id)
 
     @apps.tool(annotations=WRITE, **ui)
-    def practice_next(session_id: int) -> CallToolResult:
+    def practice_next(session_id: int, expected_ord: int | None = None) -> CallToolResult:
         """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
         with store() as c:
-            return board(T.practice_next(c, session_id), c, session_id)
+            return board(T.practice_next(c, session_id, expected_ord), c, session_id)
 
     mcp = MCPServer(NAME, instructions=INSTRUCTIONS, extensions=[apps], **server_args)
 

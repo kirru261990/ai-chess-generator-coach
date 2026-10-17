@@ -273,3 +273,15 @@ def test_every_tool_annotated_read_only_leaves_the_whole_store_unchanged(store):
     T.practice_summary(conn, sid)
     T.practice_summary(conn, 9999)
     assert dump() == before
+
+
+def test_a_stale_widget_cannot_answer_a_different_position(store):
+    conn = store.conn
+    sid, _ = started(conn)
+    T.practice_answer(conn, sid, "a1")
+    T.practice_move(conn, sid, "Ra2", opener)
+    T.practice_next(conn, sid)  # the session is now at position 2 (ord 1)
+    for text in (T.practice_answer(conn, sid, "a1", 0), T.practice_move(conn, sid, "Ra2", opener, 0),
+                 T.practice_hint(conn, sid, 0), T.practice_retry(conn, sid, 0), T.practice_next(conn, sid, 0)):
+        assert T.is_refusal(text) and "not the position on the board" in text
+    assert "Step 2" in T.practice_answer(conn, sid, "a1", 1)  # the right position is accepted

@@ -30,7 +30,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
   const [step, setStep] = useState(0) // which move of that replay the board shows (0 = the position before your move)
 
   // A new view from the server resets what the player had picked on the board, except after a hint (`keep`).
-  const apply = useCallback((v: PracticeView, keep = false) => {
+  const apply = useCallback((v: PracticeView, keep = false, haveSummary = false) => {
     setView(v)
     if (!keep) {
       setTap(null)
@@ -40,7 +40,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
       setShowGame(false)
       setStep(0)
     }
-    if (v.status === 'completed') {
+    if (v.status === 'completed' && !haveSummary) { // the host may already have handed over the summary
       backend.summary(v.session_id).then(setSummary).catch((e: Error) => setError(e.message))
     }
   }, [backend])
@@ -64,7 +64,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
   useEffect(() => {
     if (initial) {
       if (initial.summary) setSummary(initial.summary)
-      apply(initial.view)
+      apply(initial.view, false, !!initial.summary)
       return
     }
     backend.get(id).then((v) => apply(v)).catch((e: Error) => setError(e.message))

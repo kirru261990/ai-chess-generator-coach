@@ -24,11 +24,11 @@ export type ToolCaller = (name: string, args: Record<string, unknown>) => Promis
  *  text, which becomes the error shown on the page. */
 export function toolBackend(call: ToolCaller): PracticeBackend {
   const TOOL: Record<string, (id: number, b: Record<string, unknown>) => [string, Record<string, unknown>]> = {
-    recognition: (id, b) => ['practice_answer', { session_id: id, square: b.tap }],
-    move: (id, b) => ['practice_move', { session_id: id, move: b.move }],
-    hint: (id) => ['practice_hint', { session_id: id }],
-    retry: (id) => ['practice_retry', { session_id: id }],
-    next: (id) => ['practice_next', { session_id: id }],
+    recognition: (id, b) => ['practice_answer', { session_id: id, square: b.tap, expected_ord: b.ord }],
+    move: (id, b) => ['practice_move', { session_id: id, move: b.move, expected_ord: b.ord }],
+    hint: (id, b) => ['practice_hint', { session_id: id, expected_ord: b.ord }],
+    retry: (id, b) => ['practice_retry', { session_id: id, expected_ord: b.ord }],
+    next: (id, b) => ['practice_next', { session_id: id, expected_ord: b.ord }],
   }
   const summaries = new Map<number, PracticeSummary>()
   const run = async (name: string, args: Record<string, unknown>): Promise<PracticeView> => {
