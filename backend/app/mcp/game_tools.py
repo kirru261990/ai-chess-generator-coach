@@ -206,17 +206,9 @@ def _reply(gid: str) -> str:
 
 def game_new(color: str = "white", level: int = 3, mode: str = "play"):
     def run():
-        known = set(GAMES)
-        try:
-            v = T.start_game(color, mode, level)
-            note = "Stockfish opened." if color == "black" else ""
-            gid = v["id"]
-        except EngineError:  # the game exists, the engine's opening move failed: keep it so show can retry
-            log.exception("engine failed in a game tool")
-            (gid,) = set(GAMES) - known
-            note = ENGINE_DOWN
-        _remember(GAMES[gid])
-        return _result(gid, note)
+        game = T.create_game(color, mode, level)  # kept by id: the opening search below may fail, and games can start concurrently
+        _remember(game)
+        return _result(game.id, _reply(game.id).replace("replied", "opened with"))
     return _guard(run)
 
 

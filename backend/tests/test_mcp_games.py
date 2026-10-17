@@ -228,3 +228,19 @@ def test_a_failed_opening_move_leaves_a_game_that_can_be_resumed(monkeypatch):
     assert d["game"]["moves"] == [] and "use game_show" in t
     monkeypatch.setattr(tools, "get_engine", good)
     assert len(G.game_show(d["game"]["id"])[0]["game"]["moves"]) == 1
+
+
+def test_concurrent_starts_do_not_confuse_a_failed_opening(monkeypatch):
+    good = tools.get_engine
+    ids = []
+
+    class Down:
+        def play(self, *a, **k):
+            if not ids:  # another game starts while Black's opening search is running
+                ids.append(new("play"))
+            raise G.EngineError("engine_not_running", "x")
+    monkeypatch.setattr(tools, "get_engine", lambda: Down())
+    d, t = G.game_new("black", 1, "play")
+    assert d is not None and "use game_show" in t and d["game"]["id"] != ids[0]
+    monkeypatch.setattr(tools, "get_engine", good)
+    assert len(G.game_show(d["game"]["id"])[0]["game"]["moves"]) == 1
