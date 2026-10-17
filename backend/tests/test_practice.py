@@ -47,7 +47,7 @@ RIGHT = {"M1": ("a1", "a1a2"), "M2": ("d5", "d2d5")}
 WRONG_MOVE = "g1f1"  # leaves the rook (M1) and the queen (M2) alone: not sound
 LATER = 7  # seconds after the previous step
 
-PRACTICE_KEYS = FORBIDDEN_KEYS | {"allowed", "board_line", "board_line_san", "fen_after", "good_moves", "original", "verdict", "avoids", "sound"}
+PRACTICE_KEYS = FORBIDDEN_KEYS | {"allowed", "board_line", "board_line_san", "fen_after", "game_line", "good_moves", "original", "verdict", "avoids", "sound"}
 
 
 @pytest.fixture
@@ -243,6 +243,9 @@ def test_feedback_shows_the_original_mistake_the_verdict_and_what_it_allowed(sto
     assert bad["game_move"] == {"uci": "g1g2", "san": "Kg2"} and "Bxa1" in bad["allowed"]
     assert bad["board_line"] == ["g1g2", "c3a1"]  # your move in the game, then what it allowed
     assert bad["board_line_san"][0] == "Kg2"
+    gl = bad["game_line"]  # the game move and what it allowed, as positions to step through
+    assert gl["uci"] == bad["board_line"] and gl["san"] == bad["board_line_san"] and len(gl["fens"]) == len(gl["uci"]) + 1
+    assert gl["fens"][0] == view["current"]["fen"]
     after = chess.Board(bad["fen_after"])  # the position once the player's move is played
     assert after.piece_at(chess.parse_square(WRONG_MOVE[2:4])) is not None and after.turn != chess.Board(view["current"]["fen"]).turn
     assert bad["target_squares"] == ["a1"] and bad["tap_correct"] is False and bad["your_move"]["uci"] == WRONG_MOVE
@@ -250,6 +253,8 @@ def test_feedback_shows_the_original_mistake_the_verdict_and_what_it_allowed(sto
     ok = play(conn, sid2, view2)["current"]["feedback"]
     assert ok["verdict"] == "SOUND" and ok["tap_correct"] is True and ok["board_line"] == ["d2d5"]
     assert "Rxd5" in ok["allowed"]
+    # M2 replays only the game move (never the missed capture); this fixture's stored game move is not legal there, so the line is cut
+    assert ok["game_line"]["uci"] in ([], [ok["game_move"]["uci"]]) and ok["game_line"]["fens"][0] == view2["current"]["fen"]
 
 
 def test_the_move_is_judged_with_the_sound_rules_not_only_the_engines_choice(store):

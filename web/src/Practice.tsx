@@ -5,7 +5,7 @@ import { delayedSummaryLine } from './progressState'
 import { NO_THREAT, castleMove, pickMove, pieceColorAt, tapRefusal, tapWords, targetsFrom } from './assessState'
 import MoveArrows, { LaneLegend } from './MoveArrows'
 import {
-  feedbackLanes, feedbackMarks, hintButton, hintMarks, stepTitle, summaryLines,
+  feedbackLanes, feedbackMarks, hintButton, hintMarks, replayKey, replayStep, stepTitle, summaryLines,
   type PracticeSummary, type PracticeView,
 } from './practiceState'
 
@@ -21,7 +21,8 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   const [from, setFrom] = useState<string | null>(null)
   const [move, setMove] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null) // why a click did nothing (rules only, never a hint)
-  const [showGame, setShowGame] = useState(false) // the red "what you played in the game" arrows, on request only
+  const [showGame, setShowGame] = useState(false) // the replay of what you played in the game, on request only
+  const [step, setStep] = useState(0) // which move of that replay the board shows (0 = the position before your move)
 
   // A new view from the server resets what the player had picked on the board, except after a hint (`keep`).
   const apply = useCallback((v: PracticeView, keep = false) => {
@@ -32,11 +33,28 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       setMove(null)
       setNote(null)
       setShowGame(false)
+      setStep(0)
     }
     if (v.status === 'completed') {
       api<PracticeSummary>(`/coach/practice/sessions/${v.session_id}/summary`).then(setSummary).catch((e: Error) => setError(e.message))
     }
   }, [])
+
+  // ← and → step the replay of the game line. Capture phase, so this wins over the Play board's left-arrow Undo while it is open.
+  const replayLength = view?.current?.feedback?.game_line.uci.length ?? 0
+  useEffect(() => {
+    if (!showGame) return
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null
+      const d = replayKey(e, el?.tagName ?? '', !!el?.isContentEditable)
+      if (d === 0) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      setStep((s) => Math.max(0, Math.min(replayLength, s + d)))
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [showGame, replayLength])
 
   useEffect(() => {
     api<PracticeView>(`/coach/practice/sessions/${id}`).then((v) => apply(v)).catch((e: Error) => setError(e.message))
@@ -95,11 +113,14 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   const styles: Record<string, React.CSSProperties> = {}
   let arrows: Arrow[] = []
   const fb = cur.feedback
-  // A sound move shows the position after it, with the Play board's star on the moved piece, and no arrows. The red
-  // "what I played in the game" view needs the position before the move, so it switches back to that.
+  // A sound move shows the position after it, with the Play board's star on the moved piece, and no arrows. The replay of
+  // "what I played in the game" steps through its own positions, with no arrows.
+  const replay = cur.stage === 'feedback' && !!fb && showGame ? replayStep(fb.game_line, step) : null
   const afterView = cur.stage === 'feedback' && !!fb && fb.sound && !showGame
   if (cur.stage === 'feedback' && fb) {
-    if (!afterView) {
+    if (replay) {
+      for (const [sq, c] of Object.entries(replay.squares)) styles[sq] = { background: c }
+    } else if (!afterView) {
       const m = feedbackMarks(fb, cur.fen, cur.side_to_move)
       for (const [sq, c] of Object.entries(m.squares)) styles[sq] = { background: c }
     }
@@ -128,7 +149,7 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       {square === starSquare && <span className="move-badge best" title="Good move" aria-label="Good move">★</span>}
     </div>
   )
-  const lanes = fb ? feedbackLanes(fb, view.mistake_type).filter((l) => showGame || l.series !== 'game') : []
+  const lanes = fb && !showGame ? feedbackLanes(fb, view.mistake_type) : []
   const lastOne = view.done + 1 === view.total
   const hintLabel = hintButton(cur.hint_level)
 
@@ -143,7 +164,7 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       )}
       <div className="board">
         <Chessboard options={{
-          position: afterView && fb ? fb.fen_after : cur.fen,
+          position: replay ? replay.fen : afterView && fb ? fb.fen_after : cur.fen,
           boardOrientation: cur.side_to_move,
           allowDragging: false,
           onSquareClick,
@@ -155,6 +176,11 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
         {lanes.length > 0 && <MoveArrows lanes={lanes} orientation={cur.side_to_move} />}
       </div>
       {lanes.length > 0 && <LaneLegend lanes={lanes} />}
+      {replay && fb && (
+        <div className="replay">
+          <span className="replay-caption">{replay.caption}</span>
+        </div>
+      )}
 
       {cur.stage !== 'feedback' && (
         <div className="feedback">
@@ -198,8 +224,8 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
             You chose {tapWords(fb.your_tap)}: {fb.tap_correct ? 'right' : 'not right'}.
           </p>
           <div className="controls">
-            <button className={showGame ? 'on' : ''} onClick={() => setShowGame(!showGame)}>
-              {showGame ? 'Hide what I played in the game' : 'Show what I played in the game'}
+            <button className={showGame ? 'on' : ''} onClick={() => { setShowGame(!showGame); setStep(0) }}>
+              {showGame ? 'Back to my move' : 'Replay what I played in the game'}
             </button>
             <button disabled={busy} onClick={() => send('retry', { ord: cur.ord })}>Try this position again</button>
             <button disabled={busy} onClick={() => send('next', { ord: cur.ord })}>{lastOne ? 'Finish' : 'Next position'}</button>

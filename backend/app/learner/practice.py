@@ -261,6 +261,21 @@ def hint_content(conn: sqlite3.Connection, pos: sqlite3.Row, level: int) -> dict
     return {"level": 3, "kind": "line", "uci": line["uci"][:1], "san": line["san"][:1], "text": text}
 
 
+def _replay(fen: str, ucis: list[str], sans: list[str]) -> dict:
+    """A move line as positions the board can step through: `fens[0]` is the start, `fens[i]` is the position after move i.
+    Stops at the first move that is not legal (the stored lines are legal; this only keeps a bad row from breaking the page)."""
+    board = chess.Board(fen)
+    fens, done = [board.fen()], 0
+    for uci in ucis:
+        move = chess.Move.from_uci(uci)
+        if move not in board.legal_moves:
+            break
+        board.push(move)
+        fens.append(board.fen())
+        done += 1
+    return {"uci": ucis[:done], "san": sans[:done], "fens": fens}
+
+
 def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) -> dict:
     """What the player may see after the move: the original mistake, the verdict, what it allowed, whether the new move avoids
     it. Built from the evidence record and the stored verdict only (PRD §12)."""
@@ -282,9 +297,14 @@ def _feedback(conn: sqlite3.Connection, pos: sqlite3.Row, attempt: sqlite3.Row) 
                    f"(worth {ev['material_swing']} points). One line the engine found (not the only one): "
                    f"{' '.join(line['san'])}.")
     alternatives = json.loads(pos["verified_alternatives_json"] or "[]")
+    # What the player did in the game, to replay on the board: the game move and (M1) the line it allowed. For M2 the line is a
+    # missed capture, so only the game move is replayed.
+    game_line = _replay(pos["fen"], board_line if pos["mistake_type"] == "M1" else [game_move["uci"]],
+                        board_line_san if pos["mistake_type"] == "M1" else [game_move["san"]])
     after = chess.Board(pos["fen"])
     after.push_uci(verdict["move"]["uci"])
     return {
+        "game_line": game_line,
         "fen_after": after.fen(),  # the position once the player's move is played (the board shows it for a sound move)
         "original": A.explain("MISTAKE", ev, pos["fen"]),
         "game_move": game_move,

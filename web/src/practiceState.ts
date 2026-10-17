@@ -15,6 +15,9 @@ export type Hint = {
   san?: string[]
 }
 
+/** A move line as positions: fens[0] is the start, fens[i] the position after move i (uci[i-1]). */
+export type GameLine = { uci: string[]; san: string[]; fens: string[] }
+
 export type PracticeFeedback = {
   original: string
   game_move: MoveRef
@@ -22,6 +25,7 @@ export type PracticeFeedback = {
   board_line: string[] // M1: your move in the game, then what it allowed. M2: the capture
   board_line_san: string[] // the same moves in standard notation
   fen_after: string // the position once your move is played
+  game_line: GameLine // what you played in the game (and what it allowed), to step through on the board
   target_squares: string[]
   your_tap: string
   tap_correct: boolean
@@ -131,31 +135,26 @@ export function feedbackMarks(fb: PracticeFeedback, fen: string, sideToMove: 'wh
   return { squares, arrows }
 }
 
-export type Series = 'game' | 'now' | 'best'
+export type Series = 'now' | 'best'
 export type Lane = { series: Series; n: number; who: 'You' | 'Opponent'; san: string; uci: string; notSound?: boolean }
-export type SeriesStyle = { title: string; color: string; text: string; shift: number }
+export type SeriesStyle = { title: string; color: string; text: string }
 
-/** One colour per series, each numbered from 1: red is the game, yellow is the move just played, green is the engine's. */
+/** One colour per series, each numbered from 1: yellow is the move just played, green is the engine's. */
 export const SERIES: Record<Series, SeriesStyle> = {
-  game: { title: 'In the game', color: '#dc3c32', text: '#fff', shift: -0.22 },
-  now: { title: 'Your move now', color: '#f2c200', text: '#3a3000', shift: 0 },
-  best: { title: 'Engine suggests', color: '#2e9e55', text: '#fff', shift: 0.22 },
+  now: { title: 'Your move now', color: '#f2c200', text: '#3a3000' },
+  best: { title: 'Engine suggests', color: '#2e9e55', text: '#fff' },
 }
 
-/** The feedback as separately numbered series. Game (red): the move you played, then the line it allowed (M1), sides alternating.
- *  A sound move gets no arrows of its own (the board shows the position after it, with a star on the piece); an unsound one is
- *  drawn in yellow with the engine's moves in green. */
+/** The arrows for a move that was not sound: yours in yellow, the engine's verified moves in green, each series numbered from 1.
+ *  A sound move gets none (the board shows the position after it, with a star on the piece). What you played in the game is
+ *  replayed on the board instead (`replayStep`). */
 export function feedbackLanes(fb: PracticeFeedback, type: 'M1' | 'M2'): Lane[] {
+  if (fb.sound) return []
   const lanes: Lane[] = []
   const add = (series: Series, who: Lane['who'], san: string, uci: string, extra: Partial<Lane> = {}) => {
     const n = lanes.filter((l) => l.series === series).length + 1
     lanes.push({ series, n, who, san, uci, ...extra })
   }
-  add('game', 'You', fb.game_move.san, fb.game_move.uci)
-  if (type === 'M1') {
-    fb.board_line.slice(1).forEach((uci, i) => add('game', i % 2 === 0 ? 'Opponent' : 'You', fb.board_line_san[i + 1], uci))
-  }
-  if (fb.sound) return lanes
   add('now', 'You', fb.your_move.san, fb.your_move.uci, { notSound: true })
   if (type === 'M2') {
     fb.board_line.forEach((uci, i) => add('best', i % 2 === 0 ? 'You' : 'Opponent', fb.board_line_san[i], uci))
@@ -163,6 +162,24 @@ export function feedbackLanes(fb: PracticeFeedback, type: 'M1' | 'M2'): Lane[] {
     for (const m of fb.good_moves.slice(0, 3)) add('best', 'You', m.san, m.uci)
   }
   return lanes
+}
+
+/** ← and → step the replay: -1 or 1, or 0 for any other key, a held modifier, or typing in a form control. */
+export function replayKey(e: { key: string; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean }, targetTag: string, editable: boolean): -1 | 0 | 1 {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || editable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag.toUpperCase())) return 0
+  return e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+}
+
+/** One step of the game-line replay: the position, the squares of the move just played, and a caption. Step 0 is the position
+ *  before your move. M1 lines alternate you / them starting with you; the M2 replay is only your move. */
+export function replayStep(gl: GameLine, step: number): { fen: string; squares: Record<string, string>; caption: string; atStart: boolean; atEnd: boolean } {
+  const i = Math.max(0, Math.min(step, gl.uci.length))
+  const squares: Record<string, string> = {}
+  if (i > 0) for (const sq of [gl.uci[i - 1].slice(0, 2), gl.uci[i - 1].slice(2, 4)]) squares[sq] = TINT.lastMove
+  const caption = i === 0
+    ? (gl.uci.length > 0 ? 'The position before your move. Press → to replay the game.' : 'The replay is not available for this position.')
+    : `Move ${i} of ${gl.uci.length}: ${gl.san[i - 1]} (${(i - 1) % 2 === 0 ? 'you' : 'them'}). ← → to step.`
+  return { fen: gl.fens[i], squares, caption, atStart: i === 0, atEnd: i >= gl.uci.length }
 }
 
 /** Centre of a square in an 8x8 viewBox, for the given board orientation. */

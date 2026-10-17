@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  feedbackLanes, feedbackMarks, hintButton, hintMarks, practiceLabel, squareCentre, stepTitle, summaryLines,
+  feedbackLanes, feedbackMarks, hintButton, hintMarks, practiceLabel, replayKey, replayStep, squareCentre, stepTitle, summaryLines,
   type Hint, type PracticeFeedback, type PracticeStatus, type PracticeSummary,
 } from './practiceState'
 
@@ -71,34 +71,44 @@ describe('practiceLabel', () => {
 describe('feedbackLanes', () => {
   const fb = {
     game_move: { uci: 'g1g2', san: 'Kg2' },
-    board_line: ['g1g2', 'c3a1', 'h1h2', 'a1b2', 'x'], board_line_san: ['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'x'],
+    board_line: ['g1g2', 'c3a1'], board_line_san: ['Kg2', 'Bxa1'],
     your_move: { uci: 'a1a8', san: 'Ra8+' }, sound: false,
-    good_moves: [{ uci: 'a1b1', san: 'Rb1' }, { uci: 'a1c1', san: 'Rc1' }],
+    good_moves: [{ uci: 'a1b1', san: 'Rb1' }, { uci: 'a1c1', san: 'Rc1' }, { uci: 'a1d1', san: 'Rd1' }, { uci: 'a1e1', san: 'Re1' }],
   } as PracticeFeedback
   const row = (l: ReturnType<typeof feedbackLanes>, s: string) => l.filter((x) => x.series === s).map((x) => [x.n, x.who, x.san])
-  it('numbers each series from 1 on its own', () => {
+  it('draws yellow for the unsound move and green for the engine, each numbered from 1', () => {
     const l = feedbackLanes(fb, 'M1')
-    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2'], [2, 'Opponent', 'Bxa1'], [3, 'You', 'Rh2'], [4, 'Opponent', 'Bb2'], [5, 'You', 'x']])
     expect(row(l, 'now')).toEqual([[1, 'You', 'Ra8+']])
-    expect(row(l, 'best')).toEqual([[1, 'You', 'Rb1'], [2, 'You', 'Rc1']])
+    expect(row(l, 'best')).toEqual([[1, 'You', 'Rb1'], [2, 'You', 'Rc1'], [3, 'You', 'Rd1']])
+    expect(l.find((x) => x.series === 'now')?.notSound).toBe(true)
   })
-  it('keeps the whole verified line, including its last reply', () => {
-    const long = { ...fb, board_line: ['g1g2', 'c3a1', 'h1h2', 'a1b2', 'b2c1'], board_line_san: ['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'Bc1'] } as PracticeFeedback
-    expect(row(feedbackLanes(long, 'M1'), 'game').map((x) => x[2])).toEqual(['Kg2', 'Bxa1', 'Rh2', 'Bb2', 'Bc1'])
+  it('draws no arrows for a sound move', () => {
+    expect(feedbackLanes({ ...fb, sound: true }, 'M1')).toEqual([])
+  })
+  it('for free pieces: the whole capture line in green when the move was not sound', () => {
     const cap = { ...fb, board_line: ['d1d5', 'e6d5', 'c4c6', 'e8c6'], board_line_san: ['Rxd5+', 'exd5', 'Bxc6+', 'Kxc6'] } as PracticeFeedback
     expect(row(feedbackLanes(cap, 'M2'), 'best').map((x) => x[2])).toEqual(['Rxd5+', 'exd5', 'Bxc6+', 'Kxc6'])
   })
-  it('draws no arrows for a sound move except the game line on request', () => {
-    const l = feedbackLanes({ ...fb, sound: true }, 'M1')
-    expect(l.every((x) => x.series === 'game')).toBe(true)
+})
+
+describe('replayStep', () => {
+  const gl = { uci: ['g1g2', 'c3a1', 'h1h2'], san: ['Kg2', 'Bxa1', 'Rh2'], fens: ['f0', 'f1', 'f2', 'f3'] }
+  it('starts on the position before your move, with no marked squares', () => {
+    const r = replayStep(gl, 0)
+    expect(r).toMatchObject({ fen: 'f0', atStart: true, atEnd: false, squares: {} })
   })
-  it('marks an unsound move as such', () => {
-    expect(feedbackLanes(fb, 'M1').find((x) => x.series === 'now')?.notSound).toBe(true)
+  it('marks the move just played and says whose it was (you, them, you)', () => {
+    expect(replayStep(gl, 1).caption).toBe('Move 1 of 3: Kg2 (you). ← → to step.')
+    expect(Object.keys(replayStep(gl, 2).squares).sort()).toEqual(['a1', 'c3'])
+    expect(replayStep(gl, 2).caption).toBe('Move 2 of 3: Bxa1 (them). ← → to step.')
+    expect(replayStep(gl, 3)).toMatchObject({ fen: 'f3', atEnd: true })
   })
-  it('for free pieces: your game move in red, the capture line in green when the move was not sound', () => {
-    const l = feedbackLanes({ ...fb, board_line: ['c3a1', 'b2a1'], board_line_san: ['Bxa1', 'Kxa1'] }, 'M2')
-    expect(row(l, 'game')).toEqual([[1, 'You', 'Kg2']])
-    expect(row(l, 'best')).toEqual([[1, 'You', 'Bxa1'], [2, 'Opponent', 'Kxa1']])
+  it('stays inside the line', () => {
+    expect(replayStep(gl, 9).fen).toBe('f3')
+    expect(replayStep(gl, -4).fen).toBe('f0')
+  })
+  it('says so when there is nothing to replay', () => {
+    expect(replayStep({ uci: [], san: [], fens: ['f0'] }, 0)).toMatchObject({ atStart: true, atEnd: true })
   })
 })
 
@@ -106,5 +116,20 @@ describe('squareCentre', () => {
   it('flips for black', () => {
     expect(squareCentre('a1', 'white')).toEqual({ x: 0.5, y: 7.5 })
     expect(squareCentre('a1', 'black')).toEqual({ x: 7.5, y: 0.5 })
+  })
+})
+
+describe('replayKey', () => {
+  it('maps the arrow keys and ignores everything else', () => {
+    expect(replayKey({ key: 'ArrowRight' }, 'BODY', false)).toBe(1)
+    expect(replayKey({ key: 'ArrowLeft' }, 'BODY', false)).toBe(-1)
+    expect(replayKey({ key: 'ArrowUp' }, 'BODY', false)).toBe(0)
+    expect(replayKey({ key: 'a' }, 'BODY', false)).toBe(0)
+  })
+  it('leaves modified keys and typing alone', () => {
+    expect(replayKey({ key: 'ArrowLeft', metaKey: true }, 'BODY', false)).toBe(0)
+    expect(replayKey({ key: 'ArrowRight', shiftKey: true }, 'BODY', false)).toBe(0)
+    for (const tag of ['TEXTAREA', 'input', 'SELECT']) expect(replayKey({ key: 'ArrowLeft' }, tag, false)).toBe(0)
+    expect(replayKey({ key: 'ArrowRight' }, 'DIV', true)).toBe(0)
   })
 })
