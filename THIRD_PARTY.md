@@ -51,6 +51,14 @@ Used through the above (not declared directly): pydantic 2.13.5 (MIT), starlette
 | @types/node | 24.19.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/react | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/react-dom | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
+| vite-plugin-singlefile | 2.3.3 | MIT | https://github.com/richardtallent/vite-plugin-singlefile |
+| @modelcontextprotocol/ext-apps | 2.0.3 | MIT | https://github.com/modelcontextprotocol/ext-apps |
+| @modelcontextprotocol/client | 2.3.1 | Apache-2.0 | https://github.com/modelcontextprotocol/typescript-sdk |
+| @modelcontextprotocol/core | 2.3.1 | Apache-2.0 | https://github.com/modelcontextprotocol/typescript-sdk |
+| zod | 4.6.7 | MIT | https://zod.dev |
+
+The last five are bundled into `backend/app/mcp/ui/board.html` (the chat board, ADR 0008) together with React and react-chessboard.
+All are permissive and AGPL-compatible; Apache-2.0 is compatible with GPL-3.0 and AGPL-3.0.
 
 ## Not packages: programs and data
 

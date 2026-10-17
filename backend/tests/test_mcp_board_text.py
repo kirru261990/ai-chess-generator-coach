@@ -11,29 +11,36 @@ def test_white_side_has_rank_8_on_top_and_file_a_left():
     lines = render_board(START).splitlines()
     assert lines[0].split() == list("abcdefgh")
     assert lines[1].startswith("8 ") and lines[1].endswith(" 8")
-    assert lines[1].split()[1:-1] == list("♜♞♝♛♚♝♞♜")
-    assert lines[8].split()[1:-1] == list("♖♘♗♕♔♗♘♖")
-    assert lines[-1] == lines[0]
+    assert lines[1].split()[1:-1] == list("rnbqkbnr")
+    assert lines[8].split()[1:-1] == list("RNBQKBNR")
+    assert lines[9] == lines[0] and lines[-1] == "CAPITALS = White, lowercase = Black"
 
 
 def test_black_side_is_turned_round():
     lines = render_board(START, "black").splitlines()
     assert lines[0].split() == list("hgfedcba")
     assert lines[1].startswith("1 ")
-    assert lines[1].split()[1:-1] == list("♖♘♗♔♕♗♘♖")
+    assert lines[1].split()[1:-1] == list("RNBKQBNR")
     assert lines[8].startswith("8 ")
 
 
 def test_marked_squares_are_bracketed_and_others_are_not():
     text = render_board(MID, "white", ["h5", "c4"])
     assert text.count("[") == 2
-    assert "[♕]" in text and "[♗]" in text
+    assert "[Q]" in text and "[B]" in text
     assert "[" not in render_board(MID)
 
 
 def test_mark_on_empty_square_and_both_sides_agree_on_marks():
     for side in ("white", "black"):
-        assert "[·]" in render_board(START, side, ["e4"])
+        assert "[.]" in render_board(START, side, ["e4"])
+
+
+def test_every_row_lines_up_in_a_fixed_width_font():
+    lines = render_board(MID, "white", ["h5"]).splitlines()
+    assert len({len(r) for r in lines[1:9]}) == 1  # the eight board rows
+    assert lines[0].index("a") == lines[8].index("R")  # a file letter sits over its column
+    assert all(ch.isascii() for ch in render_board(MID))  # plain letters only, no symbol glyphs
 
 
 def test_cells_have_equal_width_marked_or_not():

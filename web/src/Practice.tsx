@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
-import { api } from './api'
+import { restBackend, type BoardPayload, type PracticeBackend } from './practiceBackend'
 import { delayedSummaryLine } from './progressState'
 import { NO_THREAT, castleMove, pickMove, pieceColorAt, tapRefusal, tapWords, targetsFrom } from './assessState'
 import MoveArrows, { LaneLegend } from './MoveArrows'
@@ -12,7 +12,12 @@ import {
 type Arrow = { startSquare: string; endSquare: string; color: string }
 
 /** Replay My Mistakes (PRD v2 §6): positions from the player's own games, one at a time. Always assisted. */
-export default function Practice({ id, onHome }: { id: number; onHome: () => void }) {
+export default function Practice({ id, onHome, backend = restBackend, initial }: {
+  id: number
+  onHome?: () => void // the web app's Back; the chat board has no page to go back to
+  backend?: PracticeBackend
+  initial?: BoardPayload | null // data the host already holds (the chat shows the tool result it just got)
+}) {
   const [view, setView] = useState<PracticeView | null>(null)
   const [summary, setSummary] = useState<PracticeSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -36,9 +41,9 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       setStep(0)
     }
     if (v.status === 'completed') {
-      api<PracticeSummary>(`/coach/practice/sessions/${v.session_id}/summary`).then(setSummary).catch((e: Error) => setError(e.message))
+      backend.summary(v.session_id).then(setSummary).catch((e: Error) => setError(e.message))
     }
-  }, [])
+  }, [backend])
 
   // ← and → step the replay of the game line. Capture phase, so this wins over the Play board's left-arrow Undo while it is open.
   const replayLength = view?.current?.feedback?.game_line.uci.length ?? 0
@@ -57,18 +62,23 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   }, [showGame, replayLength])
 
   useEffect(() => {
-    api<PracticeView>(`/coach/practice/sessions/${id}`).then((v) => apply(v)).catch((e: Error) => setError(e.message))
-  }, [id, apply])
+    if (initial) {
+      if (initial.summary) setSummary(initial.summary)
+      apply(initial.view)
+      return
+    }
+    backend.get(id).then((v) => apply(v)).catch((e: Error) => setError(e.message))
+  }, [id, apply, backend, initial])
 
   function send(path: string, body: unknown, keep = false) {
     setBusy(true)
-    api<PracticeView>(`/coach/practice/sessions/${id}/${path}`, body)
+    backend.post(id, path, body as Record<string, unknown>)
       .then((v) => apply(v, keep))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false))
   }
 
-  if (error) return <div className="app"><p className="error">{error}</p><button onClick={onHome}>Back</button></div>
+  if (error) return <div className="app"><p className="error">{error}</p>{onHome ? <button onClick={onHome}>Back</button> : <button onClick={() => setError(null)}>OK</button>}</div>
   if (!view) return <div className="app"><p>Loading…</p></div>
   if (view.status === 'completed') return <SummaryPage summary={summary} onHome={onHome} />
   const cur = view.current
@@ -236,11 +246,11 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   )
 }
 
-function SummaryPage({ summary, onHome }: { summary: PracticeSummary | null; onHome: () => void }) {
+function SummaryPage({ summary, onHome }: { summary: PracticeSummary | null; onHome?: () => void }) {
   if (!summary) return <div className="app"><p>Loading…</p></div>
   return (
     <div className="spots">
-      <button onClick={onHome}>Back</button>
+      {onHome && <button onClick={onHome}>Back</button>}
       <h2>{summary.label}: practice summary</h2>
       <div className="card">
         {summaryLines(summary).map((l) => <p key={l} className="headline">{l}</p>)}

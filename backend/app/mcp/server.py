@@ -11,25 +11,37 @@ not practice.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import sqlite3
 import sys
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
+from pathlib import Path
 from urllib.parse import urlparse
 
+from mcp.server.apps import Apps
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 
 from app.db.schema import connect
 from app.engine.evidence import open_evidence
+from app.learner import assessment as A
 from app.mcp import auth
 from app.mcp import practice_tools as T
 
+log = logging.getLogger(__name__)
+
 NAME = "chess-coach"
+
+BOARD_URI = "ui://chess-coach/board.html"
+BOARD_HTML_PATH = Path(__file__).parent / "ui" / "board.html"  # built from web/ (`pnpm build:mcp`); see docs/mcp-app-board.md
+BOARD_MISSING = ("<!doctype html><meta charset=utf-8><p style=\"font:14px system-ui;padding:12px\">The interactive board has not been "
+                 "built. Run <code>pnpm build:mcp</code> in web/. The text board in the chat still works.</p>")
 
 INSTRUCTIONS = (
     "This server runs Replay My Mistakes practice from the player's own games. You only relay it. Never analyse the position, "
@@ -47,7 +59,6 @@ ConnFactory = Callable[[], sqlite3.Connection]
 def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **server_args) -> MCPServer:
     """The server. `conn_factory` and `opener` are replaced by scripted ones in tests. Each call gets its own connection and the
     engine (for a move check) is started inside the call only."""
-    mcp = MCPServer(NAME, instructions=INSTRUCTIONS, **server_args)
 
     @contextmanager
     def store():
@@ -57,53 +68,76 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
         finally:
             conn.close()
 
+    def board(text: str, c: sqlite3.Connection, session_id: int | None = None) -> CallToolResult:
+        """The tool's text (always shown, and all a client without app support gets) plus, for the interactive board, the same
+        session data the web page uses. A refused step is text only."""
+        plain = CallToolResult(content=[TextContent(type="text", text=text)])
+        sid = session_id if session_id is not None else T.session_id_of(text)
+        if T.is_refusal(text) or sid is None:
+            return plain
+        try:
+            data = T.payload(c, sid)
+        except (sqlite3.Error, A.AssessmentError, ValueError, KeyError):  # the board is an extra: never lose the text for it
+            log.exception("could not build the board data")
+            return plain
+        return CallToolResult(content=[TextContent(type="text", text=text)], structured_content=data)
+
+    # Tools that show a board are bound to the interactive board (MCP Apps). They must be declared before the server is built.
+    apps = Apps()
+    html = BOARD_HTML_PATH.read_text(encoding="utf-8") if BOARD_HTML_PATH.exists() else BOARD_MISSING
+    apps.add_html_resource(BOARD_URI, html, name="chess-board", title="Practice board",
+                           description="The interactive practice board (the same board as the web app).", prefers_border=True)
+    ui = {"resource_uri": BOARD_URI, "meta": {"openai/outputTemplate": BOARD_URI}}  # the second key is for ChatGPT's own loader
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_start(mistake_type: str) -> CallToolResult:
+        """Start a practice session, or resume the open one, and show position 1. mistake_type: pieces_in_danger or free_pieces. Saves progress."""
+        with store() as c:
+            return board(T.practice_start(c, mistake_type), c)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_show(session_id: int) -> CallToolResult:
+        """Show the current position and what to do next. Safe to call again. The first view of a new session saves its first attempt."""
+        with store() as c:
+            return board(T.practice_show(c, session_id), c, session_id)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_answer(session_id: int, square: str) -> CallToolResult:
+        """Step 1, the question: give the square of the piece (for example g5), or "none" for no immediate threat. Saves the answer."""
+        with store() as c:
+            return board(T.practice_answer(c, session_id, square), c, session_id)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_move(session_id: int, move: str) -> CallToolResult:
+        """Step 2: make a move, like Nf3, Bxe5, O-O or g1f3. The engine checks it (about 2 seconds) and the feedback follows. Saves the attempt."""
+        with store() as c:
+            return board(T.practice_move(c, session_id, move, opener), c, session_id)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_hint(session_id: int) -> CallToolResult:
+        """Give the next of three hints. Only when the player asks. Marks this try as assisted."""
+        with store() as c:
+            return board(T.practice_hint(c, session_id), c, session_id)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_retry(session_id: int) -> CallToolResult:
+        """After the feedback: try the same position again as a new try."""
+        with store() as c:
+            return board(T.practice_retry(c, session_id), c, session_id)
+
+    @apps.tool(annotations=WRITE, **ui)
+    def practice_next(session_id: int) -> CallToolResult:
+        """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
+        with store() as c:
+            return board(T.practice_next(c, session_id), c, session_id)
+
+    mcp = MCPServer(NAME, instructions=INSTRUCTIONS, extensions=[apps], **server_args)
+
     @mcp.tool(annotations=READ)
     def practice_status() -> str:
         """Show which practice types are ready, locked or in progress, and when the delayed test opens. Changes nothing."""
         with store() as c:
             return T.practice_status(c)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_start(mistake_type: str) -> str:
-        """Start a practice session, or resume the open one, and show position 1. mistake_type: pieces_in_danger or free_pieces. Saves progress."""
-        with store() as c:
-            return T.practice_start(c, mistake_type)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_show(session_id: int) -> str:
-        """Show the current position and what to do next. Safe to call again. The first view of a new session saves its first attempt."""
-        with store() as c:
-            return T.practice_show(c, session_id)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_answer(session_id: int, square: str) -> str:
-        """Step 1, the question: give the square of the piece (for example g5), or "none" for no immediate threat. Saves the answer."""
-        with store() as c:
-            return T.practice_answer(c, session_id, square)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_move(session_id: int, move: str) -> str:
-        """Step 2: make a move, like Nf3, Bxe5, O-O or g1f3. The engine checks it (about 2 seconds) and the feedback follows. Saves the attempt."""
-        with store() as c:
-            return T.practice_move(c, session_id, move, opener)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_hint(session_id: int) -> str:
-        """Give the next of three hints. Only when the player asks. Marks this try as assisted."""
-        with store() as c:
-            return T.practice_hint(c, session_id)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_retry(session_id: int) -> str:
-        """After the feedback: try the same position again as a new try."""
-        with store() as c:
-            return T.practice_retry(c, session_id)
-
-    @mcp.tool(annotations=WRITE)
-    def practice_next(session_id: int) -> str:
-        """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
-        with store() as c:
-            return T.practice_next(c, session_id)
 
     @mcp.tool(annotations=READ)
     def practice_summary(session_id: int) -> str:
@@ -142,6 +176,37 @@ class HostGuard:
         await self.app(scope, receive, send)
 
 
+class MethodLog:
+    """Log each JSON-RPC method (and tool name) of a POST, e.g. `mcp tools/call practice_start`, so a client's behaviour (does it ask for
+    the board resource?) can be seen in the server's output. Names only: arguments and results are never logged."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method") != "POST":
+            return await self.app(scope, receive, send)
+        chunks: list[dict] = []
+        while True:
+            message = await receive()
+            chunks.append(message)
+            if message["type"] != "http.request" or not message.get("more_body"):
+                break
+        try:
+            body = json.loads(b"".join(m.get("body", b"") for m in chunks) or b"null")
+            for call in body if isinstance(body, list) else [body]:
+                name = (call.get("params") or {}).get("name") or (call.get("params") or {}).get("uri") or ""
+                log.info("mcp %s %s", call.get("method"), name)
+        except (ValueError, AttributeError):
+            pass
+        replay = iter(chunks)
+
+        async def replayed():
+            return next(replay, {"type": "http.disconnect"})
+
+        await self.app(scope, replayed, send)
+
+
 def build_http_app(public_url: str, *, auth_path=None, conn_factory: ConnFactory = connect, opener=open_evidence,
                    port: int = DEFAULT_PORT, clock: Callable[[], float] = time.time):
     """The remote app: the tools behind OAuth, the login page, and the host checks. Returns (ASGI app, provider)."""
@@ -157,7 +222,7 @@ def build_http_app(public_url: str, *, auth_path=None, conn_factory: ConnFactory
     security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=sorted(hosts),
                                          allowed_origins=[public_url, *BROWSER_ORIGINS])
     app = mcp.streamable_http_app(stateless_http=True, json_response=True, transport_security=security)
-    return HostGuard(app, hosts), provider
+    return HostGuard(MethodLog(app), hosts), provider
 
 
 def _run_http() -> int:
@@ -172,6 +237,7 @@ def _run_http() -> int:
         return 2
     import uvicorn
 
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     app, _ = build_http_app(public, port=port)
     uvicorn.run(app, host="127.0.0.1", port=port, proxy_headers=False, server_header=False)
     return 0

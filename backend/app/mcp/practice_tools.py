@@ -31,8 +31,15 @@ class Refused(Exception):
     """A step the tool will not take, with the sentence to show."""
 
 
+REFUSAL_PREFIX = "I could not do that: "
+
+
 def _refusal(text: str) -> str:
-    return f"I could not do that: {text}"
+    return REFUSAL_PREFIX + text
+
+
+def is_refusal(text: str) -> bool:
+    return text.startswith(REFUSAL_PREFIX)
 
 
 def _guard(fn: Callable[[], str]) -> str:
@@ -93,6 +100,25 @@ def _delayed_line(d: dict) -> str:
     if d["status"] == "error":
         return "Something went wrong setting your delayed test, so none was set. Your practice was saved."
     return "No delayed test was set for this session."
+
+
+_SESSION_IN_TEXT = re.compile(r"· session (\d+) ·|session (\d+) finished")
+
+
+def session_id_of(text: str) -> int | None:
+    """The session a rendered board belongs to, read from its heading (`render_session` writes it; this is its inverse)."""
+    m = _SESSION_IN_TEXT.search(text)
+    return int(m.group(1) or m.group(2)) if m else None
+
+
+def payload(conn: sqlite3.Connection, session_id: int) -> dict:
+    """What the interactive board draws: exactly the data the web app's practice page uses (`learner.practice.get_session`, and
+    the summary once the session is finished). Reading a session that was just shown changes nothing."""
+    view = P.get_session(conn, session_id)
+    out: dict = {"view": view, "summary": None}
+    if view["status"] == "completed":
+        out["summary"] = P.summary(conn, session_id)
+    return out
 
 
 def render_session(conn: sqlite3.Connection, session_id: int) -> str:

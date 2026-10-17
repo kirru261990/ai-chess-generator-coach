@@ -72,7 +72,7 @@ def test_a_wrong_move_gets_the_checked_feedback_and_good_moves(store):
     T.practice_answer(conn, sid, "g1")
     text = T.practice_move(conn, sid, "Kf1", opener)
     assert "NOT SOUND" in text and "You chose the piece on g1: not right." in text
-    assert "Squares in [brackets]" in text and "[♖]" in text  # the piece at risk is marked after the move
+    assert "Squares in [brackets]" in text and "[R]" in text  # the piece at risk is marked after the move
     assert "practice_retry" in text and "practice_next" in text
 
 
@@ -136,7 +136,7 @@ def test_hints_come_one_rung_at_a_time_and_stop_at_three(store):
     t1 = T.practice_hint(conn, sid)
     assert "Hint 1:" in t1 and "Hint 2:" not in t1
     t2 = T.practice_hint(conn, sid)
-    assert "Hint 2:" in t2 and "[♖]" in t2  # the piece at risk is marked
+    assert "Hint 2:" in t2 and "[R]" in t2  # the piece at risk is marked
     t3 = T.practice_hint(conn, sid)
     assert "Hint 3:" in t3 and "Bxa1" in t3 and "No hints left" in t3
     assert T.practice_hint(conn, sid).startswith("I could not do that: you have used all three hints")
