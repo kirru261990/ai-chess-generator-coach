@@ -63,6 +63,7 @@ assisted game".
 - **Practice (assisted)** shows what the web app's Practice shows, except the evaluation bar and "Why?" (not in chat yet): the
   verdict and badge on your last move, red and green marks, threat arrows (toggle), the hint ladder and Undo.
 - The board page uses two extra tools meant for it alone, `game_apply_move` and `game_engine_move` (marked app-only), so your move shows at once and Stockfish replies about a second later. If your chat model lists them, it is told never to call them.
+- Your own move is drawn on the board at the click, before the server answers (display only, by `web/src/applyMove.ts`); the server's position then replaces it, and if the server refuses the move it is taken off again with the reason. Stockfish's reply is drawn no sooner than 1 s after your click.
 - **Limits:** chat games live in memory in the MCP server process. They are **not saved**, are **not the web app's games** (the two
   servers do not share them), vanish when the server restarts, and at most 20 are kept. They enter no progress number or review.
   Real unassisted evidence stays in the web app.

@@ -71,3 +71,11 @@ clients (one call, both moves). The page also tints the last move. The same rule
 
 `visibility: ["app"]` is only metadata the **host** may honour; the server still lists these tools. Whether Claude hides them from the model is
 not known, so their descriptions and the server instructions say "never call them". Guidance, not enforcement, as before.
+
+## Addendum 2026-10-17 (2): the player's move is drawn at the click
+Even with the two-step tools, the move waited for a round trip (widget, host, tunnel, this Mac) before it was drawn. The page now draws it first:
+`applyMove` (a small tested function, no new dependency) moves the pieces on the displayed FEN, including capture, en passant, castling,
+promotion and the castling rights, and the board's slide animation is off for that jump. It is **display only**: it only receives moves taken
+from the server's legal list, the server stays the authority (rule 1), its position replaces the drawn one, and a refusal (stale, illegal,
+game over) removes the drawn move and shows the server's sentence. The board stays disabled while waiting. The 1 s minimum before the reply
+is measured from the click. Nothing here is help, so Play is unchanged.

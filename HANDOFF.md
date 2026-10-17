@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-17 (night) · MacBook · Claude Code: your move is drawn at the click in chat games (branch `feat/mcp-optimistic-move`, ADR 0009 addendum 2)
+- **Done:** `web/src/applyMove.ts` (display-only move on a FEN: capture, en passant, castling, promotion, rights; tested for each), `optimisticMove.ts` (`playMove`: draw, confirm, undo on refusal with the server's sentence, reply no sooner than 1 s after the click; tested with fakes), `GameBoard.tsx` uses them and turns the slide animation off for the player's own jump. Replay My Mistakes unchanged.
+- **Verified:** mock host, real Stockfish, every tool call delayed 800 ms (and 3 s): the move is on the board about 60 ms after the click while the call is still pending; the reply follows. Web 111 tests.
+- **Next:** owner removes and re-adds the connector and tries it.
+
 ### 2026-10-17 (night) · MacBook · Claude Code: your move shows first in chat games (branch `feat/mcp-game-two-step`, ADR 0009 addendum)
 - **Done:** app-only tools `game_apply_move` (player's move, no reply, no verdict) and `game_engine_move` (reply, guarded by `expected_revision`); the game page calls them in order, shows the move at once and the reply no sooner than 1 s later, and tints the last move. `game_move` is unchanged for text clients. Tests: two steps equal `game_move`, the first never has the reply, a stale or double reply plays nothing, no help in Play.
 - **Verified:** mock host, real Stockfish: move on the board at about 0.5 s with "Stockfish is thinking…", reply exactly 1 s later. **Unknown:** whether Claude honours `visibility: ["app"]` (the server still lists the tools; the instructions say never call them). Owner: remove and re-add the connector.
