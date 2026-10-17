@@ -12,7 +12,7 @@ from app.mcp import game_tools as G
 from app.mcp import server as S
 
 GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats"}
-GAME_READ_ONLY = {"game_show"}
+GAME_READ_ONLY: set[str] = set()  # game_show can resume a failed engine reply
 HELP_KEYS = {"verdict", "headline", "eval", "cp", "mate", "best_move", "better_move", "classification", "badge", "marks", "hint", "hints",
              "hints_used", "threat", "threats", "feedback", "practice", "can_take_back", "assisted", "show_threats", "why"}
 HELP_WORDS = ("verdict", "evaluat", "hint", "threat", "blunder", "mistake", "best move", "assisted", "undo")
@@ -201,3 +201,30 @@ def test_a_failed_search_never_loses_the_move(monkeypatch):
     gid = new("practice")
     d, _ = G.game_move(gid, "e4")
     assert d["game"]["moves"][0] == "e2e4" and d["practice"]["feedback"] is None
+
+
+def test_a_failed_engine_reply_keeps_the_move_and_game_show_resumes_it(monkeypatch):
+    gid = new("play")
+    good = tools.get_engine
+    class Down:
+        def play(self, *a, **k):
+            raise G.EngineError("engine_not_running", "x")
+    monkeypatch.setattr(tools, "get_engine", lambda: Down())
+    d, t = G.game_move(gid, "e4")
+    assert d["game"]["moves"] == ["e2e4"] and d["game"]["turn"] == "black" and "use game_show" in t
+    monkeypatch.setattr(tools, "get_engine", good)
+    d, t = G.game_show(gid)
+    assert len(d["game"]["moves"]) == 2 and d["game"]["turn"] == "white" and "Stockfish replied" in t
+    assert len(G.game_show(gid)[0]["game"]["moves"]) == 2  # idempotent
+
+
+def test_a_failed_opening_move_leaves_a_game_that_can_be_resumed(monkeypatch):
+    good = tools.get_engine
+    class Down:
+        def play(self, *a, **k):
+            raise G.EngineError("engine_not_running", "x")
+    monkeypatch.setattr(tools, "get_engine", lambda: Down())
+    d, t = G.game_new("black", 1, "play")
+    assert d["game"]["moves"] == [] and "use game_show" in t
+    monkeypatch.setattr(tools, "get_engine", good)
+    assert len(G.game_show(d["game"]["id"])[0]["game"]["moves"]) == 1

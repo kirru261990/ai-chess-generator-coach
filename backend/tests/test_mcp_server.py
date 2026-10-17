@@ -12,7 +12,7 @@ from tests.test_practice import FakeAnalyser, make_store
 GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats"}  # tests/test_mcp_games.py
 EXPECTED = GAME_TOOLS | {"practice_status", "practice_start", "practice_show", "practice_answer", "practice_move", "practice_hint",
             "practice_retry", "practice_next", "practice_summary", "progress"}
-READ_ONLY = {"practice_status", "practice_summary", "progress", "game_show"}  # practice_show saves the first attempt of a new session
+READ_ONLY = {"practice_status", "practice_summary", "progress"}  # practice_show saves the first attempt of a new session
 
 
 @contextmanager
@@ -94,7 +94,7 @@ def test_http_mode_refuses_without_a_public_url_or_a_password(monkeypatch, tmp_p
 
 # --- the interactive board (MCP Apps) -----------------------------------------------------------------------------------
 
-BOARD_TOOLS = EXPECTED - READ_ONLY | {"game_show"}
+BOARD_TOOLS = EXPECTED - READ_ONLY
 
 
 def test_board_tools_point_at_the_board_and_read_only_tools_do_not(server):

@@ -146,9 +146,9 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
         """Start a game against Stockfish and show the board. color: white or black. level: 1 to 10. mode: play (no help) or practice (assisted: verdicts, hints, undo, threat arrows)."""
         return game_board(G.game_new(color, level, mode))
 
-    @apps.tool(annotations=READ, **ui)
+    @apps.tool(annotations=WRITE, **ui)
     def game_show(game_id: str) -> CallToolResult:
-        """Show the board of a game and whose turn it is. Safe to call again. Changes nothing."""
+        """Show the board of a game and whose turn it is. Safe to call again. If Stockfish owes a reply it plays it."""
         return game_board(G.game_show(game_id))
 
     @apps.tool(annotations=WRITE, **ui)

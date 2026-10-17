@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { practiceOnly, toGameView, toHint, type GameBackend, type GamePayload } from './gameBackend'
 import {
@@ -60,6 +60,15 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     setSelected(null)
     void step('Stockfish is thinking…', () => backend.move(game.id, uci, game.revision))
   }
+
+  // If the engine owes a reply (its search failed after my move was saved), ask once per position; game_show plays it.
+  const resumed = useRef('')
+  useEffect(() => {
+    const key = `${game.id}:${game.revision}`
+    if (game.outcome || game.turn === game.user_color || busy || resumed.current === key) return
+    resumed.current = key
+    void step('Stockfish is thinking…', () => backend.show(game.id))
+  })
 
   // --- Practice only from here: every value is null or empty in Play ---------------------------------------------------
   const fb = extras?.feedback ? feedbackToShow(storeFeedback(extras.feedback, game.id, game.moves), game) : null

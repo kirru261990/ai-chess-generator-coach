@@ -183,17 +183,49 @@ def _remember(game: Game) -> None:
             GAMES.pop(old, None)
 
 
+ENGINE_DOWN = "Stockfish did not answer. Your move is saved; use game_show to ask it again."
+
+
+def _engine_turn(game: Game) -> bool:
+    return game.outcome() is None and game.board().turn != game.user_color
+
+
+def _reply(gid: str) -> str:
+    """Let the engine play if it is its turn (idempotent). Returns a note: what it played, or that it did not answer."""
+    game = _own(gid)
+    before = len(game.moves)
+    if not _engine_turn(game):
+        return ""
+    try:
+        T.engine_reply(gid)
+    except EngineError:
+        log.exception("engine failed in a game tool")
+        return ENGINE_DOWN
+    return f"Stockfish replied {_san_moves(game)[-1]}." if len(game.moves) > before else ""
+
+
 def game_new(color: str = "white", level: int = 3, mode: str = "play"):
     def run():
-        v = T.start_game(color, mode, level)
-        _remember(GAMES[v["id"]])
-        opening = " Stockfish opened." if color == "black" else ""
-        return _result(v["id"], opening.strip())
+        known = set(GAMES)
+        try:
+            v = T.start_game(color, mode, level)
+            note = "Stockfish opened." if color == "black" else ""
+            gid = v["id"]
+        except EngineError:  # the game exists, the engine's opening move failed: keep it so show can retry
+            log.exception("engine failed in a game tool")
+            (gid,) = set(GAMES) - known
+            note = ENGINE_DOWN
+        _remember(GAMES[gid])
+        return _result(gid, note)
     return _guard(run)
 
 
 def game_show(game_id: str):
-    return _guard(lambda: (_own(game_id), _result(game_id))[1])
+    """The board; if the engine owes a reply (an earlier search failed) it plays it now."""
+    def run():
+        _own(game_id)
+        return _result(game_id, _reply(game_id))
+    return _guard(run)
 
 
 def _to_uci(game: Game, move: str) -> str:
@@ -213,12 +245,8 @@ def game_move(game_id: str, move: str, expected_revision: int | None = None):
         with game.lock:  # read the revision and the move's meaning against the same position
             uci = _to_uci(game, move)
             revision = game.revision if expected_revision is None else expected_revision
-        before = len(game.moves)
-        T.apply_move(game_id, uci, revision)
-        note = ""
-        if len(game.moves) > before + 1:  # the engine replied
-            note = f"Stockfish replied {_san_moves(game)[-1]}."
-        return _result(game_id, note)
+        T.apply_move(game_id, uci, revision, engine_reply_=False)  # the move is saved first; the reply is separate
+        return _result(game_id, _reply(game_id))
     return _guard(run)
 
 

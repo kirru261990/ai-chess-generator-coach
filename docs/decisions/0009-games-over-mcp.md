@@ -16,7 +16,7 @@ not reach a Play game anywhere: not in the tool results, not in the structured d
    |---|---|---|---|
    | `game_new(color, level, mode)` | write | both | `color` white/black, `level` 1 to 10, `mode` play/practice. Stockfish opens if the player is Black. |
    | `game_move(game_id, move, expected_revision?)` | write | both | `move` as SAN (`Nf3`, `O-O`) or UCI (`g1f3`); the engine's reply is part of the call. |
-   | `game_show(game_id)` | read-only | both | Safe to repeat. |
+   | `game_show(game_id)` | write | both | Safe to repeat. If Stockfish owes a reply (its search failed after your move was saved) it plays it, so a stuck game recovers. |
    | `game_resign(game_id)` | write | both | |
    | `game_undo(game_id)` | write | practice only | Marks the game assisted (it already is). |
    | `game_hint(game_id, level)` | write | practice only | The hint ladder, steps 1 to 5. Records how many positions needed a hint. |
