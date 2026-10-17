@@ -44,6 +44,7 @@ def threats(board: chess.Board) -> dict:
         found.append({
             "kind": "piece_can_be_taken",
             "square": h.square,
+            "capture": h.capture,  # the opponent's capture (UCI), so the board can draw it as an arrow
             "piece": PIECE[h.piece.lower()],
             "text": f"Your {PIECE[h.piece.lower()]} on {h.square} can be taken and you would lose material.",
         })

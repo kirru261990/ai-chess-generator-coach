@@ -51,6 +51,8 @@ class Hanging:
     square: str
     piece: str
     gain: int
+    # The capture (UCI) that wins it, for drawing the threat on the board. Not part of equality: the detector's results are unchanged.
+    capture: str = field(default="", compare=False)
 
 
 @dataclass(frozen=True)
@@ -73,15 +75,18 @@ def hanging_pieces(board: chess.Board, owner: chess.Color) -> tuple[Hanging, ...
         board.turn = not owner
         board.ep_square = None
     best: dict[chess.Square, int] = {}
+    best_capture: dict[chess.Square, str] = {}
     for move in board.legal_moves:
         victim = board.piece_at(move.to_square)
         if victim is None or victim.color != owner or victim.piece_type in (chess.PAWN, chess.KING):
             continue
         net = capture_net(board, move)
         if net >= HANGING_MIN_GAIN:
+            if net > best.get(move.to_square, 0):
+                best_capture[move.to_square] = move.uci()
             best[move.to_square] = max(best.get(move.to_square, 0), net)
     return tuple(
-        Hanging(chess.square_name(sq), board.piece_at(sq).symbol(), net)
+        Hanging(chess.square_name(sq), board.piece_at(sq).symbol(), net, best_capture[sq])
         for sq, net in sorted(best.items())
     )
 

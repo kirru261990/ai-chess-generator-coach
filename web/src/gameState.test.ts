@@ -246,3 +246,23 @@ describe('hintToShow', () => {
     expect(hintToShow(null, g())).toBeNull()
   })
 })
+
+import { threatArrows } from './gameState'
+
+describe('threatArrows', () => {
+  const base = { revision: 1, in_check: false }
+  it('draws one arrow per piece the opponent can win, from the capturer to the piece', () => {
+    const t: Threats = { ...base, threats: [
+      { kind: 'piece_can_be_taken', square: 'e4', capture: 'd5e4', text: '' },
+      { kind: 'piece_can_be_taken', square: 'c3', capture: 'b4c3', text: '' },
+    ] }
+    expect(threatArrows(t).map((a) => a.startSquare + a.endSquare)).toEqual(['d5e4', 'b4c3'])
+  })
+  it('skips mate threats and threats without a capture', () => {
+    const t: Threats = { ...base, threats: [
+      { kind: 'mate_threat', text: '' },
+      { kind: 'piece_can_be_taken', square: 'e4', text: '' },
+    ] }
+    expect(threatArrows(t)).toEqual([])
+  })
+})
