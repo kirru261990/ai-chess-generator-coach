@@ -47,7 +47,7 @@ RIGHT = {"M1": ("a1", "a1a2"), "M2": ("d5", "d2d5")}
 WRONG_MOVE = "g1f1"  # leaves the rook (M1) and the queen (M2) alone: not sound
 LATER = 7  # seconds after the previous step
 
-PRACTICE_KEYS = FORBIDDEN_KEYS | {"allowed", "board_line", "good_moves", "original", "verdict", "avoids", "sound"}
+PRACTICE_KEYS = FORBIDDEN_KEYS | {"allowed", "board_line", "board_line_san", "fen_after", "good_moves", "original", "verdict", "avoids", "sound"}
 
 
 @pytest.fixture
@@ -242,6 +242,9 @@ def test_feedback_shows_the_original_mistake_the_verdict_and_what_it_allowed(sto
     assert bad["verdict"] == "NOT SOUND" and bad["avoids"] == "They could still win the piece."
     assert bad["game_move"] == {"uci": "g1g2", "san": "Kg2"} and "Bxa1" in bad["allowed"]
     assert bad["board_line"] == ["g1g2", "c3a1"]  # your move in the game, then what it allowed
+    assert bad["board_line_san"][0] == "Kg2"
+    after = chess.Board(bad["fen_after"])  # the position once the player's move is played
+    assert after.piece_at(chess.parse_square(WRONG_MOVE[2:4])) is not None and after.turn != chess.Board(view["current"]["fen"]).turn
     assert bad["target_squares"] == ["a1"] and bad["tap_correct"] is False and bad["your_move"]["uci"] == WRONG_MOVE
     sid2, view2 = begin(conn, "M2")
     ok = play(conn, sid2, view2)["current"]["feedback"]

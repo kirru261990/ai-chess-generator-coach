@@ -3,8 +3,9 @@ import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { delayedSummaryLine } from './progressState'
 import { NO_THREAT, castleMove, pickMove, pieceColorAt, tapRefusal, tapWords, targetsFrom } from './assessState'
+import MoveArrows, { LaneLegend } from './MoveArrows'
 import {
-  feedbackMarks, hintButton, hintMarks, lineCaption, stepTitle, summaryLines,
+  feedbackLanes, feedbackMarks, hintButton, hintMarks, stepTitle, summaryLines,
   type PracticeSummary, type PracticeView,
 } from './practiceState'
 
@@ -20,6 +21,7 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   const [from, setFrom] = useState<string | null>(null)
   const [move, setMove] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null) // why a click did nothing (rules only, never a hint)
+  const [showGame, setShowGame] = useState(false) // the red "what you played in the game" arrows, on request only
 
   // A new view from the server resets what the player had picked on the board, except after a hint (`keep`).
   const apply = useCallback((v: PracticeView, keep = false) => {
@@ -29,6 +31,7 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       setFrom(null)
       setMove(null)
       setNote(null)
+      setShowGame(false)
     }
     if (v.status === 'completed') {
       api<PracticeSummary>(`/coach/practice/sessions/${v.session_id}/summary`).then(setSummary).catch((e: Error) => setError(e.message))
@@ -91,10 +94,16 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
   // What is drawn on the board: the hints asked for, the player's picks, or (after the move) the feedback.
   const styles: Record<string, React.CSSProperties> = {}
   let arrows: Arrow[] = []
-  if (cur.stage === 'feedback' && cur.feedback) {
-    const m = feedbackMarks(cur.feedback, cur.fen, cur.side_to_move)
-    for (const [sq, c] of Object.entries(m.squares)) styles[sq] = { background: c }
-    arrows = m.arrows
+  const fb = cur.feedback
+  // A sound move shows the position after it, with the Play board's star on the moved piece, and no arrows. The red
+  // "what I played in the game" view needs the position before the move, so it switches back to that.
+  const afterView = cur.stage === 'feedback' && !!fb && fb.sound && !showGame
+  if (cur.stage === 'feedback' && fb) {
+    if (!afterView) {
+      const m = feedbackMarks(fb, cur.fen, cur.side_to_move)
+      for (const [sq, c] of Object.entries(m.squares)) styles[sq] = { background: c }
+    }
+    arrows = [] // the numbered overlay below replaces the library's plain arrows
   } else {
     const h = hintMarks(cur.hints)
     for (const [sq, c] of Object.entries(h.squares)) styles[sq] = { background: c }
@@ -111,7 +120,15 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       if (move) arrows = [...arrows, { startSquare: move.slice(0, 2), endSquare: move.slice(2, 4), color: 'rgba(80, 140, 230, 0.85)' }]
     }
   }
-  const fb = cur.feedback
+  const starSquare = afterView && fb ? fb.your_move.uci.slice(2, 4) : null
+  // The board library skips its own square styling when a custom renderer returns something, so this applies `styles` itself.
+  const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
+    <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>
+      {children}
+      {square === starSquare && <span className="move-badge best" title="Good move" aria-label="Good move">★</span>}
+    </div>
+  )
+  const lanes = fb ? feedbackLanes(fb, view.mistake_type).filter((l) => showGame || l.series !== 'game') : []
   const lastOne = view.done + 1 === view.total
   const hintLabel = hintButton(cur.hint_level)
 
@@ -126,15 +143,18 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
       )}
       <div className="board">
         <Chessboard options={{
-          position: cur.fen,
+          position: afterView && fb ? fb.fen_after : cur.fen,
           boardOrientation: cur.side_to_move,
           allowDragging: false,
           onSquareClick,
           squareStyles: styles,
+          squareRenderer,
           arrows,
           id: 'practice-board',
         }} />
+        {lanes.length > 0 && <MoveArrows lanes={lanes} orientation={cur.side_to_move} />}
       </div>
+      {lanes.length > 0 && <LaneLegend lanes={lanes} />}
 
       {cur.stage !== 'feedback' && (
         <div className="feedback">
@@ -174,15 +194,13 @@ export default function Practice({ id, onHome }: { id: number; onHome: () => voi
 
       {fb && (
         <div className={`feedback ${fb.sound ? 'good' : 'mistake'}`}>
-          <p><strong>Your move {fb.your_move.san}: {fb.verdict}.</strong> {fb.avoids}</p>
           <p className={fb.tap_correct ? 'fb-right' : 'fb-wrong'}>
             You chose {tapWords(fb.your_tap)}: {fb.tap_correct ? 'right' : 'not right'}.
           </p>
-          <p>{fb.original}</p>
-          <p>{fb.allowed}</p>
-          {!fb.sound && fb.good_moves.length > 0 && <p>Good moves here: {fb.good_moves.map((m) => m.san).join(', ')}.</p>}
-          <p className="note small">{lineCaption(view.mistake_type)}</p>
           <div className="controls">
+            <button className={showGame ? 'on' : ''} onClick={() => setShowGame(!showGame)}>
+              {showGame ? 'Hide what I played in the game' : 'Show what I played in the game'}
+            </button>
             <button disabled={busy} onClick={() => send('retry', { ord: cur.ord })}>Try this position again</button>
             <button disabled={busy} onClick={() => send('next', { ord: cur.ord })}>{lastOne ? 'Finish' : 'Next position'}</button>
           </div>

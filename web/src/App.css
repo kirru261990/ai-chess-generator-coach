@@ -99,3 +99,14 @@ button.primary { background: #3caa5a; color: #fff; border: 0; border-radius: 8px
 button.primary:disabled { opacity: 0.5; cursor: default; }
 .side-col .controls { justify-content: flex-start; flex-wrap: wrap; margin: 0; }
 .feedback button.on { background: #fff3c4; border-color: #e0b030; color: #403d39; font-weight: 600; }
+
+/* Numbered move arrows over the practice board, and their swimlane legend (one row per series) */
+.move-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+.lanes { margin: 8px auto; max-width: 520px; text-align: left; }
+.lane-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin: 4px 0; border-left: 6px solid; border-radius: 6px; background: rgba(128, 128, 128, 0.08); font-size: 0.9em; }
+.lane-title { flex: none; width: 108px; font-weight: 600; }
+.lane-moves { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.lane-move { display: inline-flex; align-items: center; gap: 5px; }
+.lane-n { width: 22px; height: 22px; border-radius: 50%; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.lane-san { font-family: ui-monospace, monospace; font-weight: 700; }
+.lane-who { opacity: 0.6; font-size: 0.85em; }
