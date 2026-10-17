@@ -95,7 +95,8 @@ def engine_reply(game_id: str) -> dict:
     return game_view(game)
 
 
-def start_game(color: str = "white", mode: str = "play", level: int = 3) -> dict:
+def create_game(color: str = "white", mode: str = "play", level: int = 3) -> Game:
+    """Validate, create and register a game without asking the engine for its opening move (the caller owns that step)."""
     if color not in ("white", "black"):
         raise GameError("invalid_color", "color must be white or black")
     if not 1 <= level <= MAX_LEVEL:
@@ -104,6 +105,11 @@ def start_game(color: str = "white", mode: str = "play", level: int = 3) -> dict
         raise GameError("invalid_mode", "mode must be play or practice")
     game = new_game(chess.WHITE if color == "white" else chess.BLACK, Mode(mode), engine_level=level)
     GAMES[game.id] = game
+    return game
+
+
+def start_game(color: str = "white", mode: str = "play", level: int = 3) -> dict:
+    game = create_game(color, mode, level)
     if _engine_to_move(game):  # user chose black: engine opens
         return engine_reply(game.id)
     return game_view(game)

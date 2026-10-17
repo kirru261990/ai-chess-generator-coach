@@ -51,6 +51,25 @@ lowercase Black). The board is one HTML file, `backend/app/mcp/ui/board.html`, b
 rebuild it after changing the Practice page. Restart the server, and in Claude remove and add the connector again (or start a new
 chat) so it re-reads the tool list.
 
+## Games against Stockfish in chat (ADR 0009)
+
+Seven more tools play a game on the same board: `game_new` (colour, level 1 to 10, mode `play` or `practice`), `game_move` (`Nf3`,
+`exd5`, `O-O` or `g1f3`; Stockfish replies in the same call), `game_show`, `game_resign`, and, **Practice games only**, `game_undo`,
+`game_hint` (steps 1 to 5) and `game_threats` (arrows on or off). Say: "Play a game against level 3, I am White", or "start an
+assisted game".
+
+- **Play shows no help, anywhere.** The board, a one-line status and Resign only. No verdict, evaluation, badge, hint, undo or threat
+  arrows: not in the widget, not in the tool text, not in the data. There is no tool to switch a game's mode.
+- **Practice (assisted)** shows what the web app's Practice shows, except the evaluation bar and "Why?" (not in chat yet): the
+  verdict and badge on your last move, red and green marks, threat arrows (toggle), the hint ladder and Undo.
+- **Limits:** chat games live in memory in the MCP server process. They are **not saved**, are **not the web app's games** (the two
+  servers do not share them), vanish when the server restarts, and at most 20 are kept. They enter no progress number or review.
+  Real unassisted evidence stays in the web app.
+- The chat model sees the board and may comment on a Play game anyway (the server's instructions tell it to only relay): guidance, not
+  enforcement. Treat chat Play as casual.
+- The board is still `backend/app/mcp/ui/board.html` (rebuild with `pnpm build:mcp` after changing `GameBoard.tsx`, `gameBackend.ts`
+  or `mcp-board/main.tsx`). Claude caches the tool list: **remove and add the connector again** after updating.
+
 ## What it does
 
 `practice_status`, `practice_start` (`pieces_in_danger` or `free_pieces`), `practice_show`, `practice_answer` (a square or

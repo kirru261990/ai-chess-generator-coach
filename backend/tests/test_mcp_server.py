@@ -9,7 +9,8 @@ from app.db.schema import connect
 from app.mcp import server as S
 from tests.test_practice import FakeAnalyser, make_store
 
-EXPECTED = {"practice_status", "practice_start", "practice_show", "practice_answer", "practice_move", "practice_hint",
+GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats"}  # tests/test_mcp_games.py
+EXPECTED = GAME_TOOLS | {"practice_status", "practice_start", "practice_show", "practice_answer", "practice_move", "practice_hint",
             "practice_retry", "practice_next", "practice_summary", "progress"}
 READ_ONLY = {"practice_status", "practice_summary", "progress"}  # practice_show saves the first attempt of a new session
 
@@ -42,7 +43,7 @@ def call(server, name, **args):
 def test_only_practice_tools_exist_and_no_test_can_be_reached(server):
     tools = asyncio.run(server.list_tools())
     assert {t.name for t in tools} == EXPECTED
-    assert not any(w in t.name for t in tools for w in ("test", "baseline", "assessment", "game"))
+    assert not any(w in t.name for t in tools for w in ("test", "baseline", "assessment"))
 
 
 def test_annotations_say_which_tools_change_data(server):
