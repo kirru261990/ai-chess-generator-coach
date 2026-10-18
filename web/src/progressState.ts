@@ -147,3 +147,76 @@ export function practiceLines(p: PracticeStats): string[] {
   if (p.reasons.length > 0) lines.push('Why moves were not sound: ' + p.reasons.map((r) => `${r.reason} (${r.count})`).join('; ') + '.')
   return lines
 }
+
+/** Real-game rates (PRD v2 §8, Step 4b). The server owns every number; these only shape words. */
+export type RealWindow = {
+  games_in_window: number
+  games: number
+  missing_games: number
+  player_moves: number
+  denominator: number
+  events: number
+  uncertain: number
+  skipped: number
+  rate: number | null // M1: per 100 player moves; M2: a share from 0 to 1
+  interval: [number, number] | null
+}
+
+export type RealComparison = {
+  state: 'ok' | 'not_enough_data' | 'analysis_incomplete'
+  floor: number
+  floor_unit: 'games' | 'opportunities'
+  baseline_has: number
+  post_has: number
+  change?: number
+  direction?: 'lower' | 'higher' | 'same'
+  ranges_overlap?: boolean
+}
+
+export type RealTimeControl = { time_control: string; label: string; baseline: RealWindow; post: RealWindow; comparison: RealComparison }
+
+export type RealType = {
+  mistake_type: 'M1' | 'M2'
+  label: string
+  detector: string
+  status: 'started' | 'not_started'
+  frozen_at: string | null
+  engine_config_id?: string | null
+  time_controls: RealTimeControl[]
+}
+
+export type RealGame = {
+  rates_version: string
+  label: string
+  floors: { games: number; opportunities: number }
+  engine_config_ids: string[]
+  types: RealType[]
+}
+
+function rateWords(w: RealWindow, mtype: 'M1' | 'M2'): string {
+  if (w.rate === null || w.interval === null) return 'no rate yet'
+  const one = (x: number) => (mtype === 'M1' ? `${x.toFixed(1)}` : `${Math.round(x * 100)}%`)
+  const range = `${one(w.interval[0])} to ${one(w.interval[1])}`
+  return mtype === 'M1' ? `${one(w.rate)} per 100 moves (range ${range})` : `${one(w.rate)} missed (range ${range})`
+}
+
+/** One window as lines: the rate, then every denominator, then what was left out (abstentions are in neither number). */
+export function realWindowLines(w: RealWindow, mtype: 'M1' | 'M2'): string[] {
+  const what = mtype === 'M1' ? `${w.events} mistakes in ${w.denominator} player moves` : `${w.events} missed of ${w.denominator} free captures available`
+  const lines = [`${rateWords(w, mtype)}`, `${what}; ${w.games} game${w.games === 1 ? '' : 's'}.`]
+  if (w.uncertain > 0) lines.push(`${w.uncertain} move(s) left out because the check was not certain.`)
+  if (w.missing_games > 0) lines.push(`${w.missing_games} game(s) not checked yet.`)
+  return lines
+}
+
+/** What the before/after comparison says: only above the floors, never as proof. */
+export function realComparisonLine(c: RealComparison, mtype: 'M1' | 'M2'): string {
+  if (c.state === 'analysis_incomplete') return 'Some games are not checked yet, so there is no comparison.'
+  if (c.state === 'not_enough_data') {
+    return `Not enough data yet: a comparison needs at least ${c.floor} ${c.floor_unit} in each window (before ${c.baseline_has}, after ${c.post_has}).`
+  }
+  const amount = mtype === 'M1' ? `${Math.abs(c.change ?? 0).toFixed(1)} per 100 moves` : `${Math.round(Math.abs(c.change ?? 0) * 100)} points`
+  const move = c.direction === 'same' ? 'no change' : `${amount} ${c.direction}`
+  return `After against before: ${move}. ` + (c.ranges_overlap
+    ? 'The ranges overlap, so this could be chance.' : 'The ranges do not overlap, so this is less likely to be chance. Still directional, not proof of cause.')
+}

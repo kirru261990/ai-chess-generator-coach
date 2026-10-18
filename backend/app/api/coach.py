@@ -27,6 +27,7 @@ from app.engine.evidence import open_evidence
 from app.learner import assessment as A
 from app.learner import practice as P
 from app.learner import progress as G
+from app.learner import realgame_rates as RG
 
 log = logging.getLogger(__name__)
 
@@ -217,3 +218,9 @@ def practice_summary(session_id: int, conn: Conn):
 @router.get("/progress")
 def progress(conn: Conn):
     return G.progress(conn)
+
+
+@router.get("/progress/realgame")
+def progress_realgame(conn: Conn):
+    """Real-game rates with floors (PRD v2 §8): reads stored per-game results only, never starts an engine."""
+    return RG.rates(conn)
