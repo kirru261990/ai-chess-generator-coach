@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  comparisonLines, delayedLabel, delayedSummaryLine, dueText, practiceLines, testLines,
-  type Comparison, type PracticeStats, type TestSummary,
+  comparisonLines, delayedLabel, delayedSummaryLine, dueText, practiceLines, realComparisonLine, realWindowLines, testLines,
+  type Comparison, type PracticeStats, type RealComparison, type RealWindow, type TestSummary,
 } from './progressState'
 
 const NOW = Date.parse('2026-10-15T12:00:00Z')
@@ -94,5 +94,38 @@ describe('practiceLines', () => {
     expect(text).toContain('Hints used on 1 of 9 tries')
     expect(text).toContain('a stronger move existed (4)')
     expect(practiceLines({ ...p, sessions: 0, attempts: 0 })).toEqual(['No practice yet.'])
+  })
+})
+
+describe('real-game rates (Step 4b)', () => {
+  const win = (o: Partial<RealWindow> = {}): RealWindow => ({
+    games_in_window: 30, games: 30, missing_games: 0, player_moves: 900, denominator: 840, events: 42, uncertain: 5, skipped: 55,
+    rate: 5, interval: [3.7, 6.7], ...o,
+  })
+  it('shows the rate with every denominator and the left-out moves', () => {
+    const lines = realWindowLines(win(), 'M1')
+    expect(lines[0]).toBe('5.0 per 100 moves (range 3.7 to 6.7)')
+    expect(lines[1]).toBe('42 mistakes in 840 player moves; 30 games.')
+    expect(lines).toContain('5 move(s) left out because the check was not certain.')
+    expect(realWindowLines(win({ games: 1, uncertain: 0, missing_games: 2 }), 'M1').join(' ')).toContain('2 game(s) not checked yet')
+  })
+  it('renders a window with nothing countable without a rate', () => {
+    const empty = win({ denominator: 0, events: 0, rate: null, interval: null, uncertain: 0, skipped: 0, player_moves: 0 })
+    expect(realWindowLines(empty, 'M1')).toEqual(['no rate yet', '0 mistakes in 0 player moves; 30 games.'])
+  })
+  it('words an M2 window as a share of the chances', () => {
+    const lines = realWindowLines(win({ events: 3, denominator: 12, rate: 0.25, interval: [0.09, 0.53] }), 'M2')
+    expect(lines[0]).toBe('25% missed (range 9% to 53%)')
+    expect(lines[1]).toBe('3 missed of 12 free captures available; 30 games.')
+    expect(realWindowLines(win({ rate: null, interval: null, denominator: 0, events: 0 }), 'M2')[0]).toBe('no rate yet')
+  })
+  it('says Not enough data yet below the floor, and never calls a result proof', () => {
+    const low: RealComparison = { state: 'not_enough_data', floor: 20, floor_unit: 'games', baseline_has: 30, post_has: 4 }
+    expect(realComparisonLine(low, 'M1')).toBe('Not enough data yet: a comparison needs at least 20 games in each window (before 30, after 4).')
+    const ok: RealComparison = { state: 'ok', floor: 20, floor_unit: 'games', baseline_has: 30, post_has: 25, change: -1.2, direction: 'lower', ranges_overlap: true }
+    expect(realComparisonLine(ok, 'M1')).toContain('1.2 per 100 moves lower')
+    expect(realComparisonLine(ok, 'M1')).toContain('could be chance')
+    expect(realComparisonLine({ ...ok, ranges_overlap: false }, 'M1')).toContain('not proof of cause')
+    expect(realComparisonLine({ ...low, state: 'analysis_incomplete' }, 'M1')).toContain('not checked yet')
   })
 })

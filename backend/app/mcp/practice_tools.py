@@ -15,6 +15,7 @@ import chess
 from app.learner import assessment as A
 from app.learner import practice as P
 from app.learner import progress as G
+from app.learner import realgame_rates as RG
 from app.mcp.board_text import piece_list, render_board
 
 log = logging.getLogger(__name__)
@@ -350,6 +351,37 @@ def _chance(n: float | None) -> str:
     return "guessing would get almost none" if n < 0.05 else f"guessing would get about {n:.1f}"
 
 
+def _rate(w: dict, mtype: str) -> str:
+    if not w["denominator"]:
+        return f"{w['games']} games, nothing to count yet"
+    unit = "player moves" if mtype == "M1" else "free captures available"
+    rate = f"{w['rate']:.1f} per 100 moves" if mtype == "M1" else f"{w['rate'] * 100:.0f}% missed"
+    return f"{rate} ({w['events']} of {w['denominator']} {unit}, {w['games']} games, {w['uncertain']} left out as uncertain)"
+
+
+def realgame_lines(data: dict) -> list[str]:
+    """The real-game section (PRD v2 §8): each window with its denominators, a comparison only above the floors."""
+    out = [f"\n### Real games ({data['label']})"]
+    for t in data["types"]:
+        if t["status"] == "not_started":
+            out.append(f"{t['label']}: not started (no practice session yet, so no starting window).")
+            continue
+        for tc in t["time_controls"]:
+            c = tc["comparison"]
+            out.append(f"{t['label']}, {tc['label']}: before {_rate(tc['baseline'], t['mistake_type'])}; "
+                       f"after {_rate(tc['post'], t['mistake_type'])}.")
+            if c["state"] == "ok":
+                out.append(f"  Change: {c['change'] * (1 if t['mistake_type'] == 'M1' else 100):+.1f} "
+                           f"({'ranges overlap, could be chance' if c['ranges_overlap'] else 'ranges do not overlap'}).")
+            elif c["state"] == "analysis_incomplete":
+                out.append("  Not all games are checked yet.")
+            else:
+                why = ("a window has no countable moves" if c.get("reason") == "no_countable_moves"
+                       else f"needs {c['floor']} {c['floor_unit']} in each window; has {c['baseline_has']} and {c['post_has']}")
+                out.append(f"  Not enough data yet ({why}).")
+    return out
+
+
 def progress(conn: sqlite3.Connection) -> str:
     def run() -> str:
         out = ["**My progress.** Tests (no help) and assisted practice are kept apart. Five positions show direction, not proof."]
@@ -374,5 +406,6 @@ def progress(conn: sqlite3.Connection) -> str:
                        f"{p['first_attempt_correct']}, right with a hint {p['assisted_correct']}, extra tries {p['retries']}.")
             for r in p["reasons"]:
                 out.append(f"- not sound because {r['reason']}: {r['count']}")
+        out.extend(realgame_lines(RG.rates(conn)))
         return "\n".join(out)
     return _guard(run)

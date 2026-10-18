@@ -27,6 +27,7 @@ from app.engine.evidence import open_evidence
 from app.learner import assessment as A
 from app.learner import practice as P
 from app.learner import progress as G
+from app.learner import realgame_rates as RG
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +66,9 @@ STATUS = {
 
 
 def db() -> Iterator:
-    conn = connect(DB_PATH)
+    # FastAPI may set up, run and tear down a request on different worker threads (two requests at once made /coach/progress
+    # fail with "created in a thread"); one request still uses its connection one step at a time.
+    conn = connect(DB_PATH, check_same_thread=False)
     try:
         yield conn
     finally:
@@ -217,3 +220,9 @@ def practice_summary(session_id: int, conn: Conn):
 @router.get("/progress")
 def progress(conn: Conn):
     return G.progress(conn)
+
+
+@router.get("/progress/realgame")
+def progress_realgame(conn: Conn):
+    """Real-game rates with floors (PRD v2 §8): reads stored per-game results only, never starts an engine."""
+    return RG.rates(conn)

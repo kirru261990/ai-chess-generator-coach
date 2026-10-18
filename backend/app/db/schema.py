@@ -16,6 +16,7 @@ be broken are enforced by the database itself, not only by the code that writes 
 - at most one unfinished practice session per user and mistake type (it resumes)
 - a practice session creates at most one delayed assessment (Step 4)
 - a frozen real-game baseline window is never edited or deleted
+- a per-game real-game result is stored once per (game, type, detector, engine config) and is never edited (Step 4b)
 
 `connect()` creates the tables on first use and upgrades older files: a new store runs every migration from v1, so a new
 store and an upgraded one are the same. A schema change never edits a released step; it bumps SCHEMA_VERSION and adds one.
@@ -32,7 +33,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -382,9 +383,34 @@ ALTER TABLE practice_session ADD COLUMN delayed_status TEXT
     CHECK (delayed_status IN ('scheduled', 'pending_exists', 'no_positions', 'error'));
 """
 
+_SCHEMA_V10 = """
+-- Step 4b (PRD v2 section 8): what the detectors found in every player move of one real game, from MIN_PLY on. The windows
+-- are summed from these rows, so a pass over the games is resumable one game at a time. Tied to the detector tag and the
+-- engine config: a different detector version or config is a different row, never mixed with another (PRD 4.1).
+CREATE TABLE realgame_game (
+    game_id          TEXT NOT NULL REFERENCES game(id),
+    mistake_type     TEXT NOT NULL CHECK (mistake_type IN ('M1', 'M2')),
+    detector_version TEXT NOT NULL,
+    engine_config_id TEXT NOT NULL REFERENCES engine_config(id),
+    player_moves     INTEGER NOT NULL,  -- the player's moves from MIN_PLY on
+    counted          INTEGER NOT NULL,  -- M1: mistake + no_mistake; M2: missed + taken (the denominator)
+    events           INTEGER NOT NULL,  -- M1: mistakes; M2: missed free captures
+    uncertain        INTEGER NOT NULL,  -- detector abstained: in neither numerator nor denominator (AGENTS rule 5)
+    skipped          INTEGER NOT NULL,  -- decided position, only legal move; and M2 moves with no free capture
+    event_plies_json TEXT NOT NULL,
+    rates_version    TEXT NOT NULL,
+    computed_at      TEXT NOT NULL,
+    PRIMARY KEY (game_id, mistake_type, detector_version, engine_config_id),
+    CHECK (counted + uncertain + skipped = player_moves AND events <= counted)
+) STRICT;
+
+CREATE TRIGGER realgame_game_no_update BEFORE UPDATE ON realgame_game
+BEGIN SELECT RAISE(ABORT, 'a real-game result is never edited'); END;
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
 _MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5,
-               6: _SCHEMA_V6, 7: _SCHEMA_V7, 8: _SCHEMA_V8, 9: _SCHEMA_V9}
+               6: _SCHEMA_V6, 7: _SCHEMA_V7, 8: _SCHEMA_V8, 9: _SCHEMA_V9, 10: _SCHEMA_V10}
 
 
 class SchemaError(Exception):
@@ -395,12 +421,12 @@ def default_path() -> Path:
     return config.DATA_DIR / FILE_NAME
 
 
-def connect(path: Path | str | None = None) -> sqlite3.Connection:
+def connect(path: Path | str | None = None, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open (and if needed create or upgrade) the store. `":memory:"` gives a throwaway store for tests."""
     target = default_path() if path is None else path
     if target != ":memory:":
         Path(target).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(target, isolation_level=None)  # autocommit; use `with transaction(conn)` to group
+    conn = sqlite3.connect(target, isolation_level=None, check_same_thread=check_same_thread)  # autocommit; use `with transaction(conn)` to group
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 30000")  # several engine processes may write the cache at once
