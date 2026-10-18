@@ -255,13 +255,16 @@ def test_http_the_delayed_test_is_closed_then_open_and_progress_leaks_nothing(st
     monkeypatch.setattr(coach, "DB_PATH", db_path)
     monkeypatch.setattr(coach, "open_analyser", fake_open)
     monkeypatch.setattr(coach, "start_chance_job", lambda ids: None)
+    # The API reads the clock itself, so give it the scenario's own date. With the real clock this test passed only until 72 hours
+    # after T0 (2026-10-15) and then failed on a plain main (found 2026-10-18).
+    monkeypatch.setattr(A, "_now", lambda now=None: now or T0 + timedelta(hours=1))
     client = TestClient(app)
     sid = done_session(conn)
     (row,) = delayed_rows(conn)
     held = [r[0] for r in conn.execute(
         "SELECT p.fen FROM assessment_position ap JOIN position p ON p.id = ap.position_id WHERE ap.assessment_id = ?", (row["id"],))]
     home = client.get("/coach/home").json()["types"][0]["delayed"]["waiting"]
-    assert home["assessment_id"] == row["id"] and home["available"] is False  # real time: three days away
+    assert home["assessment_id"] == row["id"] and home["available"] is False  # frozen clock: three days away
     closed = client.get(f"/coach/assessments/{row['id']}")
     assert closed.status_code == 200 and closed.json()["available"] is False and closed.json()["current"] is None
     assert client.post(f"/coach/assessments/{row['id']}/items", json={"ord": 0, "recognition": "none", "move": "a1a2"}).status_code == 403
