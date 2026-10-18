@@ -66,7 +66,9 @@ STATUS = {
 
 
 def db() -> Iterator:
-    conn = connect(DB_PATH)
+    # FastAPI may set up, run and tear down a request on different worker threads (two requests at once made /coach/progress
+    # fail with "created in a thread"); one request still uses its connection one step at a time.
+    conn = connect(DB_PATH, check_same_thread=False)
     try:
         yield conn
     finally:

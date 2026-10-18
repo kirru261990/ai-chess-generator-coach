@@ -376,8 +376,9 @@ def realgame_lines(data: dict) -> list[str]:
             elif c["state"] == "analysis_incomplete":
                 out.append("  Not all games are checked yet.")
             else:
-                out.append(f"  Not enough data yet (needs {c['floor']} {c['floor_unit']} in each window; "
-                           f"has {c['baseline_has']} and {c['post_has']}).")
+                why = ("a window has no countable moves" if c.get("reason") == "no_countable_moves"
+                       else f"needs {c['floor']} {c['floor_unit']} in each window; has {c['baseline_has']} and {c['post_has']}")
+                out.append(f"  Not enough data yet ({why}).")
     return out
 
 

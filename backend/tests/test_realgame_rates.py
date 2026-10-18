@@ -332,3 +332,52 @@ def test_freeze_time_is_the_earliest_freeze(conn):
     assert RR.freeze_time(conn, "M1") is None
     freeze_m1(conn, "600", 2)
     assert RR.freeze_time(conn, "M1") == T_FREEZE
+
+
+# --- review of PR 86: a window can pass the games floor and still have nothing countable ------------------------------------
+
+def early_games():
+    """Twenty games that ended before MIN_PLY: checked, but they contribute no countable move."""
+    return {t: {"player_moves": 0, "counted": 0, "events": 0, "uncertain": 0, "skipped": 0, "event_plies": []}
+            for t in ("M1", "M2")}
+
+
+def test_enough_games_but_no_countable_moves_gives_no_comparison_not_an_error(conn):
+    fill_windows(conn, 30, 20, post=early_games())
+    c = m1_tc(conn)[2]
+    assert c["post"]["games"] == 20 and c["post"]["denominator"] == 0 and c["post"]["rate"] is None
+    assert c["comparison"]["state"] == "not_enough_data" and c["comparison"]["reason"] == "no_countable_moves"
+    assert c["baseline"]["denominator"] > 0  # the denominators stay visible
+
+
+def test_an_empty_baseline_window_is_the_same(conn):
+    fill_windows(conn, 30, 25, base=early_games())
+    c = m1_tc(conn)[2]["comparison"]
+    assert c["state"] == "not_enough_data" and c["reason"] == "no_countable_moves"
+
+
+def test_all_moves_uncertain_or_skipped_is_the_same(conn):
+    fill_windows(conn, 30, 25, post=result(30, 0, 0, 10, 20))
+    c = m1_tc(conn)[2]
+    assert c["post"]["denominator"] == 0 and c["post"]["uncertain"] == 250
+    assert c["comparison"]["reason"] == "no_countable_moves"
+
+
+def test_m2_with_twenty_games_and_zero_opportunities(conn):
+    base, post = freeze_both(conn, 30, 25)
+    for g in base + post:
+        RR.store_game(conn, g, {**result(), "M2": {"player_moves": 30, "counted": 0, "events": 0, "uncertain": 0, "skipped": 30,
+                                                   "event_plies": []}}, CFG.id)
+    t = next(x for x in RR.rates(conn)["types"] if x["mistake_type"] == "M2")
+    c = t["time_controls"][0]["comparison"]
+    assert c["state"] == "not_enough_data" and c["reason"] == "no_countable_moves"
+
+
+def test_endpoint_and_mcp_text_survive_a_window_with_nothing_countable(conn, tmp_path, monkeypatch):
+    fill_windows(conn, 30, 20, post=early_games())
+    monkeypatch.setattr(coach, "DB_PATH", tmp_path / "store.sqlite3")
+    r = TestClient(app).get("/coach/progress/realgame")
+    assert r.status_code == 200
+    assert r.json()["types"][0]["time_controls"][0]["post"]["rate"] is None
+    text = T.progress(conn)
+    assert "Not enough data yet" in text and "no countable moves" in text and "nothing to count yet" in text

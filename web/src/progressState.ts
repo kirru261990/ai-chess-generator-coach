@@ -166,6 +166,7 @@ export type RealComparison = {
   state: 'ok' | 'not_enough_data' | 'analysis_incomplete'
   floor: number
   floor_unit: 'games' | 'opportunities'
+  reason?: 'no_countable_moves' | 'below_floor'
   baseline_has: number
   post_has: number
   change?: number
@@ -213,6 +214,9 @@ export function realWindowLines(w: RealWindow, mtype: 'M1' | 'M2'): string[] {
 export function realComparisonLine(c: RealComparison, mtype: 'M1' | 'M2'): string {
   if (c.state === 'analysis_incomplete') return 'Some games are not checked yet, so there is no comparison.'
   if (c.state === 'not_enough_data') {
+    if (c.reason === 'no_countable_moves') {
+      return `Not enough data yet: a window has no countable moves (before ${c.baseline_has} ${c.floor_unit}, after ${c.post_has}).`
+    }
     return `Not enough data yet: a comparison needs at least ${c.floor} ${c.floor_unit} in each window (before ${c.baseline_has}, after ${c.post_has}).`
   }
   const amount = mtype === 'M1' ? `${Math.abs(c.change ?? 0).toFixed(1)} per 100 moves` : `${Math.round(Math.abs(c.change ?? 0) * 100)} points`

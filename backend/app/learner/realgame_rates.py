@@ -191,8 +191,10 @@ def _comparison(mtype: str, before: dict, after: dict) -> dict:
     incomplete = before["missing_games"] or after["missing_games"]
     if incomplete:
         return {**out, "state": "analysis_incomplete"}
+    if not before["denominator"] or not after["denominator"]:  # games alone can pass the M1 floor with nothing to count
+        return {**out, "state": "not_enough_data", "reason": "no_countable_moves"}
     if have(before) < floor or have(after) < floor:
-        return {**out, "state": "not_enough_data"}
+        return {**out, "state": "not_enough_data", "reason": "below_floor"}
     ib, ia = before["interval"], after["interval"]
     change = after["rate"] - before["rate"]
     overlap = not (ia[0] > ib[1] or ib[0] > ia[1])

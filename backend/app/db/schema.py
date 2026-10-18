@@ -421,12 +421,12 @@ def default_path() -> Path:
     return config.DATA_DIR / FILE_NAME
 
 
-def connect(path: Path | str | None = None) -> sqlite3.Connection:
+def connect(path: Path | str | None = None, *, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open (and if needed create or upgrade) the store. `":memory:"` gives a throwaway store for tests."""
     target = default_path() if path is None else path
     if target != ":memory:":
         Path(target).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(target, isolation_level=None)  # autocommit; use `with transaction(conn)` to group
+    conn = sqlite3.connect(target, isolation_level=None, check_same_thread=check_same_thread)  # autocommit; use `with transaction(conn)` to group
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 30000")  # several engine processes may write the cache at once

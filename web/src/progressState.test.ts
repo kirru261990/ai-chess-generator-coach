@@ -109,6 +109,10 @@ describe('real-game rates (Step 4b)', () => {
     expect(lines).toContain('5 move(s) left out because the check was not certain.')
     expect(realWindowLines(win({ games: 1, uncertain: 0, missing_games: 2 }), 'M1').join(' ')).toContain('2 game(s) not checked yet')
   })
+  it('renders a window with nothing countable without a rate', () => {
+    const empty = win({ denominator: 0, events: 0, rate: null, interval: null, uncertain: 0, skipped: 0, player_moves: 0 })
+    expect(realWindowLines(empty, 'M1')).toEqual(['no rate yet', '0 mistakes in 0 player moves; 30 games.'])
+  })
   it('words an M2 window as a share of the chances', () => {
     const lines = realWindowLines(win({ events: 3, denominator: 12, rate: 0.25, interval: [0.09, 0.53] }), 'M2')
     expect(lines[0]).toBe('25% missed (range 9% to 53%)')
