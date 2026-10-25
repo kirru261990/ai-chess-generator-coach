@@ -9,7 +9,7 @@ h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:1.6rem}code{background:#f1f1f
 <body>
 <h1>Chess Coach connector: privacy</h1>
 <p>Last updated 25 October 2026. This covers the open chess connector at this address, which plays games against Stockfish for
-anyone who adds it to Claude.</p>
+anyone who adds it to Claude or ChatGPT.</p>
 
 <h2>Short version</h2>
 <p>No accounts, no sign-in, no database, no cookies, no analytics, no advertising. Nothing you do here is written to disk or
@@ -36,14 +36,16 @@ It does not record game contents, addresses or any identifier, and the web serve
 
 <h2>Other parties</h2>
 <ul>
-<li><strong>Claude and Anthropic</strong> handle your conversation under their own terms and privacy policy. This connector
-cannot see your conversation, and Claude shows the board and moves it receives from this connector to you.</li>
+<li><strong>Claude and Anthropic</strong>, or <strong>ChatGPT and OpenAI</strong>, handle your conversation under their own terms
+and privacy policy. This connector cannot see your conversation, and the chat app shows you the board and moves it receives from
+this connector. ChatGPT's consent screen says it may share relevant memories and chats with a plugin; this connector does not ask
+for them and keeps nothing it receives.</li>
 <li><strong>The hosting provider</strong> (Render) runs this service and, like any host, may keep its own technical records of
 network requests under its own policy. We do not control or receive those records.</li>
 </ul>
 
 <h2>Children</h2>
-<p>The connector asks for no personal information from anyone. Claude's own age rules apply to using Claude.</p>
+<p>The connector asks for no personal information from anyone. The age rules of Claude or ChatGPT apply to using them.</p>
 
 <h2>Questions</h2>
 <p>The code is open source (AGPL-3.0): <a href="https://github.com/kirru261990/ai-chess-generator-coach">github.com/kirru261990/ai-chess-generator-coach</a>.

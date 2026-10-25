@@ -1,5 +1,7 @@
 # Practice in Claude chat and ChatGPT: setup
 
+> This page is the **private** server (your practice data, password login, runs on your Mac). The open, games-only connector anyone can add (no login, no data) is in `docs/public-connector.md`.
+
 Practice mode (Replay My Mistakes) as chat tools. Design: `docs/mcp-practice-plan.md`; decisions: ADR 0007. **Practice only**: the
 starting and delayed tests stay in the web app, and no tool can reach them.
 
@@ -105,5 +107,6 @@ use `practice_status`, `practice_summary` and `progress` (the only read-only too
 - **The interactive board works** (ADR 0008): after `practice_show` Claude read `ui://chess-coach/board.html`, drew the board, and its clicks came back as `practice_answer`, `practice_move`, `practice_retry` and `practice_next` calls. The owner played several positions with it ("worked fine").
 - **Claude caches the tool list** from when the connector was added. After the tools change (for example the board binding) remove and add the connector again; a new chat alone is not enough.
 - **The model adds its own commentary** to relayed text (it explained why a piece hung) although the server's instructions say to only relay: guidance, not enforcement. The board hides this because the board itself carries the feedback.
-- **Not yet checked:** ChatGPT, Claude Desktop with the remote connector, and `/revoke`.
+- **Not yet checked on the private server:** ChatGPT, Claude Desktop with the remote connector, and `/revoke`. (The open server was tried in ChatGPT Plus on 2026-10-25 and works; see `docs/public-connector.md`.)
+- **Claude Desktop app (2026-10-25):** a remote connector's board is not drawn there (text and moves only), matching an open Claude bug (ext-apps issue 671); claude.ai in a browser draws it.
 

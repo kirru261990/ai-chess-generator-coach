@@ -40,9 +40,21 @@ Render's free instance sleeps after about 15 minutes without a visit; the next r
 
 Anyone can add it: Customize → Connectors → add a custom connector, address `https://chess-coach-public.onrender.com/mcp`, no sign-in; then a new chat: "new chess game, level 2, I am black". Notes to give them:
 - Needs a Claude plan that allows custom connectors (not checked for free accounts).
-- The board shows on **claude.ai in a browser**. The **Claude Desktop app does not draw it** (a known Claude bug, ext-apps issue 671): they see text and moves only.
+- The board shows on **claude.ai in a browser** and in **ChatGPT**. The **Claude Desktop app does not draw it** (a known Claude bug, ext-apps issue 671): they see text and moves only.
+- In ChatGPT: Plugins → Add → Add custom MCP server, no authentication (steps above).
 - Several players at once share one small CPU and one Stockfish, so replies slow down, Practice verdicts most.
 - Their chat costs them nothing extra and costs you nothing. Privacy: `/privacy`.
+
+## ChatGPT
+
+Tried on a Plus plan, 2026-10-25: ChatGPT → Plugins → **Add** → **Add custom MCP server**; name "Chess Coach", server URL `https://chess-coach-public.onrender.com/mcp`, authentication **No authentication**, tick the "I understand" box, create, then click through the "Connect" consent. In a new chat type `@`, choose Chess Coach, then ask: "new chess game, level 2, I am black, practice mode".
+- The interactive board draws, moves and Practice verdicts work, Stockfish replies, the larger side panel works. No per-move approval prompts appeared (default permission "Allow low-risk tools"); a stricter setting may ask each time.
+- ChatGPT also prints the game id, move list and FEN as text beside the board.
+- Not checked: other plans, ChatGPT's directory submission (the owner's to make; same privacy page).
+
+## Deploying a change
+
+Render does **not** deploy by itself (the service was made from the public repo address, so GitHub cannot notify it). After merging to `main`: Render dashboard → the service → **Manual Deploy → Deploy latest commit** (about a minute). Check the live board page is the new one by comparing the sha256 of `backend/app/mcp/ui/board.html` with the page the server returns for `resources/read ui://chess-coach/board.html`. In Claude, remove and add the connector again after a tool change.
 
 ## Board page size (2026-10-25)
 
