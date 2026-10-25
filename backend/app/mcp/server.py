@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sqlite3
 import sys
 import time
@@ -61,9 +62,20 @@ WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent
 ConnFactory = Callable[[], sqlite3.Connection]
 
 
-def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **server_args) -> MCPServer:
+PUBLIC_INSTRUCTIONS = (
+    "This server plays chess against Stockfish for anyone. You only relay it. The game_ tools start a game, either Play (no help) "
+    "or Practice (assisted: verdicts, hints, undo, threat arrows). Show each tool's text exactly as it is, including the board. "
+    "Only the tools check chess facts; do not add chess claims of your own. In a Play game never say whether a move is good or "
+    "bad, never suggest a move, and never mention threats, hints or the evaluation. Call game_hint, game_undo or game_threats "
+    "only when the player asks, and never in a Play game. Games are kept in memory for a short while and are never saved or "
+    "linked to anyone. game_apply_move and game_engine_move belong to the board page: never call them."
+)
+
+
+def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, public: bool = False, **server_args) -> MCPServer:
     """The server. `conn_factory` and `opener` are replaced by scripted ones in tests. Each call gets its own connection and the
-    engine (for a move check) is started inside the call only."""
+    engine (for a move check) is started inside the call only. `public=True` is the open version: only the game_ tools, which
+    use the engine and an in-memory game and nothing else (no database, no coach, no model)."""
 
     @contextmanager
     def store():
@@ -94,47 +106,48 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
                            description="The interactive practice board (the same board as the web app).", prefers_border=True)
     ui = {"resource_uri": BOARD_URI, "meta": {"openai/outputTemplate": BOARD_URI}}  # the second key is for ChatGPT's own loader
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_start(mistake_type: str) -> CallToolResult:
-        """Start a practice session, or resume the open one, and show position 1. mistake_type: pieces_in_danger or free_pieces. Saves progress."""
-        with store() as c:
-            return board(T.practice_start(c, mistake_type), c)
+    if not public:
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_start(mistake_type: str) -> CallToolResult:
+            """Start a practice session, or resume the open one, and show position 1. mistake_type: pieces_in_danger or free_pieces. Saves progress."""
+            with store() as c:
+                return board(T.practice_start(c, mistake_type), c)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_show(session_id: int) -> CallToolResult:
-        """Show the current position and what to do next. Safe to call again. The first view of a new session saves its first attempt."""
-        with store() as c:
-            return board(T.practice_show(c, session_id), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_show(session_id: int) -> CallToolResult:
+            """Show the current position and what to do next. Safe to call again. The first view of a new session saves its first attempt."""
+            with store() as c:
+                return board(T.practice_show(c, session_id), c, session_id)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_answer(session_id: int, square: str, expected_ord: int | None = None) -> CallToolResult:
-        """Step 1, the question: give the square of the piece (for example g5), or "none" for no immediate threat. Saves the answer."""
-        with store() as c:
-            return board(T.practice_answer(c, session_id, square, expected_ord), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_answer(session_id: int, square: str, expected_ord: int | None = None) -> CallToolResult:
+            """Step 1, the question: give the square of the piece (for example g5), or "none" for no immediate threat. Saves the answer."""
+            with store() as c:
+                return board(T.practice_answer(c, session_id, square, expected_ord), c, session_id)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_move(session_id: int, move: str, expected_ord: int | None = None) -> CallToolResult:
-        """Step 2: make a move, like Nf3, Bxe5, O-O or g1f3. The engine checks it (about 2 seconds) and the feedback follows. Saves the attempt."""
-        with store() as c:
-            return board(T.practice_move(c, session_id, move, opener, expected_ord), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_move(session_id: int, move: str, expected_ord: int | None = None) -> CallToolResult:
+            """Step 2: make a move, like Nf3, Bxe5, O-O or g1f3. The engine checks it (about 2 seconds) and the feedback follows. Saves the attempt."""
+            with store() as c:
+                return board(T.practice_move(c, session_id, move, opener, expected_ord), c, session_id)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_hint(session_id: int, expected_ord: int | None = None) -> CallToolResult:
-        """Give the next of three hints. Only when the player asks. Marks this try as assisted."""
-        with store() as c:
-            return board(T.practice_hint(c, session_id, expected_ord), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_hint(session_id: int, expected_ord: int | None = None) -> CallToolResult:
+            """Give the next of three hints. Only when the player asks. Marks this try as assisted."""
+            with store() as c:
+                return board(T.practice_hint(c, session_id, expected_ord), c, session_id)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_retry(session_id: int, expected_ord: int | None = None) -> CallToolResult:
-        """After the feedback: try the same position again as a new try."""
-        with store() as c:
-            return board(T.practice_retry(c, session_id, expected_ord), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_retry(session_id: int, expected_ord: int | None = None) -> CallToolResult:
+            """After the feedback: try the same position again as a new try."""
+            with store() as c:
+                return board(T.practice_retry(c, session_id, expected_ord), c, session_id)
 
-    @apps.tool(annotations=WRITE, **ui)
-    def practice_next(session_id: int, expected_ord: int | None = None) -> CallToolResult:
-        """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
-        with store() as c:
-            return board(T.practice_next(c, session_id, expected_ord), c, session_id)
+        @apps.tool(annotations=WRITE, **ui)
+        def practice_next(session_id: int, expected_ord: int | None = None) -> CallToolResult:
+            """After the feedback: go to the next position. After the last one the session finishes and the delayed test is scheduled."""
+            with store() as c:
+                return board(T.practice_next(c, session_id, expected_ord), c, session_id)
 
     def game_board(pair) -> CallToolResult:
         """A game tool's (data, text) as a result: the text always, and the board data unless the step was refused."""
@@ -188,25 +201,26 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, **se
         """Practice games only: turn the threat arrows on the board on or off."""
         return game_board(G.game_threats(game_id, show))
 
-    mcp = MCPServer(NAME, instructions=INSTRUCTIONS, extensions=[apps], **server_args)
+    mcp = MCPServer(NAME, instructions=PUBLIC_INSTRUCTIONS if public else INSTRUCTIONS, extensions=[apps], **server_args)
 
-    @mcp.tool(annotations=READ)
-    def practice_status() -> str:
-        """Show which practice types are ready, locked or in progress, and when the delayed test opens. Changes nothing."""
-        with store() as c:
-            return T.practice_status(c)
+    if not public:
+        @mcp.tool(annotations=READ)
+        def practice_status() -> str:
+            """Show which practice types are ready, locked or in progress, and when the delayed test opens. Changes nothing."""
+            with store() as c:
+                return T.practice_status(c)
 
-    @mcp.tool(annotations=READ)
-    def practice_summary(session_id: int) -> str:
-        """Show the summary of a finished session and when its delayed test opens. Changes nothing."""
-        with store() as c:
-            return T.practice_summary(c, session_id)
+        @mcp.tool(annotations=READ)
+        def practice_summary(session_id: int) -> str:
+            """Show the summary of a finished session and when its delayed test opens. Changes nothing."""
+            with store() as c:
+                return T.practice_summary(c, session_id)
 
-    @mcp.tool(annotations=READ)
-    def progress() -> str:
-        """Show test scores and assisted practice, kept apart, with denominators. Changes nothing."""
-        with store() as c:
-            return T.progress(c)
+        @mcp.tool(annotations=READ)
+        def progress() -> str:
+            """Show test scores and assisted practice, kept apart, with denominators. Changes nothing."""
+            with store() as c:
+                return T.progress(c)
 
     return mcp
 
@@ -282,6 +296,69 @@ def build_http_app(public_url: str, *, auth_path=None, conn_factory: ConnFactory
     return HostGuard(MethodLog(app), hosts), provider
 
 
+class PublicGuard:
+    """Front door of the open server: a health check that answers under any name (hosts probe it), the Host check on everything
+    else, and one shared request budget per minute (callers all arrive from the chat provider's addresses, so a per-address limit
+    would mean nothing). Over the budget: 429, so a flood cannot starve Stockfish for everyone."""
+
+    def __init__(self, app, allowed_hosts: set[str], per_minute: int = 600, clock: Callable[[], float] = time.monotonic):
+        self.app, self.guard, self.per_minute, self.clock = app, HostGuard(app, allowed_hosts), per_minute, clock
+        self.window_start, self.used = clock(), 0
+
+    def _over_budget(self) -> bool:
+        now = self.clock()
+        if now - self.window_start >= 60:
+            self.window_start, self.used = now, 0
+        self.used += 1
+        return self.used > self.per_minute
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/healthz":
+            await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"text/plain")]})
+            return await send({"type": "http.response.body", "body": b"ok"})
+        if scope["type"] == "http" and scope["path"].startswith("/mcp") and self._over_budget():
+            await send({"type": "http.response.start", "status": 429, "headers": [(b"content-type", b"text/plain"), (b"retry-after", b"30")]})
+            return await send({"type": "http.response.body", "body": b"busy, try again in a minute"})
+        await self.guard(scope, receive, send)
+
+
+def build_public_http_app(public_url: str, *, port: int = DEFAULT_PORT, per_minute: int = 600):
+    """The open remote app: games only, no login, nothing written to disk. `public_url` is this service's https address."""
+    public_url = public_url.rstrip("/")
+    G.configure(max_games=PUBLIC_MAX_GAMES, idle_seconds=PUBLIC_IDLE_SECONDS)
+    mcp = build_server(public=True)
+    hosts = {urlparse(public_url).netloc, f"127.0.0.1:{port}", f"localhost:{port}"}
+    security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=sorted(hosts),
+                                         allowed_origins=[public_url, *BROWSER_ORIGINS])
+    app = mcp.streamable_http_app(stateless_http=True, json_response=True, transport_security=security)
+    return PublicGuard(MethodLog(app), hosts, per_minute)
+
+
+PUBLIC_MAX_GAMES = 500  # games held in memory at once (a game is a few kilobytes)
+PUBLIC_IDLE_SECONDS = 2 * 60 * 60  # an untouched game is forgotten after two hours
+
+
+def _run_public() -> int:
+    """`python -m app.mcp.server public`: the open version. Needs MCP_PUBLIC_URL (https) and Stockfish; no password, no database."""
+    public = os.environ.get("MCP_PUBLIC_URL", "").strip().rstrip("/")
+    port = int(os.environ.get("PORT") or os.environ.get("MCP_PORT") or DEFAULT_PORT)
+    if not public.startswith("https://"):
+        print("Set MCP_PUBLIC_URL to this service's https address (no trailing path).", file=sys.stderr)
+        return 2
+    path = os.environ.get("STOCKFISH_PATH") or shutil.which("stockfish")
+    if not path or not Path(path).exists():
+        print("Stockfish was not found. Set STOCKFISH_PATH.", file=sys.stderr)
+        return 2
+    import uvicorn
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    app = build_public_http_app(public, port=port)
+    # Inside a container the host's proxy must reach us: MCP_BIND=0.0.0.0 there, localhost otherwise.
+    uvicorn.run(app, host=os.environ.get("MCP_BIND", "127.0.0.1"), port=port, proxy_headers=False, server_header=False,
+                access_log=False)  # the access log holds the caller's address; ADR 0010 promises none is kept
+    return 0
+
+
 def _run_http() -> int:
     public = os.environ.get("MCP_PUBLIC_URL", "").strip().rstrip("/")
     port = int(os.environ.get("MCP_PORT", DEFAULT_PORT))
@@ -307,7 +384,9 @@ def main(argv: list[str]) -> int:
         return 0
     if mode == "http":
         return _run_http()
-    print("usage: python -m app.mcp.server stdio|http", file=sys.stderr)
+    if mode == "public":
+        return _run_public()
+    print("usage: python -m app.mcp.server stdio|http|public", file=sys.stderr)
     return 2
 
 
