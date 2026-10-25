@@ -44,9 +44,16 @@ export async function playMove(
     }
     if (first.game.turn === first.game.user_color) return null
     hooks.status('Stockfish is thinking…')
-    // Practice: ask for the verdict at the same time, so it shows when its own search ends instead of with the reply. If it is
-    // late or fails, the reply carries the same verdict (the server searches once and keeps it), so nothing depends on this call.
-    if (first.game.mode === 'practice') void backend.judge(first.game.id, first.game.revision).then(hooks.payload, () => undefined)
+    // Practice: the verdict comes first, then the reply is asked for. One engine does one search at a time, so asking for both at once
+    // made them land together; this way the verdict shows when its own search ends. If it fails, the reply carries the same verdict
+    // (the server searches once and keeps it), so nothing depends on this call.
+    if (first.game.mode === 'practice') {
+      try {
+        hooks.payload(await backend.judge(first.game.id, first.game.revision))
+      } catch {
+        /* the reply step carries the verdict */
+      }
+    }
     const reply = await backend.engineMove(first.game.id, first.game.revision)
     const wait = ENGINE_MIN_REPLY_MS - (now() - clicked)
     if (wait > 0) await sleep(wait)
