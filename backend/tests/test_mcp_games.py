@@ -320,3 +320,28 @@ def test_the_verdict_step_carries_no_help_in_play_and_refuses_a_stale_revision()
     assert set(d) == {"kind", "game"} and not (set(keys_of(d)) & (HELP_KEYS - {"mode"}))
     d, t = G.game_judge(play, first["game"]["revision"] + 3)
     assert d is None and "changed" in t
+
+
+def test_the_verdict_and_reply_steps_asking_together_search_once(monkeypatch):
+    import threading
+    import time
+
+    gid = new("practice")
+    first, _ = G.game_move(gid, "e4", 0, reply=False)
+    calls = []
+
+    def slow(g, ply):
+        calls.append(ply)
+        time.sleep(0.2)
+        return {"ply": ply, "verdict": "good", "headline": "A fine move", "classification": {"key": "good", "opening": None},
+                "marks": {"own_hanging": [], "missed_free": []}, "played": {"uci": "x", "text": "x"}, "better_move": None,
+                "right": [], "wrong": [], "cost_pawns": 0.0, "fen_before": chess.STARTING_FEN}
+
+    monkeypatch.setattr(tools, "move_feedback", slow)
+    rev = first["game"]["revision"]
+    ts = [threading.Thread(target=G.game_judge, args=(gid, rev)), threading.Thread(target=G.game_engine_move, args=(gid, rev))]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert calls == [0]

@@ -23,7 +23,7 @@ type Shown = { kind: 'practice'; payload: BoardPayload } | { kind: 'game'; paylo
 
 /** The chat's bigger view, when the host offers one (`availableDisplayModes`); null if it does not. The host answers with the mode it
  *  actually set, which may differ from the one asked for. */
-function useEnlarge(): Enlarge | null {
+function useEnlarge(connected: boolean): Enlarge | null {
   const [mode, setMode] = useState<string>('inline')
   const [offered, setOffered] = useState(false)
   useEffect(() => {
@@ -33,9 +33,9 @@ function useEnlarge(): Enlarge | null {
       if (ctx.availableDisplayModes) setOffered(ctx.availableDisplayModes.includes('fullscreen'))
     }
     app.onhostcontextchanged = (ctx) => read(ctx)
-    const t = setTimeout(() => read(app.getHostContext()), 500) // the first context arrives with the handshake
-    return () => clearTimeout(t)
-  }, [])
+    // The first context is stored during connect() without a change event, so read it once the connection is up, however long that takes.
+    if (connected) read(app.getHostContext())
+  }, [connected])
   const toggle = () => {
     const next = mode === 'fullscreen' ? 'inline' : 'fullscreen'
     app.requestDisplayMode({ mode: next }).then((r) => setMode(r.mode), () => undefined)
@@ -45,7 +45,8 @@ function useEnlarge(): Enlarge | null {
 
 function Board() {
   const [shown, setShown] = useState<Shown | null>(null)
-  const enlarge = useEnlarge()
+  const [connected, setConnected] = useState(false)
+  const enlarge = useEnlarge(connected)
   const practiceBackend = useMemo(() => toolBackend(call), [])
   const gameBackend = useMemo(() => gameToolBackend(call), [])
   useEffect(() => {
@@ -55,7 +56,7 @@ function Board() {
       if (isGamePayload(data)) setShown({ kind: 'game', payload: data })
       else if ((data as BoardPayload | undefined)?.view) setShown({ kind: 'practice', payload: data as BoardPayload })
     }
-    app.connect().catch(() => {})
+    app.connect().then(() => setConnected(true), () => {})
   }, [])
   if (!shown) return <div className="app"><p className="note">Waiting for the board…</p></div>
   if (shown.kind === 'game') return <GameBoard key={shown.payload.game.id} initial={shown.payload} backend={gameBackend} enlarge={enlarge ?? undefined} />
