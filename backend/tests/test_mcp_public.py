@@ -112,3 +112,11 @@ def test_the_privacy_page_is_served_to_anyone_and_matches_the_limits():
             assert fact in r.text
         assert "@" not in r.text  # no personal email in a public page
     assert S.PUBLIC_IDLE_SECONDS == 2 * 3600 and S.PUBLIC_MAX_GAMES == 500  # the page states these
+
+
+def test_the_open_server_leaves_the_letter_board_out_of_the_text_but_the_private_one_keeps_it():
+    G.configure(max_games=20, idle_seconds=None, text_board=False)
+    data, words = G.game_new("white", 1, "play")
+    assert "```" not in words and "CAPITALS" not in words and "FEN:" in words and data["game"]["fen"]
+    G.configure(max_games=20, idle_seconds=None)
+    assert "CAPITALS" in G.game_new("white", 1, "play")[1]

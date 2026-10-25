@@ -62,10 +62,13 @@ _idle_seconds: float | None = None  # None: games are kept until pushed out by M
 _seen: dict[str, float] = {}  # game id -> last time a tool touched it
 
 
-def configure(max_games: int, idle_seconds: float | None) -> None:
+_text_board = True  # the letter board in the tool's text; the open server leaves it out (the interactive board shows the game)
+
+
+def configure(max_games: int, idle_seconds: float | None, text_board: bool = True) -> None:
     """The open server holds many players' games, so it keeps more of them and forgets idle ones."""
-    global MAX_GAMES, _idle_seconds
-    MAX_GAMES, _idle_seconds = max_games, idle_seconds
+    global MAX_GAMES, _idle_seconds, _text_board
+    MAX_GAMES, _idle_seconds, _text_board = max_games, idle_seconds, text_board
 
 
 def _forget(gid: str) -> None:
@@ -185,7 +188,10 @@ def text(gid: str, note: str = "") -> str:
     lines = [f"Game {gid}, {mode} against Stockfish level {view['engine_level']}. You are {colour}. {status}"]
     if note:
         lines.append(note)
-    lines += ["Moves: " + (" ".join(pairs) if pairs else "none yet"), "```", render_board(view["fen"], colour), "```", f"FEN: {view['fen']}"]
+    lines.append("Moves: " + (" ".join(pairs) if pairs else "none yet"))
+    if _text_board:
+        lines += ["```", render_board(view["fen"], colour), "```"]
+    lines.append(f"FEN: {view['fen']}")
     if game.mode is Mode.PRACTICE:
         lines.append(f"Hints used on {view['hints_used']} position(s).")
     return "\n".join(lines)
