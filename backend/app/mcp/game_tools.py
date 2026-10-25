@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+import time
 from collections import OrderedDict
 
 import chess
@@ -57,10 +58,38 @@ def refusal(text: str) -> str:
     return REFUSAL_PREFIX + text
 
 
+_idle_seconds: float | None = None  # None: games are kept until pushed out by MAX_GAMES (the owner's server); the open server sets it
+_seen: dict[str, float] = {}  # game id -> last time a tool touched it
+
+
+def configure(max_games: int, idle_seconds: float | None) -> None:
+    """The open server holds many players' games, so it keeps more of them and forgets idle ones."""
+    global MAX_GAMES, _idle_seconds
+    MAX_GAMES, _idle_seconds = max_games, idle_seconds
+
+
+def _forget(gid: str) -> None:
+    _OWNED.pop(gid, None)
+    _seen.pop(gid, None)
+    GAMES.pop(gid, None)
+
+
+def _expire(now: float) -> None:
+    """Drop games untouched for `_idle_seconds`. Caller holds `_lock`."""
+    if _idle_seconds is None:
+        return
+    for gid in [g for g, t in _seen.items() if now - t > _idle_seconds]:
+        _forget(gid)
+
+
 def _own(game_id: str) -> Game:
-    """The game, only if this server started it."""
+    """The game, only if this server started it (and has not forgotten it)."""
+    now = time.monotonic()
     with _lock:
+        _expire(now)
         known = game_id in _OWNED
+        if known:
+            _seen[game_id] = now
     game = GAMES.get(game_id) if known else None
     if game is None:
         raise Refused(_REFUSALS["not_found"])
@@ -71,8 +100,7 @@ def reset() -> None:
     """Forget every chat game (tests)."""
     with _lock:
         for gid in list(_OWNED):
-            GAMES.pop(gid, None)
-        _OWNED.clear()
+            _forget(gid)
 
 
 def _guard(fn):
@@ -177,11 +205,13 @@ def _result(gid: str, note: str = "", hint: dict | None = None, judge: bool = Tr
 # --- tools ------------------------------------------------------------------------------------------------------------------
 
 def _remember(game: Game) -> None:
+    now = time.monotonic()
     with _lock:
+        _expire(now)
         _OWNED[game.id] = {"show_threats": True}
+        _seen[game.id] = now
         while len(_OWNED) > MAX_GAMES:
-            old, _ = _OWNED.popitem(last=False)
-            GAMES.pop(old, None)
+            _forget(next(iter(_OWNED)))
 
 
 ENGINE_DOWN = "Stockfish did not answer. Your move is saved; use game_show to ask it again."
