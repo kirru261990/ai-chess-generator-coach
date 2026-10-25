@@ -4,7 +4,7 @@ import { applyMove } from './applyMove'
 import { playMove } from './optimisticMove'
 import { practiceOnly, toGameView, toHint, type GameBackend, type GamePayload } from './gameBackend'
 import {
-  boardMarks, feedbackToShow, gameEndBanner, hintToShow, moveBadge, storeFeedback, threatArrows, threatsAreCurrent,
+  boardMarks, feedbackToShow, gameEndBanner, hintToShow, isUndoKey, moveBadge, storeFeedback, threatArrows, threatsAreCurrent,
   type Hint,
 } from './gameState'
 
@@ -13,7 +13,9 @@ const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
 
 /** A game against Stockfish inside the chat (ADR 0009). Play shows the board, a status line and Resign, nothing else: every helper below
  *  reads from `practiceOnly(payload)`, which is null in Play. The server plays the engine's reply inside the move call. */
-export default function GameBoard({ initial, backend }: { initial: GamePayload; backend: GameBackend }) {
+export type Enlarge = { large: boolean; toggle: () => void } // the chat's bigger view; absent when the host has none
+
+export default function GameBoard({ initial, backend, enlarge }: { initial: GamePayload; backend: GameBackend; enlarge?: Enlarge }) {
   const [payload, setPayload] = useState(initial)
   const [hint, setHint] = useState<Hint | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -26,6 +28,15 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     const h = toHint(initial)
     if (h) setHint(h)
   }, [initial])
+
+  // The chat can reload this page (the player left the chat and came back) and hands over the result it first showed, which is
+  // out of date by then. The server holds the game, so ask it once for the position it is in now; an older answer is ignored.
+  useEffect(() => {
+    let live = true
+    backend.show(initial.game.id).then((p) => live && accept(p), () => undefined)
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [pending, setPending] = useState<string | null>(null) // the player's move drawn before the server has confirmed it
   const game = useMemo(() => {
@@ -86,6 +97,19 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
     void step('Stockfish is thinking…', () => backend.show(game.id))
   })
 
+  // Left arrow = Undo (Practice only; not while typing, and not while the server is working), as on the web page.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null
+      if (!isUndoKey(e, el?.tagName ?? '', !!el?.isContentEditable)) return
+      if (!extras?.can_take_back || busy || pending) return
+      e.preventDefault()
+      void step('Taking back…', () => backend.undo(game.id))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   // --- Practice only from here: every value is null or empty in Play ---------------------------------------------------
   const fb = extras?.feedback ? feedbackToShow(storeFeedback(extras.feedback, game.id, game.moves), game) : null
   const shownHint = practice && !game.outcome ? hintToShow(hint, game) : null
@@ -129,7 +153,7 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
   const nextLevel = (shownHint?.level ?? 0) + 1
 
   return (
-    <div className="app">
+    <div className={`app${enlarge?.large ? ' app-large' : ''}`}>
       <div className="board">
         {end && <div className={`mate-banner ${end.celebrate ? 'win' : 'loss'}`} role="status">{end.text}</div>}
         <Chessboard
@@ -177,6 +201,7 @@ export default function GameBoard({ initial, backend }: { initial: GamePayload; 
           <button disabled={!!busy || !extras.can_take_back} onClick={() => void step('Taking back…', () => backend.undo(game.id))}>Undo</button>
         )}
         <button disabled={!!busy || !!game.outcome} onClick={() => void step('Resigning…', () => backend.resign(game.id))}>Resign</button>
+        {enlarge && <button onClick={enlarge.toggle} title="Open the board larger, or back in the chat">{enlarge.large ? '⤡ Smaller' : '⤢ Larger'}</button>}
       </div>
       {error && <p role="alert" className="error">{error}</p>}
     </div>

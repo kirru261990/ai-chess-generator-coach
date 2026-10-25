@@ -45,6 +45,8 @@ export type GameBackend = {
   move(id: string, uci: string, revision: number): Promise<GamePayload>
   /** Stockfish's reply to the move just shown; `revision` is the position the page is showing. Plays nothing if that is out of date. */
   engineMove(id: string, revision: number): Promise<GamePayload>
+  /** The verdict on the move just shown, without the reply (Practice only has one), so it can be drawn before the engine answers. */
+  judge(id: string, revision: number): Promise<GamePayload>
   resign(id: string): Promise<GamePayload>
   undo(id: string): Promise<GamePayload>
   hint(id: string, level: number): Promise<GamePayload>
@@ -62,6 +64,7 @@ export function gameToolBackend(call: ToolCaller): GameBackend {
     show: (id) => run('game_show', { game_id: id }),
     move: (id, uci, revision) => run('game_apply_move', { game_id: id, move: uci, expected_revision: revision }),
     engineMove: (id, revision) => run('game_engine_move', { game_id: id, expected_revision: revision }),
+    judge: (id, revision) => run('game_judge', { game_id: id, expected_revision: revision }),
     resign: (id) => run('game_resign', { game_id: id }),
     undo: (id) => run('game_undo', { game_id: id }),
     hint: (id, level) => run('game_hint', { game_id: id, level }),

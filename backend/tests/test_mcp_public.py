@@ -12,7 +12,7 @@ from app.mcp import server as S
 
 PUBLIC_URL = "https://chess.example.org"
 GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats",
-              "game_apply_move", "game_engine_move"}
+              "game_apply_move", "game_engine_move", "game_judge"}
 
 
 class FakeEngine:

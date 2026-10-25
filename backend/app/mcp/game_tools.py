@@ -286,6 +286,18 @@ def game_engine_move(game_id: str, expected_revision: int):
     return _guard(run)
 
 
+def game_judge(game_id: str, expected_revision: int):
+    """The verdict on the player's move just shown, with no engine reply (the board asks for the reply separately), so the verdict
+    can appear as soon as its search ends. Practice only has a verdict: in Play this returns the plain state. Idempotent, and the
+    search is cached for `game_engine_move`, which then does not search twice."""
+    def run():
+        game = _own(game_id)
+        if game.revision != expected_revision:
+            raise GameError("revision_conflict", "")
+        return _result(game_id)
+    return _guard(run)
+
+
 def game_resign(game_id: str):
     def run():
         _own(game_id)

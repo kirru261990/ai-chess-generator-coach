@@ -12,7 +12,7 @@ from app.mcp import game_tools as G
 from app.mcp import server as S
 
 GAME_TOOLS = {"game_new", "game_show", "game_move", "game_resign", "game_undo", "game_hint", "game_threats",
-              "game_apply_move", "game_engine_move"}
+              "game_apply_move", "game_engine_move", "game_judge"}
 GAME_READ_ONLY: set[str] = set()  # game_show can resume a failed engine reply
 HELP_KEYS = {"verdict", "headline", "eval", "cp", "mate", "best_move", "better_move", "classification", "badge", "marks", "hint", "hints",
              "hints_used", "threat", "threats", "feedback", "practice", "can_take_back", "assisted", "show_threats", "why"}
@@ -247,7 +247,7 @@ def test_concurrent_starts_do_not_confuse_a_failed_opening(monkeypatch):
     assert len(G.game_show(d["game"]["id"])[0]["game"]["moves"]) == 1
 
 
-APP_ONLY = {"game_apply_move", "game_engine_move"}
+APP_ONLY = {"game_apply_move", "game_engine_move", "game_judge"}
 
 
 def test_the_board_steps_are_marked_app_only_and_the_others_are_not(server):
@@ -301,3 +301,22 @@ def test_a_game_ending_move_still_gets_its_verdict_from_the_engine_step():
     assert first["game"]["outcome"]["termination"] == "stalemate" and first["practice"]["feedback"] is None
     second, _ = G.game_engine_move(gid, first["game"]["revision"])  # plays nothing, carries the verdict
     assert second["game"]["moves"] == first["game"]["moves"] and second["practice"]["feedback"]["headline"] == "A fine move"
+
+
+def test_the_verdict_step_gives_the_verdict_without_a_reply_and_the_engine_step_then_adds_the_reply():
+    pr = new("practice")
+    first, _ = G.game_move(pr, "e4", 0, reply=False)
+    judged, text = G.game_judge(pr, first["game"]["revision"])
+    assert judged["practice"]["feedback"]["headline"] == "A fine move" and len(GAMES[pr].moves) == 1  # no reply yet
+    assert "Stockfish replied" not in text
+    d, _ = G.game_engine_move(pr, first["game"]["revision"])
+    assert len(d["game"]["moves"]) == 2 and d["practice"]["feedback"]["headline"] == "A fine move"
+
+
+def test_the_verdict_step_carries_no_help_in_play_and_refuses_a_stale_revision():
+    play = new("play")
+    first, _ = G.game_move(play, "e4", 0, reply=False)
+    d, _ = G.game_judge(play, first["game"]["revision"])
+    assert set(d) == {"kind", "game"} and not (set(keys_of(d)) & (HELP_KEYS - {"mode"}))
+    d, t = G.game_judge(play, first["game"]["revision"] + 3)
+    assert d is None and "changed" in t

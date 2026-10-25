@@ -114,3 +114,7 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .replay button { min-width: 44px; font-size: 1.1em; }
 .replay-caption { flex: 1; text-align: center; font-size: 0.95em; }
 .threat-toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+
+/* The chat's bigger view: the board fills the height it is given (the chat's full-screen mode), the controls stay under it. */
+.app-large { max-width: none; }
+.app-large .board { max-width: min(92vw, calc(100vh - 150px)); }
