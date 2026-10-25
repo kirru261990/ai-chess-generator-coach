@@ -354,7 +354,8 @@ def _run_public() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     app = build_public_http_app(public, port=port)
     # Inside a container the host's proxy must reach us: MCP_BIND=0.0.0.0 there, localhost otherwise.
-    uvicorn.run(app, host=os.environ.get("MCP_BIND", "127.0.0.1"), port=port, proxy_headers=False, server_header=False)
+    uvicorn.run(app, host=os.environ.get("MCP_BIND", "127.0.0.1"), port=port, proxy_headers=False, server_header=False,
+                access_log=False)  # the access log holds the caller's address; ADR 0010 promises none is kept
     return 0
 
 

@@ -93,3 +93,12 @@ def test_idle_games_are_forgotten_and_the_cap_is_per_server(monkeypatch):
     clock[0] += 61  # everything untouched since is now idle
     assert G.is_refusal(G.game_show(ids[2])[1])
     assert not G.is_refusal(G.game_new("white", 1, "play")[1])
+
+
+def test_the_open_server_runs_without_an_access_log(monkeypatch):
+    seen = {}
+    monkeypatch.setattr("uvicorn.run", lambda app, **kw: seen.update(kw))
+    monkeypatch.setenv("MCP_PUBLIC_URL", PUBLIC_URL)
+    monkeypatch.setenv("STOCKFISH_PATH", __file__)  # any existing file: the engine is not started
+    assert S._run_public() == 0
+    assert seen["access_log"] is False
