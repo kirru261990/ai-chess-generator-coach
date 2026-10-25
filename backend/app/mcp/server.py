@@ -65,7 +65,8 @@ ConnFactory = Callable[[], sqlite3.Connection]
 
 PUBLIC_INSTRUCTIONS = (
     "This server plays chess against Stockfish for anyone. You only relay it. The game_ tools start a game, either Play (no help) "
-    "or Practice (assisted: verdicts, hints, undo, threat arrows). Show each tool's text exactly as it is, including the board. "
+    "or Practice (assisted: verdicts, hints, undo, threat arrows). Show each tool's text exactly as it is. "
+    "The board is drawn by the tool's own board page: never draw or retype a board yourself. "
     "Only the tools check chess facts; do not add chess claims of your own. In a Play game never say whether a move is good or "
     "bad, never suggest a move, and never mention threats, hints or the evaluation. Call game_hint, game_undo or game_threats "
     "only when the player asks, and never in a Play game. Games are kept in memory for a short while and are never saved or "
@@ -331,7 +332,7 @@ class PublicGuard:
 def build_public_http_app(public_url: str, *, port: int = DEFAULT_PORT, per_minute: int = 600):
     """The open remote app: games only, no login, nothing written to disk. `public_url` is this service's https address."""
     public_url = public_url.rstrip("/")
-    G.configure(max_games=PUBLIC_MAX_GAMES, idle_seconds=PUBLIC_IDLE_SECONDS)
+    G.configure(max_games=PUBLIC_MAX_GAMES, idle_seconds=PUBLIC_IDLE_SECONDS, text_board=False)
     mcp = build_server(public=True)
     hosts = {urlparse(public_url).netloc, f"127.0.0.1:{port}", f"localhost:{port}"}
     security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=sorted(hosts),
