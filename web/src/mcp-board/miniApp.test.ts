@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { MiniApp, PROTOCOL_VERSION } from './miniApp'
+import { describe, expect, it, vi } from 'vitest'
+import { MiniApp, PROTOCOL_VERSION, REQUEST_TIMEOUT_MS } from './miniApp'
 
 function rig() {
   const sent: any[] = []
@@ -66,5 +66,24 @@ describe('the chat bridge', () => {
     expect(settled).toBe(false)
     r.fromHost({ jsonrpc: '2.0', id: 0, result: {} })
     await done
+  })
+
+  it('gives up on a request nobody answers after 60 seconds, and a late answer changes nothing', async () => {
+    vi.useFakeTimers()
+    try {
+      const r = rig()
+      r.app.listen()
+      const lost = r.app.callServerTool({ name: 'game_move', arguments: {} })
+      const caught = expect(lost).rejects.toThrow('Request timed out')
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
+      await caught
+      r.fromHost({ jsonrpc: '2.0', id: r.sent[0].id, result: {} }) // too late: ignored, no error
+      const answered = r.app.callServerTool({ name: 'game_show', arguments: {} })
+      r.fromHost({ jsonrpc: '2.0', id: r.sent[1].id, result: { structuredContent: 1 } })
+      expect((await answered).structuredContent).toBe(1)
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS) // an answered call leaves no timer to fire
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -8,6 +8,7 @@ export type HostContext = { displayMode?: string; availableDisplayModes?: string
 export type ToolResult = { content?: { type: string; text?: string }[]; structuredContent?: unknown; isError?: boolean }
 
 export const PROTOCOL_VERSION = '2026-01-26' // the version the replaced library announces
+export const REQUEST_TIMEOUT_MS = 60_000
 
 type Wire = { jsonrpc: '2.0'; id?: number; method?: string; params?: unknown; result?: unknown; error?: { code: number; message: string } }
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
@@ -71,7 +72,16 @@ export class MiniApp {
   private request(method: string, params: unknown): Promise<unknown> {
     const id = this.next++
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      // A lost answer must not leave the page waiting for ever (its buttons stay off while a call is open): give up as the
+      // replaced library did, after 60 seconds.
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error('Request timed out'))
+      }, REQUEST_TIMEOUT_MS)
+      this.pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v) },
+        reject: (e) => { clearTimeout(timer); reject(e) },
+      })
       this.send({ jsonrpc: '2.0', id, method, params })
     })
   }
