@@ -2,31 +2,36 @@
 
 Games against Stockfish (Play, or Practice with hints, undo and threat arrows) for anyone, from Claude chat. No login, no stored data, no model calls. Decision: ADR 0010. Your private practice connector (`docs/mcp-setup.md`) is a different server and is not affected.
 
+**Live (2026-10-25):** `https://chess-coach-public.onrender.com/mcp` (Render free plan). Privacy page: `https://chess-coach-public.onrender.com/privacy` (source: `backend/app/mcp/public_pages.py`; keep it true to ADR 0010 when limits change).
+
 ## What users get
 
 `game_new` (colour, level 1 to 10, mode `play` or `practice`), `game_move`, `game_show`, `game_resign`, and in Practice games `game_undo`, `game_hint`, `game_threats`, with the interactive board. Say: "Play chess against level 3, I am White."
 
-## Run it on your Mac first (free, 2 minutes)
+## Try it on your Mac first
 
 ```bash
 cd backend && MCP_PUBLIC_URL=https://example.org MCP_PORT=8765 uv run python -m app.mcp.server public
 ```
-That only proves it starts. For real use it needs a stable https address (below).
+That only proves it starts; the address must be https and the real one for the host checks to pass from outside.
 
-## Host it for free (no Mac needed)
+## Host it for free on Render
 
-The `Dockerfile` at the repo root installs Stockfish and starts the open server. Any free Docker host works; **Hugging Face Spaces (Docker, free CPU)** is the simplest: it gives a stable `https://<user>-<space>.hf.space` address. Free tiers change and may sleep when idle, so check the host's current terms before relying on it.
+The `Dockerfile` at the repo root installs Stockfish and starts the open server. Hugging Face Docker Spaces turned out to be paid (2026-10-25); Render's free web service works.
 
-1. Create a Space, type Docker, public.
-2. Push this repo to it (or link the GitHub repo). Set the Space variable `MCP_PUBLIC_URL` to its https address, no trailing slash. The container listens on `PORT` (7860).
-3. Check `https://<address>/healthz` says `ok`.
-4. In Claude: Customize → Connectors → add a custom connector, address `https://<address>/mcp`, no sign-in. Play a game.
+1. render.com, sign in, **New → Web Service → Public Git Repository**, paste the repo address, Connect (no GitHub permission needed for a public repo).
+2. Name it (the name becomes `https://<name>.onrender.com`), language Docker, branch `main`, instance type **Free**.
+3. Environment variable `MCP_PUBLIC_URL` = `https://<name>.onrender.com` (no trailing slash). No other variable, and no secret: do not give it `ANTHROPIC_API_KEY`. Render sets `PORT` itself.
+4. Deploy. When the log says it is live, `https://<name>.onrender.com/healthz` says `ok`.
+5. In Claude: Customize → Connectors → add a custom connector, `https://<name>.onrender.com/mcp`, no sign-in.
 
-Keep no secrets on the host: it needs none. Do not give it `ANTHROPIC_API_KEY`.
+If Render gives the service a different address than the one you typed (the name was taken), change `MCP_PUBLIC_URL` to match and redeploy, or every request is refused (HTTP 421).
+
+Free instances sleep after about 15 minutes idle; the next request takes 50 seconds or more. They have 0.1 CPU and 512 MB, so heavy use is slow. Render's free terms can change.
 
 ## Putting it in Claude's public directory (needs you)
 
-Adding it by address works for anyone who pastes the link. A listing in Anthropic's connector directory is a separate submission I cannot make for you: it needs the stable address above, a privacy policy page (ADR 0010 says what is true: no accounts, no storage, games kept in memory up to 2 hours, logs hold tool names only), a support contact and Anthropic's review. Check the current submission requirements on Anthropic's site before applying.
+Adding it by address works for anyone who pastes the link. A listing in Anthropic's connector directory is a separate submission I cannot make for you. You have the stable address and a privacy page (`/privacy`); it also needs a support contact (the GitHub issues page is used on the privacy page, since the repo is public and your email must not go in it) and Anthropic's review. Check the current submission requirements on Anthropic's site: a service that sleeps for 50 seconds may count against it, and then a paid always-on instance would be the fix.
 
 ## Limits
 

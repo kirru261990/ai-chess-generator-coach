@@ -35,6 +35,7 @@ from app.learner import assessment as A
 from app.mcp import auth
 from app.mcp import game_tools as G
 from app.mcp import practice_tools as T
+from app.mcp.public_pages import PRIVACY_HTML
 
 log = logging.getLogger(__name__)
 
@@ -316,6 +317,11 @@ class PublicGuard:
         if scope["type"] == "http" and scope["path"] == "/healthz":
             await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"text/plain")]})
             return await send({"type": "http.response.body", "body": b"ok"})
+        if scope["type"] == "http" and scope["path"] == "/privacy" and scope.get("method") in ("GET", "HEAD"):
+            body = PRIVACY_HTML.encode()
+            await send({"type": "http.response.start", "status": 200, "headers": [
+                (b"content-type", b"text/html; charset=utf-8"), (b"content-length", str(len(body)).encode())]})
+            return await send({"type": "http.response.body", "body": b"" if scope["method"] == "HEAD" else body})
         if scope["type"] == "http" and scope["path"].startswith("/mcp") and self._over_budget():
             await send({"type": "http.response.start", "status": 429, "headers": [(b"content-type", b"text/plain"), (b"retry-after", b"30")]})
             return await send({"type": "http.response.body", "body": b"busy, try again in a minute"})
