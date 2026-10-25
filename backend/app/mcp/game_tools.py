@@ -135,19 +135,28 @@ def _feedback(game: Game, gid: str) -> dict | None:
     if not mine:
         return None
     ply, key = mine[-1], tuple(game.moves[: mine[-1] + 1])
+
+    def cached():
+        with _lock:
+            hit = _OWNED.get(gid, {}).get("feedback")
+        return hit[1] if hit is not None and hit[0] == key else None
+
+    if (fb := cached()) is not None:
+        return fb
     with _lock:
-        hit = _OWNED[gid].get("feedback")
-    if hit is not None and hit[0] == key:
-        return hit[1]
-    try:
-        fb = {**T.move_feedback(gid, ply), "prefix": list(key)}
-    except (GameError, EngineError):
-        log.exception("could not judge the move")
-        return None
-    with _lock:
-        if gid in _OWNED:
-            _OWNED[gid]["feedback"] = (key, fb)  # only the latest is kept
-    return fb
+        gate = _OWNED[gid].setdefault("fb_gate", threading.Lock())
+    with gate:  # the verdict step and the reply step ask together: one searches, the other waits and reads the cache
+        if (fb := cached()) is not None:
+            return fb
+        try:
+            fb = {**T.move_feedback(gid, ply), "prefix": list(key)}
+        except (GameError, EngineError):
+            log.exception("could not judge the move")
+            return None
+        with _lock:
+            if gid in _OWNED:
+                _OWNED[gid]["feedback"] = (key, fb)  # only the latest is kept
+        return fb
 
 
 def data(gid: str, hint: dict | None = None, judge: bool = True) -> dict:
@@ -289,6 +298,18 @@ def game_engine_move(game_id: str, expected_revision: int):
         if game.revision != expected_revision:
             raise GameError("revision_conflict", "")
         return _result(game_id, _reply(game_id))
+    return _guard(run)
+
+
+def game_judge(game_id: str, expected_revision: int):
+    """The verdict on the player's move just shown, with no engine reply (the board asks for the reply separately), so the verdict
+    can appear as soon as its search ends. Practice only has a verdict: in Play this returns the plain state. Idempotent, and the
+    search is cached for `game_engine_move`, which then does not search twice."""
+    def run():
+        game = _own(game_id)
+        if game.revision != expected_revision:
+            raise GameError("revision_conflict", "")
+        return _result(game_id)
     return _guard(run)
 
 

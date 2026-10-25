@@ -183,6 +183,11 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, publ
         """For the board only, not for the model: Stockfish's reply to the move just shown. Plays nothing if the board is out of date."""
         return game_board(G.game_engine_move(game_id, expected_revision))
 
+    @apps.tool(annotations=WRITE, **app_only)
+    def game_judge(game_id: str, expected_revision: int) -> CallToolResult:
+        """For the board only, not for the model: the verdict on the player's move just shown, without Stockfish's reply."""
+        return game_board(G.game_judge(game_id, expected_revision))
+
     @apps.tool(annotations=WRITE, **ui)
     def game_resign(game_id: str) -> CallToolResult:
         """Resign the game. It ends at once."""

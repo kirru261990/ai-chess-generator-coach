@@ -2,7 +2,7 @@ import { App } from '@modelcontextprotocol/ext-apps'
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../App.css'
-import GameBoard from '../GameBoard'
+import GameBoard, { type Enlarge } from '../GameBoard'
 import { gameToolBackend, isGamePayload, type GamePayload } from '../gameBackend'
 import Practice from '../Practice'
 import { toolBackend, type BoardPayload, type ToolCaller } from '../practiceBackend'
@@ -21,8 +21,32 @@ const call: ToolCaller = async (name, args) => {
 
 type Shown = { kind: 'practice'; payload: BoardPayload } | { kind: 'game'; payload: GamePayload }
 
+/** The chat's bigger view, when the host offers one (`availableDisplayModes`); null if it does not. The host answers with the mode it
+ *  actually set, which may differ from the one asked for. */
+function useEnlarge(connected: boolean): Enlarge | null {
+  const [mode, setMode] = useState<string>('inline')
+  const [offered, setOffered] = useState(false)
+  useEffect(() => {
+    const read = (ctx?: { displayMode?: string; availableDisplayModes?: string[] }) => {
+      if (!ctx) return
+      if (ctx.displayMode) setMode(ctx.displayMode)
+      if (ctx.availableDisplayModes) setOffered(ctx.availableDisplayModes.includes('fullscreen'))
+    }
+    app.onhostcontextchanged = (ctx) => read(ctx)
+    // The first context is stored during connect() without a change event, so read it once the connection is up, however long that takes.
+    if (connected) read(app.getHostContext())
+  }, [connected])
+  const toggle = () => {
+    const next = mode === 'fullscreen' ? 'inline' : 'fullscreen'
+    app.requestDisplayMode({ mode: next }).then((r) => setMode(r.mode), () => undefined)
+  }
+  return offered ? { large: mode === 'fullscreen', toggle } : null
+}
+
 function Board() {
   const [shown, setShown] = useState<Shown | null>(null)
+  const [connected, setConnected] = useState(false)
+  const enlarge = useEnlarge(connected)
   const practiceBackend = useMemo(() => toolBackend(call), [])
   const gameBackend = useMemo(() => gameToolBackend(call), [])
   useEffect(() => {
@@ -32,10 +56,10 @@ function Board() {
       if (isGamePayload(data)) setShown({ kind: 'game', payload: data })
       else if ((data as BoardPayload | undefined)?.view) setShown({ kind: 'practice', payload: data as BoardPayload })
     }
-    app.connect().catch(() => {})
+    app.connect().then(() => setConnected(true), () => {})
   }, [])
   if (!shown) return <div className="app"><p className="note">Waiting for the board…</p></div>
-  if (shown.kind === 'game') return <GameBoard key={shown.payload.game.id} initial={shown.payload} backend={gameBackend} />
+  if (shown.kind === 'game') return <GameBoard key={shown.payload.game.id} initial={shown.payload} backend={gameBackend} enlarge={enlarge ?? undefined} />
   const p = shown.payload
   return <Practice key={p.view.session_id} id={p.view.session_id} backend={practiceBackend} initial={p} />
 }

@@ -47,3 +47,31 @@ describe('the players move on the chat board', () => {
     expect(calls).toEqual(['practice'])
   })
 })
+
+describe('the verdict on the chat board', () => {
+  it('Practice asks for the verdict at the same time as the reply and draws it before the reply', async () => {
+    const h = harness({
+      move: async () => pay(1, 'black', 'practice'),
+      judge: async () => (h.tick(200), pay(1, 'black', 'practice')),
+      engineMove: async () => (h.tick(400), pay(2, 'white', 'practice')),
+    })
+    await playMove(h.backend, { id: 'g', revision: 0 }, 'e2e4', h.hooks)
+    const shown = h.events.filter((e) => e.startsWith('payload'))
+    expect(shown).toEqual(['payload:r1', 'payload:r1', 'payload:r2']) // the move, the verdict, the reply
+  })
+  it('Play never asks for a verdict', async () => {
+    let asked = false
+    const h = harness({ move: async () => pay(1, 'black', 'play'), judge: async () => ((asked = true), pay(1, 'black', 'play')), engineMove: async () => pay(2, 'white', 'play') })
+    await playMove(h.backend, { id: 'g', revision: 0 }, 'e2e4', h.hooks)
+    expect(asked).toBe(false)
+  })
+  it('a failed verdict call changes nothing: the reply still arrives', async () => {
+    const h = harness({
+      move: async () => pay(1, 'black', 'practice'),
+      judge: async () => { throw new Error('boom') },
+      engineMove: async () => pay(2, 'white', 'practice'),
+    })
+    expect(await playMove(h.backend, { id: 'g', revision: 0 }, 'e2e4', h.hooks)).toBeNull()
+    expect(h.events).toContain('payload:r2')
+  })
+})
