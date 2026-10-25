@@ -1,17 +1,17 @@
-import { App } from '@modelcontextprotocol/ext-apps'
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../App.css'
 import GameBoard, { type Enlarge } from '../GameBoard'
 import { gameToolBackend, isGamePayload, type GamePayload } from '../gameBackend'
 import Practice from '../Practice'
+import { MiniApp } from './miniApp'
 import { toolBackend, type BoardPayload, type ToolCaller } from '../practiceBackend'
 
 /** The board inside a chat (an MCP app). The chat shows this page in a sandbox: it hands over the result of the tool that showed the
  *  board, and this page calls the same tools for every click, so the rules and the engine stay on the server. One file serves two
  *  pages: Replay My Mistakes practice (ADR 0008) and a game against Stockfish, Play or Practice (ADR 0009); the latest tool result
  *  decides which. */
-const app = new App({ name: 'chess-coach-board', version: '1.0.0' })
+const app = new MiniApp({ name: 'chess-coach-board', version: '1.0.0' })
 
 const call: ToolCaller = async (name, args) => {
   const r = await app.callServerTool({ name, arguments: args })
