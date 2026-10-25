@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-25 (evening) · MacBook · Claude Code: open connector live, board fixed, keep-awake schedule (branch `docs/keep-awake-schedule`)
+- **Done:** PRs 88 to 93 merged and deployed by hand to Render (auto-deploy does nothing: the service was made from the public repo address, so no webhook; use Manual Deploy, or connect GitHub to Render). Board draws on claude.ai after shrinking the page to 330 KB (own chat bridge `web/src/mcp-board/miniApp.ts`); the Claude Desktop app still does not draw it (ext-apps issue 671). Verdict is asked for before the engine reply. `.github/workflows/keep-awake.yml` pings `/healthz` 05:00 to 23:20 IST. UptimeRobot monitor (5 min, 24 h) exists and must be **paused** for the night sleep once the workflow is merged and has run. Docs in `docs/public-connector.md`.
+- **Next (owner):** merge this PR, check Actions shows `keep-awake` runs, then pause the UptimeRobot monitor. Directory submission is the owner's.
+
 ### 2026-10-25 (later) · MacBook · Claude Code: open connector hosted on Render, privacy page (branch `docs/render-and-privacy`)
 - **Done:** deployed to Render free (`chess-coach-public`, from `main`, `MCP_PUBLIC_URL` only): `https://chess-coach-public.onrender.com/mcp`, health and a live Practice game checked. Hugging Face Docker Spaces are paid, so not used. Added `/privacy` (`app/mcp/public_pages.py`, tested), rewrote `docs/public-connector.md` for Render.
 - **Next (owner):** add the connector in Claude and try it; the directory submission is the owner's (support contact = GitHub issues; 50 s wake-up of a free instance may count against a listing). Render deploys from `main`: merge this PR and Render redeploys only if auto-deploy is on (unchecked; trigger a manual deploy if `/privacy` is 404).
