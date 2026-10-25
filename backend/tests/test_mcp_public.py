@@ -102,3 +102,13 @@ def test_the_open_server_runs_without_an_access_log(monkeypatch):
     monkeypatch.setenv("STOCKFISH_PATH", __file__)  # any existing file: the engine is not started
     assert S._run_public() == 0
     assert seen["access_log"] is False
+
+
+def test_the_privacy_page_is_served_to_anyone_and_matches_the_limits():
+    with TestClient(S.build_public_http_app(PUBLIC_URL), base_url=PUBLIC_URL) as c:
+        r = c.get("/privacy")
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+        for fact in ("No accounts", "2 hours", "500", "does not call any AI model", "Render"):
+            assert fact in r.text
+        assert "@" not in r.text  # no personal email in a public page
+    assert S.PUBLIC_IDLE_SECONDS == 2 * 3600 and S.PUBLIC_MAX_GAMES == 500  # the page states these

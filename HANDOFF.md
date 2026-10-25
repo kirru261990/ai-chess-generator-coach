@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-25 (later) · MacBook · Claude Code: open connector hosted on Render, privacy page (branch `docs/render-and-privacy`)
+- **Done:** deployed to Render free (`chess-coach-public`, from `main`, `MCP_PUBLIC_URL` only): `https://chess-coach-public.onrender.com/mcp`, health and a live Practice game checked. Hugging Face Docker Spaces are paid, so not used. Added `/privacy` (`app/mcp/public_pages.py`, tested), rewrote `docs/public-connector.md` for Render.
+- **Next (owner):** add the connector in Claude and try it; the directory submission is the owner's (support contact = GitHub issues; 50 s wake-up of a free instance may count against a listing). Render deploys from `main`: merge this PR and Render redeploys only if auto-deploy is on (unchecked; trigger a manual deploy if `/privacy` is 404).
+
 ### 2026-10-25 · MacBook · Claude Code: open chess connector (branch `feat/public-connector`, not pushed)
 - **Done:** `python -m app.mcp.server public` (games only, no login, no DB, no model; `build_server(public=True)`, `PublicGuard` with `/healthz` and a 600/min budget, game cap 500 and 2 h idle expiry in `game_tools.configure`), `Dockerfile`, `docs/public-connector.md`, ADR 0010, `tests/test_mcp_public.py`. Smoke-tested over HTTP with the real Stockfish (Play/Practice game, hint). 984 tests pass, ruff clean.
 - **Next (owner):** host it on a free Docker host and set `MCP_PUBLIC_URL`; add the connector by address; a directory listing needs Anthropic's submission, a privacy page and a stable address. Not tried in the real Claude yet. Hosting free-tier terms unchecked.
