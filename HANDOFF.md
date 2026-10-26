@@ -72,6 +72,14 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-26 (afternoon) · cloud session (claude.ai) · Claude: M3 in the real-game rates (branch `feat/m3-realgame-rates`)
+- **Done (TASKS M3b, ADR 0011):** schema **v11** (`baseline_window` and `realgame_game` accept M3; rows copied as they are; `realgame_game.details_json` for the M3 breakdown). `realgame_rates`: M3 from ply 4 with the position before the opponent's move; a standing threat counts once (repeats logged); `also_m1` from M1 on the same move; a pass checks only the types still missing per game; `--types` on `run` and `report`; new `freeze` command for the M3 window. The Progress screen and its endpoint still show only M1 and M2.
+- **Correction:** ADR 0011 decision 6 first named the ADR 0002 100-game window. The rates never use it (ADR 0006); M3 now gets its own 30-game window per time control, frozen once by `freeze`. Recorded in ADR 0011.
+- **Checked:** 15 new tests (`tests/test_realgame_rates_m3.py`, including the v10 to v11 upgrade keeping every row and the freeze triggers). One existing test's setup SQL now names the new column. Real engine end to end (Stockfish 16, depth 12): the Ruy game flags 5.O-O?? as missed (also M1); the Scholar game flags 3...Nf6?? as a missed mate threat that M1 cannot see (ply 5).
+- **Review (PR 97, 1 finding, reproduced and fixed):** the repeat rule treated any `standing` threat after a miss as the same threat; with two threats (A missed, then B) B was dropped. A repeat now needs the same threat move as the previous miss. 2 new tests.
+- **Next (owner, on the Mac):** `git pull`; `cd backend && uv run python -m app.sync` (new games); `uv run python -m app.learner.realgame_rates freeze` (once, before any M3 training); `uv run python -m app.learner.realgame_rates run --types M3 --workers 4`; `uv run python -m app.learner.realgame_rates report --types M3`. The store upgrades to v11 on first open; copy `data/coach.sqlite3` first if you want a backup.
+- **Next (build):** M3c frozen eval set, M3d hand-check page.
+
 ### 2026-10-26 · cloud session (claude.ai) · Claude: M3 missed threat detector, step 1 (branch `feat/m3-missed-threat`)
 - **Why:** the owner gives games away in the middlegame after the opening. M3 asks "did their last move threaten something, and did you ignore it?", found with a pass test (the player skips a turn; the engine's best line is the threat). Spec written with the owner in a Claude doc, in plain words with examples; decisions in **ADR 0011**.
 - **Owner's decisions:** M3 starts at ply 4 (Scholar's-mate traps count) and its material rule is 2 (a knight lost for a pawn counts). Claude decided the rest, reversible after the owner plays: 150 cp for threat size and loss, own rate with an `also_m1` flag, a standing threat counts once, hand-check on the 350 older games, M1 and M2 unchanged.
