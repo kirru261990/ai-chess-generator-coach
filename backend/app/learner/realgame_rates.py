@@ -120,14 +120,29 @@ def _bump(d: dict, key: str) -> None:
     d[key] = d.get(key, 0) + 1
 
 
-def _count_m3(c: dict, finding, ply: int, last: str | None, m1_finding) -> str:
-    """Count one M3 finding; returns what the next move's repeat rule needs ("missed" while a threat stays ignored)."""
+def _threat_id(finding) -> str | None:
+    """The threat's identity across two player turns: its threat move (UCI), or None when the record has none."""
+    move = (finding.evidence or {}).get("threat_move") or {}
+    return move.get("uci")
+
+
+def _count_m3(c: dict, finding, ply: int, last: tuple[str, str | None] | None, m1_finding) -> tuple[str, str | None]:
+    """Count one M3 finding. Returns (outcome, threat id) for the next player move's repeat rule.
+
+    A repeat (ADR 0011 decision 5) is the **same** ignored threat: this threat is `standing`, the previous player move
+    `missed` a threat, and both have the same threat move. `standing` alone is not enough (PR 97 review): with two threats on
+    the board, the pass search may pick threat A on one turn and threat B on the next, and B is a new opportunity. A standing
+    threat's line already worked before the opponent's last move, so the same threat keeps the same first move. With no
+    threat move on record, nothing is called a repeat.
+    """
     c["player_moves"] += 1
     d, ev = c["details"], finding.evidence or {}
-    if finding.outcome in ("missed", "met") and ev.get("threat_origin") == "standing" and last == "missed":
-        c["skipped"] += 1  # ADR 0011 decision 5: the same ignored threat counts once
+    tid = _threat_id(finding)
+    if (finding.outcome in ("missed", "met") and ev.get("threat_origin") == "standing" and last is not None
+            and last[0] == "missed" and tid is not None and tid == last[1]):
+        c["skipped"] += 1
         d["repeats"] += 1
-        return finding.outcome
+        return finding.outcome, tid
     if finding.outcome == "missed":
         c["counted"] += 1
         c["events"] += 1
@@ -145,7 +160,7 @@ def _count_m3(c: dict, finding, ply: int, last: str | None, m1_finding) -> str:
     else:
         c["skipped"] += 1
         d["no_threat" if finding.outcome == "no_threat" else "skipped"] += 1
-    return finding.outcome
+    return finding.outcome, tid
 
 
 def analyse_game(pgn: str, user_color: str, analyser, types=TYPES) -> dict[str, dict]:
@@ -161,7 +176,7 @@ def analyse_game(pgn: str, user_color: str, analyser, types=TYPES) -> dict[str, 
     out = {t: _empty(t) for t in types}
     board = game.board()
     before_opponent: chess.Board | None = None
-    last_m3: str | None = None
+    last_m3: tuple[str, str | None] | None = None  # (outcome, threat move) of the previous player move
     for ply, node in enumerate(game.mainline()):
         move = node.move
         if (ply % 2 == 0) == white:

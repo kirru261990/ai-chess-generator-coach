@@ -34,7 +34,10 @@ def conn(tmp_path):
 
 
 class ScriptedM3:
-    """Stand-in for `missed_threat`: `script[ply]` = (outcome, reason, origin, kind); records the `previous` positions."""
+    """Stand-in for `missed_threat`: `script[ply]` = (outcome, reason, origin, kind[, threat move]); records `previous`.
+
+    The threat move defaults to one fixed move, so every scripted threat is the same threat unless a test names another.
+    """
 
     DETECTOR = "missed_threat"
     VERSION = "1"
@@ -45,8 +48,11 @@ class ScriptedM3:
     def detect(self, board, move, ply, analyser, previous=None):
         self.calls.append(ply)
         self.previous[ply] = previous
-        outcome, reason, origin, kind = self.script.get(ply, self.default)
+        outcome, reason, origin, kind, *rest = self.script.get(ply, self.default)
+        threat = rest[0] if rest else "b5a4"
         evidence = None if origin is None else {"threat_origin": origin, "threat_kind": kind}
+        if evidence is not None and threat is not None:
+            evidence["threat_move"] = {"uci": threat}
         return Finding(outcome, reason, evidence)
 
 
@@ -103,6 +109,30 @@ def test_a_standing_threat_counts_once_until_it_is_answered(monkeypatch):
     assert d["repeats"] == 2 and d["met"] == {"countered": 1} and d["uncertain"] == {"loss_not_stable": 1}
     assert d["missed_by_kind"] == {"capture": 1, "fork": 1} and d["missed_by_origin"] == {"new": 1, "standing": 1}
     assert c["counted"] + c["uncertain"] + c["skipped"] == c["player_moves"]
+
+
+def test_a_different_standing_threat_after_a_miss_is_a_new_opportunity(monkeypatch):
+    # PR 97 review: two threats on the board. Threat A (bxa4) is missed; on the next turn the pass search picks threat B
+    # (Nxe4), which also stood before the opponent's move. B is not a repeat of A: it counts. B met next turn is a repeat of B.
+    m3 = ScriptedM3({
+        8: ("missed", "all_checks_hold", "new", "capture", "b5a4"),
+        10: ("missed", "all_checks_hold", "standing", "capture", "f6e4"),
+        12: ("met", "defended", "standing", "capture", "f6e4"),
+    })
+    scripted(monkeypatch, m3)
+    c = RR.analyse_game(LONG_GAME, "white", object(), ("M3",))["M3"]
+    assert (c["events"], c["counted"], c["details"]["repeats"]) == (2, 2, 1)
+    assert c["event_plies"] == [8, 10] and c["details"]["missed_by_origin"] == {"new": 1, "standing": 1}
+
+
+def test_a_threat_with_no_threat_move_on_record_is_never_a_repeat(monkeypatch):
+    m3 = ScriptedM3({
+        8: ("missed", "all_checks_hold", "new", "capture", None),
+        10: ("missed", "all_checks_hold", "standing", "capture", None),
+    })
+    scripted(monkeypatch, m3)
+    c = RR.analyse_game(LONG_GAME, "white", object(), ("M3",))["M3"]
+    assert (c["events"], c["details"]["repeats"]) == (2, 0)
 
 
 def test_also_m1_counts_misses_that_m1_flagged_on_the_same_move(monkeypatch):

@@ -88,8 +88,11 @@ every game from the freeze on, as for M1 and M2. The hand-check sample (TASKS M3
   no-threat and skipped counts, and repeats. NULL for M1 and M2.
 - Per row: `counted` = missed + met (threats faced), `events` = missed, `uncertain` = uncertain, `skipped` = no threat,
   gates and repeats. The rate is events ÷ counted, with the M2 floor (20 opportunities per window).
-- **Decision 5 in code:** a `standing` threat after a player move that was `missed` is a repeat of the same ignored threat:
-  skipped and logged in `repeats`, whether the player misses it again or finally meets it.
+- **Decision 5 in code:** a repeat is the **same** ignored threat: the threat is `standing`, the previous player move
+  `missed` a threat, and both have the same threat move. It is skipped and logged in `repeats`, whether the player misses it
+  again or finally meets it. `standing` alone is not enough (PR 97 review): with two threats on the board, the pass search can
+  pick threat A on one turn and threat B on the next, and B is a new opportunity. A standing threat's line already worked
+  before the opponent's last move, so the same threat keeps its first move. A record with no threat move is never a repeat.
 - **`also_m1`:** a missed threat on a move that `hanging_own` v4 called a `mistake`. M1 starts at ply 8, so misses at plies
   4 to 7 are never `also_m1`.
 - The Progress screen and its endpoint keep M1 and M2 only; M3 is read with `report --types M3` until it has a screen.
