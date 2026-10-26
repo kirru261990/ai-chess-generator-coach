@@ -91,10 +91,10 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 
 ## M3 missed threat (ADR 0011; MVP 0 of the middlegame and endgame training plan)
 - [x] M3a `missed_threat` v1 detector, `threat_kind` labels, `M3_` constants, tests (2026-10-26, branch `feat/m3-missed-threat`)
-- [ ] M3b M3 in `realgame_rates`: schema version that accepts type M3, `also_m1` flag, a standing threat counted once, `--types`
+- [x] M3b M3 in `realgame_rates`: schema v11 accepts M3, `details_json`, `also_m1`, a standing threat counted once, `--types`, `freeze` for the M3 window (2026-10-26, branch `feat/m3-realgame-rates`)
 - [ ] M3c Frozen eval set `missed_threat_v1` from Lichess puzzles rated 400 to 1200 (frozen before the detector runs on it; adversarial: counter-threat, zugzwang, unavoidable fork, pinned attacker); target precision ≥ 0.90, recall ≥ 0.85
-- [ ] M3d Hand-check page: 30 missed flags (15 per time control) from the 350 older games; gate 27 of 30
-- [ ] M3e Baseline run on the owner's Mac over the frozen window; report per time control (threats faced, missed-threat rate, by kind, overlap with M1, uncertain)
+- [ ] M3d Hand-check page: 30 missed flags (15 per time control) from games outside the M3 windows; gate 27 of 30
+- [ ] M3e On the owner's Mac: `freeze`, then `run --types M3` over the M3 window; report per time control (threats faced, missed-threat rate, by kind, overlap with M1, uncertain)
 
 ## Next (proposed order for the next session)
 1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)

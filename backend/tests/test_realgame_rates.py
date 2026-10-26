@@ -256,7 +256,8 @@ def test_rows_from_another_detector_version_or_engine_config_are_never_summed(co
     RR.store_game(conn, stale, result(events=9, uncertain=0, skipped=0, moves=30, counted=30), CFG.at_depth(12).id)
     conn.execute(
         "INSERT INTO realgame_game SELECT game_id, mistake_type, 'old@1+rules0', engine_config_id, player_moves, counted, events,"
-        " uncertain, skipped, event_plies_json, rates_version, computed_at FROM realgame_game WHERE game_id = ?", (post_ids[0],))
+        " uncertain, skipped, event_plies_json, rates_version, computed_at, details_json FROM realgame_game WHERE game_id = ?",
+        (post_ids[0],))
     _, t, tc = m1_tc(conn)
     assert tc["post"]["games"] == 25 and tc["post"]["events"] == 50  # 25 games x 2; the depth-12 and old-version rows are ignored
     assert tc["post"]["missing_games"] == 1  # the depth-12 game is not checked at this config

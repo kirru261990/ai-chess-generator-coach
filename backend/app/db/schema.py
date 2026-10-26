@@ -33,7 +33,7 @@ from pathlib import Path
 
 from app import config
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 FILE_NAME = "coach.sqlite3"
 
 _SCHEMA_V1 = """
@@ -408,9 +408,68 @@ CREATE TRIGGER realgame_game_no_update BEFORE UPDATE ON realgame_game
 BEGIN SELECT RAISE(ABORT, 'a real-game result is never edited'); END;
 """
 
+_SCHEMA_V11 = """
+-- M3 missed threat (ADR 0011): the real-game windows and per-game rows accept mistake type M3. SQLite cannot change a CHECK
+-- in place, so both tables are rebuilt with every row copied as it is (ids included) and their triggers re-created. The
+-- implicit delete of DROP TABLE fires no trigger. `details_json` holds what only M3 records (threat kinds, also-M1 count,
+-- repeats of a standing threat, met and uncertain reasons); NULL for M1 and M2.
+CREATE TABLE baseline_window_v11 (
+    id           INTEGER PRIMARY KEY,
+    user         TEXT NOT NULL,
+    mistake_type TEXT NOT NULL CHECK (mistake_type IN ('M1', 'M2', 'M3')),
+    time_control TEXT NOT NULL,
+    game_ids_json TEXT NOT NULL,
+    frozen_at    TEXT NOT NULL,
+    UNIQUE (user, mistake_type, time_control)
+) STRICT;
+
+INSERT INTO baseline_window_v11 (id, user, mistake_type, time_control, game_ids_json, frozen_at)
+SELECT id, user, mistake_type, time_control, game_ids_json, frozen_at FROM baseline_window;
+
+DROP TABLE baseline_window;
+
+ALTER TABLE baseline_window_v11 RENAME TO baseline_window;
+
+CREATE TRIGGER baseline_window_no_update BEFORE UPDATE ON baseline_window
+BEGIN SELECT RAISE(ABORT, 'a frozen baseline window is never edited'); END;
+
+CREATE TRIGGER baseline_window_no_delete BEFORE DELETE ON baseline_window
+BEGIN SELECT RAISE(ABORT, 'a frozen baseline window is never deleted'); END;
+
+CREATE TABLE realgame_game_v11 (
+    game_id          TEXT NOT NULL REFERENCES game(id),
+    mistake_type     TEXT NOT NULL CHECK (mistake_type IN ('M1', 'M2', 'M3')),
+    detector_version TEXT NOT NULL,
+    engine_config_id TEXT NOT NULL REFERENCES engine_config(id),
+    player_moves     INTEGER NOT NULL,  -- the player's moves from the type's first ply on (M3: M3_MIN_PLY)
+    counted          INTEGER NOT NULL,  -- M1: mistake + no_mistake; M2: missed + taken; M3: missed + met (threats faced)
+    events           INTEGER NOT NULL,  -- M1: mistakes; M2: missed free captures; M3: missed threats
+    uncertain        INTEGER NOT NULL,  -- detector abstained: in neither numerator nor denominator (AGENTS rule 5)
+    skipped          INTEGER NOT NULL,  -- not an opportunity; M3 also counts repeats of a standing threat here
+    event_plies_json TEXT NOT NULL,
+    rates_version    TEXT NOT NULL,
+    computed_at      TEXT NOT NULL,
+    details_json     TEXT,
+    PRIMARY KEY (game_id, mistake_type, detector_version, engine_config_id),
+    CHECK (counted + uncertain + skipped = player_moves AND events <= counted)
+) STRICT;
+
+INSERT INTO realgame_game_v11 (game_id, mistake_type, detector_version, engine_config_id, player_moves, counted, events,
+                               uncertain, skipped, event_plies_json, rates_version, computed_at)
+SELECT game_id, mistake_type, detector_version, engine_config_id, player_moves, counted, events,
+       uncertain, skipped, event_plies_json, rates_version, computed_at FROM realgame_game;
+
+DROP TABLE realgame_game;
+
+ALTER TABLE realgame_game_v11 RENAME TO realgame_game;
+
+CREATE TRIGGER realgame_game_no_update BEFORE UPDATE ON realgame_game
+BEGIN SELECT RAISE(ABORT, 'a real-game result is never edited'); END;
+"""
+
 # version -> SQL text, or a function, that brings version - 1 up to it
 _MIGRATIONS = {1: _SCHEMA_V1, 2: _v2_user_color, 3: _v3_retired, 4: _v4_retired_on_update, 5: _SCHEMA_V5,
-               6: _SCHEMA_V6, 7: _SCHEMA_V7, 8: _SCHEMA_V8, 9: _SCHEMA_V9, 10: _SCHEMA_V10}
+               6: _SCHEMA_V6, 7: _SCHEMA_V7, 8: _SCHEMA_V8, 9: _SCHEMA_V9, 10: _SCHEMA_V10, 11: _SCHEMA_V11}
 
 
 class SchemaError(Exception):

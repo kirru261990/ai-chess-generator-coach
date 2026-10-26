@@ -16,6 +16,9 @@ from app.db.schema import transaction
 from app.learner.assessment import TYPES, AssessmentError, user
 
 WINDOW_GAMES = 30
+# M3 (missed threat, ADR 0011) has a real-game window but no practice or assessment yet, so it is frozen on demand
+# (`realgame_rates freeze`) before any M3 training, not by a practice session.
+WINDOW_TYPES = (*TYPES, "M3")
 
 
 def frozen_windows(conn: sqlite3.Connection, mistake_type: str) -> list[dict]:
@@ -48,8 +51,8 @@ def freeze_in_transaction(conn: sqlite3.Connection, mistake_type: str, *, now: d
 
 def freeze_baseline_window(conn: sqlite3.Connection, mistake_type: str, *, now: datetime | None = None) -> list[dict]:
     """Freeze the last WINDOW_GAMES games per time control before `now` for this type, once. Returns the frozen windows."""
-    if mistake_type not in TYPES:
-        raise AssessmentError("unknown_mistake_type", f"mistake type must be one of {', '.join(TYPES)}")
+    if mistake_type not in WINDOW_TYPES:
+        raise AssessmentError("unknown_mistake_type", f"mistake type must be one of {', '.join(WINDOW_TYPES)}")
     now = now or datetime.now(UTC)
     with transaction(conn):
         freeze_in_transaction(conn, mistake_type, now=now)
