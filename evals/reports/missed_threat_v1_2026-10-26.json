@@ -37,8 +37,8 @@
      "uncertain->uncertain": 1
     }
    },
-   "real positions (real_*)": {
-    "n": 156,
+   "real positions (real play: missed_real, met_real, hung_not_threat, quiet_blunder)": {
+    "n": 136,
     "tp": 51,
     "fp": 0,
     "fn": 9,
@@ -51,8 +51,8 @@
      60
     ],
     "exact_agreement": [
-     110,
-     156
+     90,
+     136
     ],
     "confusion": {
      "met->met": 3,
@@ -60,10 +60,10 @@
      "missed->met": 1,
      "missed->missed": 51,
      "missed->not_applicable": 8,
-     "not_applicable->not_applicable": 56
+     "not_applicable->not_applicable": 36
     }
    },
-   "constructed (constructed_missed + adversarial)": {
+   "constructed (constructed_missed, constructed_quiet, adversarial)": {
     "n": 67,
     "tp": 21,
     "fp": 0,

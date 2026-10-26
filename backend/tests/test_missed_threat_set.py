@@ -70,3 +70,14 @@ def test_frozen_files_have_not_changed():
         match = re.search(rf"`{re.escape(name)}` \| `([0-9a-f]{{64}})`", text)
         assert match, f"{name} is not listed in FROZEN.md"
         assert match.group(1) == digest, f"{name} changed after the freeze"
+
+
+def test_the_scorer_splits_real_and_constructed_items_without_overlap():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("score_missed_threat", ROOT / "evals" / "tools" / "score_missed_threat.py")
+    scorer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(scorer)
+    real, constructed = [p for name, p in scorer.GROUPS.items() if name.startswith(("real", "constructed"))]
+    data = rows()
+    assert not [r for r in data if real(r) and constructed(r)]
+    assert all(real(r) or constructed(r) for r in data)

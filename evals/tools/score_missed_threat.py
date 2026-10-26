@@ -61,8 +61,8 @@ def metrics(items):
 
 GROUPS = {
     "all items": lambda i: True,
-    "real positions (real_*)": lambda i: i["category"].endswith("_real") or i["category"] in ("constructed_quiet", "hung_not_threat", "quiet_blunder"),
-    "constructed (constructed_missed + adversarial)": lambda i: i["constructed"],
+    "real positions (real play: missed_real, met_real, hung_not_threat, quiet_blunder)": lambda i: not i["constructed"],
+    "constructed (constructed_missed, constructed_quiet, adversarial)": lambda i: i["constructed"],
     "adversarial only": lambda i: i["category"] == "adversarial",
 }
 

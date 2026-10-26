@@ -14,7 +14,7 @@ The detector was not changed and the set was not edited after this run (frozen f
    was fixed first, so these items are labelled wrongly for M3 and the 3 of 40 `met_real` agreement is a set problem.
 
 **What the numbers do show.** No false `missed` among the 103 items not labelled missed (precision interval 0.95 to 1.00),
-including 56 negatives that look like M3 (hung pieces, quiet blunders) and 13 adversarial items (13 of 13 right). Real positions
+including 36 real negatives that look like M3 (hung pieces, quiet blunders) and 20 quiet constructed ones and 13 adversarial items (13 of 13 right). Real positions
 alone: recall 51/60 = 0.85, with the same two causes. Two `missed` items were called `met:defended_other_loss` and one
 `uncertain:threat_line_diverged`; they need a look before anyone concludes the detector is wrong (the item rows below list them).
 

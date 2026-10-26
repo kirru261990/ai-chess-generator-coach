@@ -9,8 +9,8 @@ Set: frozen `missed_threat_v1` (positions.jsonl sha256 `7db34557b08a2c2b...`). D
 | Group | Precision (TP / predicted missed) | Recall (TP / labelled missed) | Exact agreement |
 |---|---|---|---|
 | all items | 72/72 = 1.00 (95% CI 0.95-1.00) | 72/100 = 0.72 (95% CI 0.63-0.80) | 138/203 = 0.68 (95% CI 0.61-0.74) |
-| real positions (real_*) | 51/51 = 1.00 (95% CI 0.93-1.00) | 51/60 = 0.85 (95% CI 0.74-0.92) | 110/156 = 0.71 (95% CI 0.63-0.77) |
-| constructed (constructed_missed + adversarial) | 21/21 = 1.00 (95% CI 0.85-1.00) | 21/40 = 0.53 (95% CI 0.37-0.67) | 48/67 = 0.72 (95% CI 0.60-0.81) |
+| real positions (real play: missed_real, met_real, hung_not_threat, quiet_blunder) | 51/51 = 1.00 (95% CI 0.93-1.00) | 51/60 = 0.85 (95% CI 0.74-0.92) | 90/136 = 0.66 (95% CI 0.58-0.74) |
+| constructed (constructed_missed, constructed_quiet, adversarial) | 21/21 = 1.00 (95% CI 0.85-1.00) | 21/40 = 0.53 (95% CI 0.37-0.67) | 48/67 = 0.72 (95% CI 0.60-0.81) |
 | adversarial only | 6/6 = 1.00 (95% CI 0.61-1.00) | 6/6 = 1.00 (95% CI 0.61-1.00) | 13/13 = 1.00 (95% CI 0.77-1.00) |
 
 ## Exact agreement by item category
@@ -127,7 +127,7 @@ The detector was not changed and the set was not edited after this run (frozen f
    was fixed first, so these items are labelled wrongly for M3 and the 3 of 40 `met_real` agreement is a set problem.
 
 **What the numbers do show.** No false `missed` among the 103 items not labelled missed (precision interval 0.95 to 1.00),
-including 56 negatives that look like M3 (hung pieces, quiet blunders) and 13 adversarial items (13 of 13 right). Real positions
+including 36 real negatives that look like M3 (hung pieces, quiet blunders) and 20 quiet constructed ones and 13 adversarial items (13 of 13 right). Real positions
 alone: recall 51/60 = 0.85, with the same two causes. Two `missed` items were called `met:defended_other_loss` and one
 `uncertain:threat_line_diverged`; they need a look before anyone concludes the detector is wrong (the item rows below list them).
 
