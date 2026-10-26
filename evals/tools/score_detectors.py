@@ -178,7 +178,7 @@ def main():
     with Engine() as engine:
         results = run(rows, engine)
         engine_name = engine.name
-    today = date.today().isoformat()  # noqa: DTZ011 (the report is dated with the machine's local day)
+    today = date.today().isoformat()
     meta = {"date": today, "engine": engine_name, "depth": BATCH_BUDGET.depth,
             "positions_sha256": hashlib.sha256((SET / "positions.jsonl").read_bytes()).hexdigest(),
             "detector_versions": {k: v.VERSION for k, v in DETECTORS.items()}}
