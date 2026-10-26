@@ -89,6 +89,13 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] P4b (built 2026-10-18, ADR 0006 decisions 43 to 48; run `python -m app.learner.realgame_rates run` after each sync) Real-game rates with floors (PRD §8): M1 per 100 player moves and M2 missed ÷ available, frozen baseline window against the games after it, 20-game / 20-opportunity floors; needs every player move of those games checked at the evidence config (ADR 0006 decision 41)
 - [ ] P5 MCP tools over the same service layer: **practice and games in Claude chat and ChatGPT** (remote server from the owner's Mac, OAuth login). Built and merged 2026-10-17: practice tools, `game_` tools, the interactive board (ADRs 0007 to 0009); **working in the real Claude; ChatGPT not tried; a stable address not set up** (setup and results in `docs/mcp-setup.md`; original design `docs/mcp-practice-plan.md`)
 
+## M3 missed threat (ADR 0011; MVP 0 of the middlegame and endgame training plan)
+- [x] M3a `missed_threat` v1 detector, `threat_kind` labels, `M3_` constants, tests (2026-10-26, branch `feat/m3-missed-threat`)
+- [ ] M3b M3 in `realgame_rates`: schema version that accepts type M3, `also_m1` flag, a standing threat counted once, `--types`
+- [ ] M3c Frozen eval set `missed_threat_v1` from Lichess puzzles rated 400 to 1200 (frozen before the detector runs on it; adversarial: counter-threat, zugzwang, unavoidable fork, pinned attacker); target precision ≥ 0.90, recall ≥ 0.85
+- [ ] M3d Hand-check page: 30 missed flags (15 per time control) from the 350 older games; gate 27 of 30
+- [ ] M3e Baseline run on the owner's Mac over the frozen window; report per time control (threats faced, missed-threat rate, by kind, overlap with M1, uncertain)
+
 ## Next (proposed order for the next session)
 1. **T44 Training sessions** (the stepped hint ladder part is built, see T46; sessions and the practice bank remain)
    Original scope: **T44 Training sessions and the hint ladder** (spec D3 to D5): five positions per session (two from the owner's games, two curated on the same motif, one held-out test), stage 0 scan prompt, concept cue, piece or square, consequence, answer on request; fading scan prompts. Needs T25 (practice bank). No API spend. Assisted results labelled as such
