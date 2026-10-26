@@ -92,7 +92,8 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 ## M3 missed threat (ADR 0011; MVP 0 of the middlegame and endgame training plan)
 - [x] M3a `missed_threat` v1 detector, `threat_kind` labels, `M3_` constants, tests (2026-10-26, branch `feat/m3-missed-threat`)
 - [x] M3b M3 in `realgame_rates`: schema v11 accepts M3, `details_json`, `also_m1`, a standing threat counted once, `--types`, `freeze` for the M3 window (2026-10-26, branch `feat/m3-realgame-rates`)
-- [ ] M3c Frozen eval set `missed_threat_v1` from Lichess puzzles rated 400 to 1200 (frozen before the detector runs on it; adversarial: counter-threat, zugzwang, unavoidable fork, pinned attacker); target precision ≥ 0.90, recall ≥ 0.85
+- [x] M3c Frozen eval set `missed_threat_v1` (203 items, frozen 2026-10-26, branch `feat/m3-eval-set`); scored once: precision 72/72, **recall 72/100 = 0.72, misses the 0.85 target**; causes are two set flaws (decided margin, engine-only threats), see `evals/reports/missed_threat_v1_2026-10-26_notes.md`
+- [ ] M3c2 `missed_threat_v2` set: decided margin 400 cp, `met` only with a concrete threat, more `uncertain` items; score again as a new set (do not retune the detector on v1)
 - [ ] M3d Hand-check page: 30 missed flags (15 per time control) from games outside the M3 windows; gate 27 of 30
 - [ ] M3e On the owner's Mac: `freeze`, then `run --types M3` over the M3 window; report per time control (threats faced, missed-threat rate, by kind, overlap with M1, uncertain)
 

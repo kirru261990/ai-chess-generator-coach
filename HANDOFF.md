@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-26 (evening) · MacBook · Claude Code: M3c frozen eval set `missed_threat_v1` (branch `feat/m3-eval-set`)
+- **Done:** `evals/sets/missed_threat_v1` (203 items: 100 missed, 43 met, 59 not_applicable, 1 uncertain; frozen with hashes before any detector ran), builder `evals/tools/build_missed_threat_set.py` (imports no detectors), scorer `evals/tools/score_missed_threat.py` (scratch cache in `evals/runs/`), `tests/test_missed_threat_set.py`. Scored once, `missed_threat` v1 at depth 18: **precision 72/72 = 1.00 (CI 0.95-1.00); recall 72/100 = 0.72 (CI 0.63-0.80), below the 0.85 target.** Report and notes: `evals/reports/missed_threat_v1_2026-10-26*`.
+- **Why recall is low (read the notes):** the set kept positions within 600 cp at depth 14, the detector skips beyond 600 at depth 18 (41 of 65 disagreements, mostly near 530 cp); and 22 `met_real` items rest on "passing costs 200 cp" without a concrete threat, which the spec does not count. Both are set flaws, found after scoring. The detector was not changed.
+- **Next:** M3c2 (a v2 set with margin, concrete-threat `met` items and more `uncertain` items, scored as a new set), M3d hand-check page, M3e the owner's baseline run. Owner decides whether to do M3c2 before M3d.
+
 ### 2026-10-26 (afternoon) · cloud session (claude.ai) · Claude: M3 in the real-game rates (branch `feat/m3-realgame-rates`)
 - **Done (TASKS M3b, ADR 0011):** schema **v11** (`baseline_window` and `realgame_game` accept M3; rows copied as they are; `realgame_game.details_json` for the M3 breakdown). `realgame_rates`: M3 from ply 4 with the position before the opponent's move; a standing threat counts once (repeats logged); `also_m1` from M1 on the same move; a pass checks only the types still missing per game; `--types` on `run` and `report`; new `freeze` command for the M3 window. The Progress screen and its endpoint still show only M1 and M2.
 - **Correction:** ADR 0011 decision 6 first named the ADR 0002 100-game window. The rates never use it (ADR 0006); M3 now gets its own 30-game window per time control, frozen once by `freeze`. Recorded in ADR 0011.

@@ -126,7 +126,8 @@ def main():
     conn = connect(str(RUNS / "missed_threat_v1_cache.sqlite3"))
     with open_evidence(conn) as analyser:
         results = run(rows, analyser)
-        meta = {"date": date.today().isoformat(),  # noqa: DTZ011 "engine": analyser.config.version, "depth": analyser.config.depth,
+        today = date.today().isoformat()  # noqa: DTZ011 (the report is dated with the machine's local day)
+        meta = {"date": today, "engine": analyser.config.version, "depth": analyser.config.depth,
                 "engine_config_id": analyser.config.id, "detector_version": missed_threat.VERSION,
                 "positions_sha256": hashlib.sha256((SET / "positions.jsonl").read_bytes()).hexdigest()}
     report = build(results)
