@@ -29,10 +29,19 @@ A mate counts only when the engine reports mate in at most `M3_MATE_MAX_MOVES` (
 | `skipped` | `before_min_ply`, `in_check`, `only_legal_move`, `decided` | Gates. `M3_MIN_PLY` = 4; `decided` = best score beyond `DECIDED_LIMIT_CP` (600) |
 | `no_threat` | `no_concrete_threat`, `passing_costs_little` | The pass test finds nothing concrete, or passing costs under 150 cp and the best move stops the threat line |
 | `uncertain` | `threat_unavoidable` | A concrete threat, passing costs under 150 cp, and the threat line still wins after the best move: nothing saves the material |
-| `met` | `defended`, `countered` | M loses under `M3_EVAL_LOSS_CP` (150). `defended` = the threat line no longer wins after M; `countered` = it still wins but the score holds |
-| `met` | `defended_other_loss` | M loses 150 cp or more but stops the threat line: the loss is another mistake (often M1), not a missed threat |
+| `met` | `defended`, `countered` | M loses under `M3_EVAL_LOSS_CP` (150). `defended` = the threat is stopped after M; `countered` = it still works (or we cannot tell) but the score holds |
+| `met` | `defended_other_loss` | M loses 150 cp or more but stops the threat: the loss is another mistake (often M1), not a missed threat |
+| `uncertain` | `threat_line_diverged` | M loses 150 cp or more, the pass line breaks on a later reply after M, and the engine's best line after M does not start with the threat move |
 | `uncertain` | `loss_not_stable` | M loses 150 cp or more at the evidence depth but not at the stability depth (depth - 4) |
 | `missed` | `all_checks_hold` | M loses 150 cp or more at both depths and the threat line still wins after M |
+
+**Does the threat still work after M?** (PR 96 review.) The pass line holds the player's replies chosen for the passed
+position, so after a real move it can break on a reply that is no longer legal while the threat stands: in a back-rank
+position, ...Rb8 changes the recapture in Rd8+ Rxd8 Rxd8# but does not stop the mate. A broken replay is never taken as a
+defence. In order: the pass line replayed after M wins → works; the engine's best line after M starts with the threat move →
+that line decides; the threat move is no longer legal → stopped; the replay broke on a later reply → diverged (uncertain when
+the loss is large). The `threat_unavoidable` check after the best move still uses the replay alone (no engine call there);
+both of its outcomes are outside the rate.
 
 The missed-threat rate is missed ÷ (missed + met). `uncertain`, `no_threat` and `skipped` are in neither part (AGENTS rule 5).
 

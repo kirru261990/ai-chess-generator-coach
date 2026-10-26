@@ -106,7 +106,7 @@ def test_castling_into_the_pawn_attack_is_a_missed_threat_with_a_full_record():
     assert e["player_move"] == {"uci": "e1g1", "san": "O-O"}
     assert e["best_move"] == {"uci": "a4b3", "san": "Bb3"}
     assert (e["eval_before"], e["eval_after"], e["eval_loss"], e["eval_loss_stability"]) == (20, -290, 310, 310)
-    assert e["threat_works_after_move"] is True
+    assert e["threat_after_move"] == "works"
     assert e["target_squares"] == ["a4"]
     assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "1", R.RULES_VERSION)
     assert e["m3_thresholds"]["material_min"] == 2 and e["m3_thresholds"]["min_ply"] == 4
@@ -117,7 +117,7 @@ def test_castling_into_the_pawn_attack_is_a_missed_threat_with_a_full_record():
 def test_moving_the_bishop_away_meets_the_threat():
     f = ruy("a4b3")
     assert (f.outcome, f.reason) == ("met", "defended")
-    assert f.evidence["threat_works_after_move"] is False
+    assert f.evidence["threat_after_move"] == "stopped"
 
 
 def test_ignoring_the_threat_for_something_almost_as_good_is_countered():
@@ -165,6 +165,54 @@ def test_a_threat_ignored_on_an_earlier_move_is_standing():
     prev = play(*RUY_MOVES, "d3").fen()
     assert TK.origin(chess.Board(prev), ("b5a4",)) == "standing"
     assert TK.origin(chess.Board(RUY_PREV), ("b5a4",)) == "new"
+
+
+# --- the threat line after the player's move (PR 96 review) ------------------------------------------------------------
+
+# Back rank: White threatens Rd8+ Rxd8 Rxd8#. Black plays ...Rb8??: the pass line's recapture a8xd8 is no longer legal, but the
+# rook on b8 recaptures instead and the mate still works.
+BACK = "r5k1/5ppp/8/8/8/8/3R1PPP/3R2K1 b - - 0 1"
+M2 = {"mate": 2, "mate_sign": 1}
+
+
+def back_scripts(**changes):
+    s = {
+        BACK: [L("h7h6", 0), L("g7g6", -10), L("f7f6", -20)],
+        passed(BACK): [L("d2d8", pv=("d2d8", "a8d8", "d1d8"), **M2)],
+        after(BACK, "a8b8"): [L("d2d8", pv=("d2d8", "b8d8", "d1d8"), **M2)],
+        after(BACK, "h7h6"): [L("d2d8", 0, pv=("d2d8", "a8d8", "d1d8", "g8h7"))],
+    }
+    s.update(changes)
+    return s
+
+
+def test_a_move_that_changes_the_recapture_but_not_the_mate_is_missed():
+    assert TK.line_result(chess.Board(after(BACK, "a8b8")), ("d2d8", "a8d8", "d1d8"), chess.WHITE).plies == 1  # replay breaks
+    f = MT.detect(chess.Board(BACK), mv("a8b8"), 30, FakeAnalyser(back_scripts()))
+    assert (f.outcome, f.reason) == ("missed", "all_checks_hold")
+    assert f.evidence["threat_after_move"] == "works" and f.evidence["threat_kind"] == "mate"
+
+
+def test_making_luft_stops_the_back_rank_mate():
+    f = MT.detect(chess.Board(BACK), mv("h7h6"), 30, FakeAnalyser(back_scripts()))
+    assert (f.outcome, f.reason) == ("met", "defended")
+    assert f.evidence["threat_after_move"] == "stopped"  # the engine plays the threat move and it wins nothing
+
+
+def test_a_broken_replay_with_another_engine_line_is_uncertain_not_defended():
+    # After ...Rb8 the engine (scripted) prefers a different first move, so nothing confirms or refutes the threat.
+    scripts = back_scripts(**{after(BACK, "a8b8"): [L("d1d7", 400, pv=("d1d7", "b8b1"))]})
+    f = MT.detect(chess.Board(BACK), mv("a8b8"), 30, FakeAnalyser(scripts))
+    assert (f.outcome, f.reason) == ("uncertain", "threat_line_diverged")
+
+
+def test_threat_after_move_order_of_rules():
+    after_rb8 = chess.Board(after(BACK, "a8b8"))
+    pv = ("d2d8", "a8d8", "d1d8")
+    assert MT.threat_after_move(after_rb8, pv, L("d2d8", pv=("d2d8", "b8d8", "d1d8"), **M2), chess.WHITE) == "works"
+    assert MT.threat_after_move(after_rb8, pv, L("d2d8", 0, pv=("d2d8",)), chess.WHITE) == "stopped"
+    assert MT.threat_after_move(after_rb8, pv, L("g1f1", 0), chess.WHITE) == "diverged"
+    assert MT.threat_after_move(after_rb8, ("d2e8",), L("g1f1", 0), chess.WHITE) == "stopped"  # threat move not legal
 
 
 # --- SCHOLAR: an early mate threat (ply 4 start) ---------------------------------------------------------------------

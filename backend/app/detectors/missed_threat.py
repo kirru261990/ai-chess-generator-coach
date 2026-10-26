@@ -9,7 +9,9 @@ Outcomes (the rate is missed / (missed + met); the others are in neither part, A
 - missed: every check holds; `evidence` is the record
 - met: `defended` (the threat line no longer works after the move), `countered` (it still works but the move loses less than
   M3_EVAL_LOSS_CP), or `defended_other_loss` (the move stops the threat but loses for another reason, often an M1 mistake)
-- uncertain: `threat_unavoidable` (the best move cannot stop the threat line either) or `loss_not_stable`
+- uncertain: `threat_unavoidable` (the best move cannot stop the threat line either), `threat_line_diverged` (the move loses
+  M3_EVAL_LOSS_CP or more, the pass line breaks on a later reply, and the engine's best line does not start with the threat
+  move, so we cannot tell; see `threat_after_move`) or `loss_not_stable`
 - no_threat: `no_concrete_threat` or `passing_costs_little`
 - skipped: `before_min_ply` (M3_MIN_PLY), `in_check`, `only_legal_move`, `decided`
 
@@ -69,6 +71,30 @@ def engine_mates(line, beneficiary: chess.Color) -> bool:
 
 def threat_works(board: chess.Board, pv, beneficiary: chess.Color) -> bool:
     return TK.line_result(board, pv, beneficiary).wins
+
+
+def threat_after_move(after_board: chess.Board, pv, after_best, opponent: chess.Color) -> str:
+    """Does the threat still work after the player's move? `works`, `stopped` or `diverged`.
+
+    The pass line holds the player's replies chosen for the *passed* position, so after a real move it can break on a reply
+    that is no longer legal while the threat itself still stands (PR 96 review: ...Rb8 changes the recapture in
+    Rd8+ Rxd8 Rxd8# but does not stop the mate). A broken replay is therefore never taken as proof of a defence:
+    1. the pass line replayed as it stands wins -> works;
+    2. the engine's best line in the real position starts with the threat move -> that line decides (works or stopped);
+    3. the threat move itself is no longer legal -> stopped;
+    4. the replay broke on a later move and the engine does not play the threat move -> diverged (we cannot tell).
+    """
+    replay = TK.line_result(after_board, pv, opponent)
+    if replay.wins:
+        return "works"
+    if after_best is not None and after_best.move == pv[0]:
+        engine = TK.line_result(after_board, after_best.pv, opponent)
+        return "works" if engine.wins or engine_mates(after_best, opponent) else "stopped"
+    if chess.Move.from_uci(pv[0]) not in after_board.legal_moves:
+        return "stopped"
+    if replay.plies < min(len(pv), R.MAX_REFUTATION_PLIES):
+        return "diverged"
+    return "stopped"
 
 
 def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: chess.Board | None = None) -> Finding:
@@ -135,17 +161,19 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
     after = analyser.analyse(after_board)
     eval_after = R.line_score(after.best, mover) if after.best else R.terminal_score(after_board, mover)
     loss = eval_before - eval_after
-    still_works = threat_works(after_board, pv, opponent)
+    status = threat_after_move(after_board, pv, after.best, opponent)
     record.update({
         "player_move": R.move_ref(board, move.uci()),
         "eval_after": eval_after,
         "eval_loss": loss,
-        "threat_works_after_move": still_works,
+        "threat_after_move": status,
     })
     if loss < R.M3_EVAL_LOSS_CP:
-        return Finding("met", "countered" if still_works else "defended", record)
-    if not still_works:
+        return Finding("met", "defended" if status == "stopped" else "countered", record)
+    if status == "stopped":
         return Finding("met", "defended_other_loss", record)
+    if status == "diverged":
+        return Finding("uncertain", "threat_line_diverged", record)
 
     stab_depth = analyser.config.stability.depth
     s_before = analyser.analyse(board, depth=stab_depth)
