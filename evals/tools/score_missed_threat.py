@@ -1,12 +1,12 @@
-"""Score `missed_threat` (M3) on the frozen eval set missed_threat_v1. Reads the set; never edits it or the detector.
+"""Score `missed_threat` (M3) on a frozen eval set (default missed_threat_v1; `--set missed_threat_v2`). Reads the set; never edits it or the detector.
 
-Run:  cd backend && uv run python ../evals/tools/score_missed_threat.py [--limit N]
+Run:  cd backend && uv run python ../evals/tools/score_missed_threat.py [--set NAME] [--limit N]
 
 The detector runs with the production evidence engine (pinned Stockfish, depth 18) into a scratch cache under evals/runs/,
 never into data/coach.sqlite3. Detector outcomes map to the set's labels: missed -> missed, met -> met, uncertain -> uncertain,
 no_threat and skipped -> not_applicable.
 
-Output: evals/reports/missed_threat_v1_<date>.json (every item) and .md (tables; notes appended from ..._notes.md if present).
+Output: evals/reports/<set>_<date>.json (every item) and .md (tables; notes appended from ..._notes.md if present).
 """
 
 import argparse
@@ -29,7 +29,7 @@ from app.db.schema import connect
 from app.detectors import missed_threat
 from app.engine.evidence import open_evidence
 
-SET = ROOT / "evals" / "sets" / "missed_threat_v1"
+SETS = ROOT / "evals" / "sets"
 REPORTS = ROOT / "evals" / "reports"
 RUNS = ROOT / "evals" / "runs"
 MAP = {"missed": "missed", "met": "met", "uncertain": "uncertain", "no_threat": "not_applicable", "skipped": "not_applicable"}
@@ -82,11 +82,12 @@ def build(results):
 
 
 def markdown(report, meta, notes):
+    name = meta["set"]
     g = report["groups"]["all items"]
     p_ok = g["precision"][1] and g["precision"][0] / g["precision"][1] >= TARGET_PRECISION
     r_ok = g["recall"][1] and g["recall"][0] / g["recall"][1] >= TARGET_RECALL
-    L = [f"# missed_threat_v1: M3 detector scores ({meta['date']})", "",
-         (f"Set: frozen `missed_threat_v1` (positions.jsonl sha256 `{meta['positions_sha256'][:16]}...`). Detector: `missed_threat` "
+    L = [f"# {name}: M3 detector scores ({meta['date']})", "",
+         (f"Set: frozen `{name}` (positions.jsonl sha256 `{meta['positions_sha256'][:16]}...`). Detector: `missed_threat` "
           f"v{meta['detector_version']} with {meta['engine']} at depth {meta['depth']} (labels used depth 14 separately). "
           f"Targets fixed before the run: precision >= {TARGET_PRECISION}, recall >= {TARGET_RECALL}. Positive class = `missed`. "
           "Every figure is `successes/denominator` with a 95% Wilson interval. Nothing was tuned on this set."), "",
@@ -118,16 +119,18 @@ def markdown(report, meta, notes):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--set", default="missed_threat_v1")
     args = ap.parse_args()
+    SET = SETS / args.set
     rows = [json.loads(line) for line in (SET / "positions.jsonl").read_text().splitlines() if line.strip()]
     if args.limit:
         rows = rows[: args.limit]
     RUNS.mkdir(exist_ok=True)
-    conn = connect(str(RUNS / "missed_threat_v1_cache.sqlite3"))
+    conn = connect(str(RUNS / f"{args.set}_cache.sqlite3"))
     with open_evidence(conn) as analyser:
         results = run(rows, analyser)
         today = date.today().isoformat()  # noqa: DTZ011 (the report is dated with the machine's local day)
-        meta = {"date": today, "engine": analyser.config.version, "depth": analyser.config.depth,
+        meta = {"set": args.set, "date": today, "engine": analyser.config.version, "depth": analyser.config.depth,
                 "engine_config_id": analyser.config.id, "detector_version": missed_threat.VERSION,
                 "positions_sha256": hashlib.sha256((SET / "positions.jsonl").read_bytes()).hexdigest()}
     report = build(results)
@@ -135,7 +138,7 @@ def main():
         print(json.dumps(report["groups"]["all items"], indent=1))
         return
     REPORTS.mkdir(exist_ok=True)
-    stem = f"missed_threat_v1_{meta['date']}"
+    stem = f"{args.set}_{meta['date']}"
     (REPORTS / f"{stem}.json").write_text(json.dumps({"meta": meta, "report": report, "items": results}, indent=1) + "\n")
     notes = REPORTS / f"{stem}_notes.md"
     (REPORTS / f"{stem}.md").write_text(markdown(report, meta, notes.read_text() if notes.exists() else ""))
