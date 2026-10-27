@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-27 · MacBook · Claude Code: Maia-3 opponent, first slice (branch `feat/maia3-opponent`)
+- **Done:** `app/engine/maia.py` (Maia-3 as a UCI subprocess, `MAIA3_CMD`), `Game.opponent_elo`, `POST /games` takes `opponent` and `elo`, PGN and view name the opponent, `tests/test_maia.py` (fake UCI engine; Maia-3 itself is **not installed or run yet**), ADR 0012, `docs/maia-setup.md`.
+- **Not verified:** real Maia-3 play, its lowest Elo band for under-1000 players (spec A2), the weights licence (not stated upstream), checkpoint pinning.
+- **Next:** owner OKs the install (`uv tool install git+https://github.com/CSSLab/maia3`, PyTorch plus weights, several hundred MB); play a game at 700 to 1000; then a web selector and the MCP `game_new` option.
+
 ### 2026-10-27 · MacBook · Claude Code: M3d hand-check page (branch `feat/m3-handcheck`)
 - **Done:** `app/learner/handcheck_m3.py` (`scan`, `make`, `score`), a `collect` hook in `realgame_rates.analyse_game`, `tests/test_handcheck_m3.py` (10). The scan ran the M3 detector (`missed_threat` v1, depth 18) over games older than the M3 window (all but the latest 30 per time control; the M3 window is not frozen yet) on a **scratch copy of the store**, so the owner's `coach.sqlite3` was not touched or upgraded; it stops when each time control has 15 flagged games (took about 40 minutes for 48 and 56 games). Page: `data/evidence/handcheck_m3_v1.html` (git-ignored: owner's games), served by the `evidence-pages` launch entry on `http://localhost:8765/handcheck_m3_v1.html`. Sample frozen in `data/evidence/handcheck_m3_v1.json`: 15 + 15, one flag per game; kinds capture 15, fork 6, other 5, mate 3, discovered 1; origin new 24, standing 6; 7 also M1.
 - **Page:** one position at a time, keys Y/N/C, auto-advance, Back/Skip, answers saved in the browser; text cut to two board captions and three one-line questions (2026-10-27). A private Artifact copy was published for the owner's office use (link in the chat; answers save in that browser only; no download button there). Questions A (threat exists if they had skipped), B (still works after your move), C (another move stops it); real = all yes; gate 27 of 30.

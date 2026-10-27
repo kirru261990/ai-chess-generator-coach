@@ -34,7 +34,8 @@ class Game:
     moves: list[str] = field(default_factory=list)  # UCI, in order
     assisted: bool = False
     resigned_by: chess.Color | None = None
-    engine_level: int | None = None  # opponent strength; None = no engine opponent
+    engine_level: int | None = None  # Stockfish strength; None = not a Stockfish opponent
+    opponent_elo: int | None = None  # Maia-3 conditioning Elo; set instead of engine_level for a Maia-3 opponent
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     # Counts every state change (move, resignation, takeback). It only ever goes up, so a
     # stale client revision can never match a position that was reached after an undo.
@@ -46,6 +47,10 @@ class Game:
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     @property
+    def has_engine_opponent(self) -> bool:
+        return self.engine_level is not None or self.opponent_elo is not None
+
+    @property
     def can_take_back(self) -> bool:
         """Practice only, any number of times, back to the start of the game (owner's decision 2026-10-09)."""
         return self.mode is Mode.PRACTICE and self.resigned_by is None and self._can_take_back()
@@ -53,7 +58,7 @@ class Game:
     def _plies_to_remove(self) -> int:
         """Back to the user's turn: drop the engine's reply and the user's move, or just the
         user's move if the engine has not replied yet."""
-        if self.engine_level is None or self.board().turn != self.user_color:
+        if not self.has_engine_opponent or self.board().turn != self.user_color:
             return 1
         return 2
 
@@ -94,6 +99,7 @@ def new_game(
     mode: Mode = Mode.PLAY,
     start_fen: str = chess.STARTING_FEN,
     engine_level: int | None = None,
+    opponent_elo: int | None = None,
 ) -> Game:
     try:
         chess.Board(start_fen)
@@ -101,7 +107,8 @@ def new_game(
         raise GameError("invalid_fen", str(e)) from e
     # Positions start assisted if the game begins in Practice mode.
     return Game(id=uuid.uuid4().hex, user_color=user_color, mode=mode, start_fen=start_fen,
-                assisted=mode is Mode.PRACTICE, engine_level=engine_level)
+                assisted=mode is Mode.PRACTICE, engine_level=engine_level,
+                opponent_elo=opponent_elo)
 
 
 def set_mode(game: Game, mode: Mode) -> None:

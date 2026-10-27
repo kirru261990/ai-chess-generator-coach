@@ -19,6 +19,7 @@ from app.core.game import (
     to_pgn,
 )
 from app.core.openings import book_name
+from app.engine import maia
 from app.engine.shared import get_engine
 from app.engine.stockfish import MAX_LEVEL, Analysis, Budget
 from app.learner.feedback import analyse_move, judge
@@ -55,6 +56,8 @@ def _game_view(game: Game) -> dict:
         "hints_used": len(game.hints),
         "can_take_back": game.can_take_back,
         "engine_level": game.engine_level,
+        "opponent": "maia3" if game.opponent_elo is not None else "stockfish",
+        "opponent_elo": game.opponent_elo,
         "outcome": game.outcome(),
         # Legal moves for the user, so the client can highlight targets. The server still
         # validates every move; this list is a convenience, never the authority.
@@ -71,7 +74,7 @@ def _get(game_id: str) -> Game:
 
 def _engine_to_move(game: Game) -> bool:
     return (
-        game.engine_level is not None
+        game.has_engine_opponent
         and game.outcome() is None
         and game.board().turn != game.user_color
     )
@@ -89,27 +92,48 @@ def engine_reply(game_id: str) -> dict:
     with game.lock:
         if not _engine_to_move(game):
             return _game_view(game)
-        revision, board, level = game.revision, game.board(), game.engine_level
-    uci = get_engine().play(board, level)
+        revision, board, level, elo = game.revision, game.board(), game.engine_level, game.opponent_elo
+    uci = maia.get_maia().play(board, elo) if elo is not None else get_engine().play(board, level)
     make_move(game, uci, revision)  # validates and applies atomically under the lock
     return game_view(game)
 
 
-def create_game(color: str = "white", mode: str = "play", level: int = 3) -> Game:
-    """Validate, create and register a game without asking the engine for its opening move (the caller owns that step)."""
+def create_game(
+    color: str = "white", mode: str = "play", level: int = 3, opponent: str = "stockfish", elo: int | None = None
+) -> Game:
+    """Validate, create and register a game without asking the engine for its opening move (the caller owns that step).
+
+    `opponent` is "stockfish" (strength = `level`) or "maia3" (human-like, conditioned on `elo`). A Maia-3 game is
+    refused when Maia-3 is not installed; the caller picks Stockfish instead, so the opponent is never swapped silently."""
     if color not in ("white", "black"):
         raise GameError("invalid_color", "color must be white or black")
-    if not 1 <= level <= MAX_LEVEL:
+    if opponent not in ("stockfish", "maia3"):
+        raise GameError("invalid_opponent", "opponent must be stockfish or maia3")
+    if opponent == "maia3":
+        try:
+            maia.check_elo(elo)
+        except ValueError as e:
+            raise GameError("invalid_elo", str(e)) from e
+        if not maia.available():
+            raise GameError("opponent_unavailable", "Maia-3 is not installed on this server; use Stockfish")
+    elif not 1 <= level <= MAX_LEVEL:
         raise GameError("invalid_level", f"level must be 1..{MAX_LEVEL}")
     if mode not in {m.value for m in Mode}:
         raise GameError("invalid_mode", "mode must be play or practice")
-    game = new_game(chess.WHITE if color == "white" else chess.BLACK, Mode(mode), engine_level=level)
+    game = new_game(
+        chess.WHITE if color == "white" else chess.BLACK,
+        Mode(mode),
+        engine_level=level if opponent == "stockfish" else None,
+        opponent_elo=elo if opponent == "maia3" else None,
+    )
     GAMES[game.id] = game
     return game
 
 
-def start_game(color: str = "white", mode: str = "play", level: int = 3) -> dict:
-    game = create_game(color, mode, level)
+def start_game(
+    color: str = "white", mode: str = "play", level: int = 3, opponent: str = "stockfish", elo: int | None = None
+) -> dict:
+    game = create_game(color, mode, level, opponent, elo)
     if _engine_to_move(game):  # user chose black: engine opens
         return engine_reply(game.id)
     return game_view(game)
@@ -148,7 +172,8 @@ def resign_game(game_id: str) -> dict:
 
 def export_pgn(game_id: str) -> str:
     game = _get(game_id)
-    you, opp = "You", f"Stockfish Level {game.engine_level}"
+    you = "You"
+    opp = maia.label(game.opponent_elo) if game.opponent_elo is not None else f"Stockfish Level {game.engine_level}"
     white, black = (you, opp) if game.user_color == chess.WHITE else (opp, you)
     return to_pgn(game, white=white, black=black)
 
