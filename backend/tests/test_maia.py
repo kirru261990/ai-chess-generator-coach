@@ -115,3 +115,17 @@ def test_stockfish_games_are_unchanged_by_default():
     game = tools.create_game()
     assert game.engine_level == 3 and game.opponent_elo is None
     assert tools.game_view(game)["opponent"] == "stockfish"
+
+
+@pytest.mark.parametrize("value", ["", "   ", "'unbalanced"])
+def test_a_blank_or_broken_maia_command_means_unavailable_not_a_crash(monkeypatch, value):
+    monkeypatch.setenv("MAIA3_CMD", value)
+    assert maia.available() is False
+    with pytest.raises(GameError) as e:
+        tools.create_game(opponent="maia3", elo=900)
+    assert e.value.code == "opponent_unavailable"
+
+
+def test_maia_is_off_when_the_command_is_not_set_at_all(monkeypatch):
+    monkeypatch.delenv("MAIA3_CMD", raising=False)
+    assert maia.available() is False
