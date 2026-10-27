@@ -4,7 +4,7 @@ import { applyMove } from './applyMove'
 import { playMove } from './optimisticMove'
 import { practiceOnly, toGameView, toHint, type GameBackend, type GamePayload } from './gameBackend'
 import {
-  boardMarks, feedbackToShow, gameEndBanner, hintToShow, isUndoKey, moveBadge, storeFeedback, threatArrows, threatsAreCurrent,
+  boardMarks, feedbackToShow, gameEndBanner, hintToShow, isUndoKey, moveBadge, opponentLabel, storeFeedback, threatArrows, threatsAreCurrent,
   type Hint,
 } from './gameState'
 
@@ -165,7 +165,7 @@ export default function GameBoard({ initial, backend, enlarge }: { initial: Game
         />
       </div>
       <p className="status-line">
-        <strong>{status}</strong> · {practice ? 'Practice' : 'Play'} · Stockfish level {game.engine_level}
+        <strong>{status}</strong> · {practice ? 'Practice' : 'Play'} · {opponentLabel(game)}
         {extras?.assisted && <span className="badge"> assisted</span>}
       </p>
       {fb && <p className="fb-wait">{fb.headline}</p>}
