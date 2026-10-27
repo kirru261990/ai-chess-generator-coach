@@ -42,7 +42,7 @@ from app.db.schema import connect, default_path
 from app.learner import pools, realgame, realgame_rates
 from app.learner.evidence_run import games_path
 from app.learner.explorer import GREEN, ORANGE, RED, board_svg, plain, side
-from app.learner.handcheck import ANSWERS, GATE, line_words
+from app.learner.handcheck import ANSWERS, GATE
 
 VERSION = 1
 PER_TC = 15
@@ -219,24 +219,18 @@ def card(it: dict) -> str:
     threat = chess.Move.from_uci(e["threat_move"]["uci"])
     best = chess.Move.from_uci(e["best_move"]["uci"])
     pb = passed_board(board)
-    line = e["threat_line"]["uci"]
     arrows = [chess.svg.Arrow(played.from_square, played.to_square, color=RED),
               chess.svg.Arrow(best.from_square, best.to_square, color=GREEN)]
-    boards = (f'<figure>{board_svg(board, me, arrows, {})}<figcaption>Your move (you were {side(me)})</figcaption></figure>'
+    boards = (f'<figure>{board_svg(board, me, arrows, {})}<figcaption>You ({side(me)}) played the red move</figcaption></figure>'
               f'<figure>{board_svg(pb, me, [chess.svg.Arrow(threat.from_square, threat.to_square, color=ORANGE)], {})}'
-              f'<figcaption>The same board if you skipped your turn</figcaption></figure>')
-    story = (f"You played <b>{html.escape(plain(board, played.uci()))}</b> (red). Their move in the second board "
-             f"(orange): <b>{html.escape(plain(pb, threat.uci()))}</b>. The engine's line: "
-             f"{html.escape(line_words(pb, line, me))}.")
-    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> Look at the second board, as if you had skipped your turn. Could they play '
-          f'{html.escape(plain(pb, threat.uci()))} (orange) and come out ahead, by winning material or giving checkmate? '
-          f'Count what you could take back.</p>{buttons(it["id"], "A")}</div>'
-          f'<div class="q" data-qid="B"><p><b>B.</b> After the move you actually played (red), can they still do it?</p>'
+              f'<figcaption>If you had skipped your turn</figcaption></figure>')
+    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> Could they play {html.escape(plain(pb, threat.uci()))} (orange) and '
+          f'win material or give checkmate?</p>{buttons(it["id"], "A")}</div>'
+          f'<div class="q" data-qid="B"><p><b>B.</b> After your red move, can they still do it?</p>'
           f'{buttons(it["id"], "B")}</div>'
-          f'<div class="q" data-qid="C"><p><b>C.</b> Could you have stopped it with another move, for example '
-          f'{html.escape(plain(board, best.uci()))} (green), without losing as much?</p>{buttons(it["id"], "C")}</div>')
-    return (f'<section class="card" id="{it["id"]}"><h2>{it["id"]}</h2><div class="boards">{boards}</div>'
-            f'<p class="show">{story}</p>{qa}</section>')
+          f'<div class="q" data-qid="C"><p><b>C.</b> Could you have stopped it, for example with '
+          f'{html.escape(plain(board, best.uci()))} (green)?</p>{buttons(it["id"], "C")}</div>')
+    return (f'<section class="card" id="{it["id"]}"><div class="boards">{boards}</div>{qa}</section>')
 
 
 def parse_answers(text: str) -> dict[str, dict[str, str]]:
@@ -310,14 +304,8 @@ details.help{margin:8px 0}.q.active{outline:2px solid var(--accent);border-radiu
 </style></head><body><main>
 <div id="bar"><b id="prog">0 of __TOTAL__ answered</b></div>
 <div id="intro"><h1>Did you miss a threat?</h1>
-<p class="note">30 moves from your older games. For each: look at the two boards and answer up to three quick questions.
-<b>Keyboard: Y = yes, N = no, C = can't tell, ← = back.</b> Or tap. It moves on by itself. "Can't tell" is fine, nothing is timed,
-and your answers are saved in this browser.</p>
-<details class="help"><summary>What do the arrows mean?</summary>
-<p class="note key"><b class="r">red</b> the move you played · <b class="g">green</b> a move that stops the threat ·
-<b class="o">orange</b> their threatening move. The right-hand board is the same position as if you had skipped your turn.
-"Come out ahead" counts everything taken by both sides. None of these games are in the set of recent games your threat score
-will be measured on.</p></details></div>
+<p class="note"><b>Y</b> yes · <b>N</b> no · <b>C</b> can't tell · <b>←</b> back. It moves on by itself.</p>
+<p class="note key"><b class="r">red</b> you played · <b class="g">green</b> a better move · <b class="o">orange</b> their threat</p></div>
 __CARDS__
 <div class="nav"><button id="back">← Back</button><button id="skip">Skip →</button></div>
 <section class="card hide" id="done"><h2>All done</h2>
