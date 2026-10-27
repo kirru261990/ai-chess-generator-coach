@@ -78,5 +78,5 @@ The Vite build bundles React and other MIT code. Before publishing a built bundl
 packages are included with it.
 
 ## Planned, not used yet (see ADR 0001)
-Maia-2 (MIT), ChessBench (code Apache-2.0; data CC0 and CC-BY 4.0, which needs attribution here and in any report that uses it),
+Maia-3 (code AGPL-3.0; weights licence not stated, see ADR 0012; run as a separate process, not a dependency: first used 2026-10-27), Maia-2 (MIT), ChessBench (code Apache-2.0; data CC0 and CC-BY 4.0, which needs attribution here and in any report that uses it),
 Lichess games database (CC0). Add rows when they are first used.

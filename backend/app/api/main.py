@@ -61,6 +61,8 @@ class StartGame(BaseModel):
     color: str = "white"
     mode: str = "play"
     level: int = 3
+    opponent: str = "stockfish"  # or "maia3" (human-like; needs `elo`)
+    elo: int | None = None
 
 
 class MoveIn(BaseModel):
@@ -71,7 +73,7 @@ class MoveIn(BaseModel):
 
 @app.post("/games")
 def start_game(body: StartGame):
-    return tools.start_game(body.color, body.mode, body.level)
+    return tools.start_game(body.color, body.mode, body.level, body.opponent, body.elo)
 
 
 @app.get("/games/{game_id}")
