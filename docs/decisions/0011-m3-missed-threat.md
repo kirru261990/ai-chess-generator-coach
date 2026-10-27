@@ -134,6 +134,31 @@ common cause; candidates to check, none decided: `standing` threats (1 of 6 real
 the move" is read when the move is itself a capture or check. (3) A change is a new detector version (`missed_threat` v2) with its own
 eval and a **new** hand-check sample of different older games (about 350 remain unsampled), gate 27 of 30 again.
 
+### Why the 16 were not real (the owner went through them, 2026-10-27)
+
+Two separate causes, found after the score (so they guide a fix and cannot be tuned on these 30):
+
+1. **The loss was not caused by the threat (9 of 16: hc3-02, 03, 08, 11, 15, 20, 21, 26, 28).** In these the engine's best reply to the
+   player's move is not the flagged threat; the move allowed something else (hc3-02: f3 attacked the queen but left a bishop
+   undefended, and the queen took it with check). The detector calls a move `missed` when the move loses at least 150 cp and the
+   threat line still wins after it (`threat_after_move` = works), and never checks that the loss comes from that threat. In the 14 real
+   flags the engine's best reply was the threat in 13; in the 16 not-real in 7. This is a detector defect, not a question problem.
+2. **The questions were misread (6 of 16: hc3-05, 06, 07, 12, 13, 18).** For each, the owner explained that they agree with the
+   engine: the threat was real and they missed it (06, 07, 12, 13, 18), or a counter-attack answers it (05). Question C ("could you
+   have stopped it with another move?") was read as "stopped completely" and B ("can they still do it?") as "can I recover". On
+   hc3-18 the owner had not seen the pin when answering A. These flags were right; the page's wording failed.
+3. **A real miss the owner had not seen (1 of 16: hc3-27).** The owner saw no threat (A no). The threat is a discovered attack: the
+   black pawn steps from e5 to e4, hitting the queen and opening the bishop's line to the rook on a1. The flag was right.
+
+By the owner's own explanations, 21 of 30 were right (14 real by the answers, plus these 7), 9 were a detector defect. The recorded
+result stays 14 of 30 and the gate is not met; the 21 is a reading, not a score. A re-run must use a new sample.
+
+**Next (owner decides).** (a) `missed_threat` v2: `missed` only when the engine's best reply after the move starts with the threat
+move (or the loss is otherwise explained by the threat), with its own run on `missed_threat_v2` and a new unsampled hand-check
+(about 350 older games remain). (b) New hand-check wording, plain and one fact per question, for example "What can they do next if
+you had skipped?" / "Does your move stop it, or answer it with something bigger?" / "Did you miss it?"; shown with the move
+in words. (c) Do not report an M3 rate as a weakness until both pass the gate.
+
 ## Not in this step
 
 The frozen `missed_threat_v1` eval set and the hand-check page come in later pull requests.
