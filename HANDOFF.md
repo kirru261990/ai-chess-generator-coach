@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-26 (night) · MacBook · Claude Code: M3c2 `missed_threat_v2` frozen and scored (branch `feat/m3-eval-set-v2`)
+- **Done:** `evals/sets/missed_threat_v2` (175 items: 88 missed, 27 met, 59 not_applicable, 1 uncertain; frozen before scoring), builder `build_missed_threat_set_v2.py` (uses the v1 builder as a library, imports no detectors), scorer takes `--set`, tests cover both sets. Changes from v1: calm positions (400 cp at depth 14, 550 at depth 18), `met` needs a concrete threat, no puzzle reused. Scored once with `missed_threat` v1 (unchanged): **precision 84/85 = 0.99 (CI 0.94-1.00), recall 84/88 = 0.95 (CI 0.89-0.98); both meet the targets.** v1's 0.72 came from the set, as its notes said.
+- **Limits:** one `uncertain` item only (an attempt at about 24 failed: not one in 6,000 puzzle positions, and random trapped-piece positions had doubtful labels), so `threat_unavoidable` and `loss_not_stable` are untested; 9 disagreements are listed in the notes (4 `met` called no threat, 2 `missed` called `defended_other_loss`, 1 adversarial uncertain called missed); no one has reviewed the labels.
+- **Next:** M3d (hand-check page on real games, gate 27 of 30), then M3e (owner's baseline run).
+
 ### 2026-10-26 (evening) · MacBook · Claude Code: M3c frozen eval set `missed_threat_v1` (branch `feat/m3-eval-set`)
 - **Done:** `evals/sets/missed_threat_v1` (203 items: 100 missed, 43 met, 59 not_applicable, 1 uncertain; frozen with hashes before any detector ran), builder `evals/tools/build_missed_threat_set.py` (imports no detectors), scorer `evals/tools/score_missed_threat.py` (scratch cache in `evals/runs/`), `tests/test_missed_threat_set.py`. Scored once, `missed_threat` v1 at depth 18: **precision 72/72 = 1.00 (CI 0.95-1.00); recall 72/100 = 0.72 (CI 0.63-0.80), below the 0.85 target.** Report and notes: `evals/reports/missed_threat_v1_2026-10-26*`.
 - **Why recall is low (read the notes):** the set kept positions within 600 cp at depth 14, the detector skips beyond 600 at depth 18 (41 of 65 disagreements, mostly near 530 cp); and 22 `met_real` items rest on "passing costs 200 cp" without a concrete threat, which the spec does not count. Both are set flaws, found after scoring. The detector was not changed.

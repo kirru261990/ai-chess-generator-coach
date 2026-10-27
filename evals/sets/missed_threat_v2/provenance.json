@@ -1,0 +1,43 @@
+{
+  "set": "missed_threat_v2",
+  "rule": "LABEL_RULE.md",
+  "seed": 20261027,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "calm_cp": 400,
+  "calm_depth18_cp": 550,
+  "line_plies": 4,
+  "miss_loss_cp": 300,
+  "met_loss_cp": 100,
+  "threat_cp": 200,
+  "no_threat_cp": 60,
+  "min_ply": 4,
+  "puzzle_file_sha256": "76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d",
+  "excluded_v1_puzzles": 203,
+  "counts": {
+    "missed_real:missed": 60,
+    "constructed_missed:missed": 22,
+    "adversarial:missed": 6,
+    "met_real:met": 24,
+    "constructed_quiet:not_applicable": 20,
+    "hung_not_threat:not_applicable": 20,
+    "adversarial:met": 3,
+    "quiet_blunder:not_applicable": 16,
+    "adversarial:not_applicable": 3,
+    "adversarial:uncertain": 1
+  },
+  "pool": {
+    "general_sample": 91297,
+    "defensive": 24624
+  },
+  "shortfall": {
+    "met_real:400": 10,
+    "met_real:600": 6,
+    "constructed_missed:400": 10,
+    "constructed_missed:600": 8
+  },
+  "adversarial_rejected": [],
+  "items": 175,
+  "detectors_run": false,
+  "frozen": true
+}
