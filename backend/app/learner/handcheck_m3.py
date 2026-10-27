@@ -147,9 +147,8 @@ def scan(db_path: Path, workers: int) -> dict:
                     tasks.append({"game": gid, "time_control": tc, "pgn": r["pgn"], "user_color": r["user_color"]})
                 with scan_path().open("a") as out:
                     for res in pool.imap_unordered(_process, tasks):
-                        if res["error"]:
+                        if res["error"]:  # kept as a row with no flags, so it is never submitted again (review of PR 100)
                             print(f"  could not read a game: {res['error']}", flush=True)
-                            continue
                         scanned[res["game"]] = res
                         out.write(json.dumps(res) + "\n")
                 print(f"  {tc}: {len([g for g in ids if g in scanned])}/{len(ids)} older games scanned, "

@@ -176,3 +176,41 @@ def test_the_page_script_is_valid_javascript(tmp_path):
     file.write_text(script.replace("__KEY__", "k").replace("__TOTAL__", "30"))
     done = subprocess.run([node, "--check", str(file)], capture_output=True, text=True, check=False)
     assert done.returncode == 0, done.stderr
+
+
+class FakeCtx:
+    """Stand-in for the spawn context: a pool that runs the (patched) worker in this process."""
+
+    def Pool(self, *args, **kwargs):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def imap_unordered(self, fn, tasks):
+        return iter([fn(t) for t in tasks])
+
+
+def test_scan_ends_when_a_game_cannot_be_read_and_never_submits_it_twice(conn, tmp_path, data_dir, monkeypatch):
+    add_games(conn, 31)  # one game older than the latest 30
+    bad = "chesscom:g600-1"
+    conn.execute("UPDATE game SET pgn = 'not a pgn' WHERE id = ?", (bad,))
+    conn.close()
+    calls = []
+
+    def process(task):
+        calls.append(task["game"])
+        assert len(calls) == 1, "the unreadable game was submitted again"  # fail fast instead of looping forever
+        return {"game": task["game"], "time_control": task["time_control"], "flags": [], "config_id": "c",
+                "error": "ValueError: the PGN could not be read", "seconds": 0.0}
+
+    monkeypatch.setattr(H, "_process", process)
+    monkeypatch.setattr(H.mp, "get_context", lambda name: FakeCtx())
+    monkeypatch.setattr(H.pools, "import_games", lambda *a, **k: 0)
+    summary = H.scan(tmp_path / "store.sqlite3", 1)
+    assert calls == [bad]  # asked once, then the scan reports the shortfall and stops
+    assert summary["with_flag"] == {} and summary["older_games"]["600"] == 1
+    assert H.read_scan()[bad]["error"]
