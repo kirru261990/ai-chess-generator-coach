@@ -23,8 +23,8 @@ The Maia-2 README now points new projects to Maia-3 (CSSLab/maia3). The owner as
    Accepted range 400 to 2800 is a guard, not the model's documented range; narrow it after the under-1000 check.
 4. **The full move list is sent** (`--use-uci-history`), because Maia-3 uses history. Default `Temperature` 1.0 (sample the model's
    human move distribution; 0 would repeat its top move). Both are env settings and are recorded in `maia.settings()`.
-5. **Versioning (rule 6):** model alias, device and temperature come from `maia.settings()`. Checkpoint revision is not recorded
-   yet: pin it when the first real run is done.
+5. **Versioning (rule 6):** model alias, device and temperature come from `maia.settings()`. Seen on the first real run (2026-10-27): maia3 package commit `1e13597c`,
+   `Maia3-5M` Hugging Face snapshot `b6559de2398d7140b985f28fd2c19fb5e47ddabe`, torch 2.14.1, CPU. Not yet recorded by the code per game.
 6. **Practice and Play rules are unchanged** (ADR 0005). The opponent is not assistance. A Practice game against Maia is still assisted.
 7. **Scope of this slice:** `POST /games` takes `opponent` ("stockfish" default, or "maia3") and `elo`. Not done: web selector,
    MCP `game_new` option, the under-1000 band check, checkpoint pinning.
