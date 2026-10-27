@@ -97,6 +97,85 @@ every game from the freeze on, as for M1 and M2. The hand-check sample (TASKS M3
   4 to 7 are never `also_m1`.
 - The Progress screen and its endpoint keep M1 and M2 only; M3 is read with `report --types M3` until it has a screen.
 
+## Hand-check result (2026-10-27, TASKS M3d): the gate was not met
+
+The owner judged 30 flagged moves from games older than the M3 window (15 per time control, one per game; `handcheck_m3.py`,
+questions A "could they win material or mate if you had skipped your turn?", B "can they still do it after your move?", C "could
+you have stopped it with another move?"). A flag is real only with yes to all three. **14 of 30 were real; the gate is 27.** 10|0 7
+of 15, 15|10 7 of 15. A 95% Wilson interval for 14 of 30 is about 0.30 to 0.64.
+
+Where the 16 went wrong (the first "no" on each): A no 7 (the owner sees no threat), B no 5 (the owner says the move stopped it,
+the detector says it still works), C no 4 (the owner sees no other move that would have stopped it).
+
+Breakdown (the numbers are small; read them as leads, not findings):
+
+| By | Real / flagged |
+| --- | --- |
+| kind `mate` | 3 / 3 |
+| kind `capture` | 7 / 15 (5 of the 8 misses are B no) |
+| kind `fork` | 3 / 6 |
+| kind `other` | 1 / 5 (4 of the 5 are A no) |
+| kind `discovered` | 0 / 1 |
+| origin `new` | 13 / 24 |
+| origin `standing` | 1 / 6 |
+| also flagged by M1 | 5 / 7 |
+
+The size of the loss (230 to 1517 cp) and of the threat (298 to 1516 cp) do not separate real from not real, so the thresholds are
+not the obvious cause. The owner's reasons for each "no" are not recorded; they are the next thing to learn.
+
+**What this means.** M3 v1 is not accurate enough on real games to be shown as a weakness. The eval-set score (precision 0.99, recall
+0.95 on `missed_threat_v2`) and this result disagree: the set holds puzzle positions with clean, immediate captures and mates, and
+real games are messier. That is a finding about the set as well as the detector. Nothing was changed after seeing the answers.
+Per AGENTS rule 5 and the gate, the M3 rate (TASKS M3e) is not to be reported as a weakness, and the detector is not to be retuned on
+these 30 positions and then scored on them again.
+
+**Ways forward (owner decides).** (1) Record the owner's reason for each of the 16 (especially the 5 B no and 7 A no). (2) Find the
+common cause; candidates to check, none decided: `standing` threats (1 of 6 real), `other` kind (1 of 5), and how "still works after
+the move" is read when the move is itself a capture or check. (3) A change is a new detector version (`missed_threat` v2) with its own
+eval and a **new** hand-check sample of different older games (about 350 remain unsampled), gate 27 of 30 again.
+
+### Why the 16 were not real (the owner went through them, 2026-10-27)
+
+Found after the score, so they guide a fix and cannot be tuned on these 30 positions. Corrected after review of PR 102: the first
+reading used "the engine's best reply is not the threat" as the test, which is too crude (see the checks below).
+
+1. **The loss was not caused by the threat (6 of 16: hc3-02, 03, 08, 11, 15, 26).** Test: the **forced-threat loss** = the engine
+   score before the move minus the score after the player's move, then the threat move, then best play. In these six it is zero or
+   negative (-1184 to -37 cp) while the move lost 230 to 1517 cp: the move allowed something else (hc3-02: f3 attacked the queen
+   but left a bishop undefended, and the queen took it with check). The detector calls a move `missed` when it loses at least 150 cp
+   and the threat line still wins after it (`threat_after_move` = works); it never checks that the loss comes from the threat. This
+   is a detector defect.
+2. **Three where the threat does cost, and the owner saw no threat (hc3-20, 21, 28).** The forced-threat loss is 343, 796 and
+   303 cp against losses of 367, 790 and 358: the threat explains the loss. The owner answered A no. Their reasons for these three
+   are not yet recorded; they may be unseen threats like hc3-27. Not counted as a defect.
+3. **The questions were misread (6 of 16: hc3-05, 06, 07, 12, 13, 18).** For each, the owner explained that they agree with the
+   engine: the threat was real and they missed it (06, 07, 12, 13, 18), or a counter-attack answers it (05). Question C ("could you
+   have stopped it with another move?") was read as "stopped completely" and B ("can they still do it?") as "can I recover". On
+   hc3-18 the owner had not seen the pin when answering A. The flags were right; the page's wording failed.
+4. **A real miss the owner had not seen (hc3-27).** The owner saw no threat (A no). The threat is a discovered attack: the black pawn
+   steps from e5 to e4, hitting the queen and opening the bishop's line to the rook on a1. The flag was right.
+
+**Why not "best reply equals the threat".** It holds for 13 of the 14 real flags and 7 of the 16 not-real, but a real flag fails it
+(hc3-29: the engine's best reply is another move, the threat move is not among the top three), and several winning replies are
+possible when a threatened fork is missed. Equality with one chosen line does not establish cause either way. The forced-threat loss
+needs no such equality; it still rejects hc3-29 (-865 cp: executing the threat backfires on the opponent, yet the owner judged the
+flag real), so that position is a regression case where the rule and the owner disagree and must be looked at.
+
+Counts: of the 16 not-real flags, by the owner's own explanations 7 were right after all (6 wording, hc3-27), 6 were a detector
+defect, and 3 are open (hc3-20, 21, 28). The recorded result stays **14 of 30** and the gate is not met; any other number is a
+reading, not a score. A re-run must use a new sample.
+
+**Next (owner decides).** (a) `missed_threat` v2: `missed` needs the **forced-threat loss** to explain most of the move's loss
+(at least half of it and at least `M3_EVAL_LOSS_CP`), measured with the evidence engine; several winning replies are fine because the
+threat move itself is forced. Regression cases: several winning replies; a real flag whose best reply differs (hc3-29 pattern);
+the six defect cases; the three "threat costs, owner saw none" cases. Its own run on a new eval set. (b) New hand-check wording,
+one plain fact per question, with the **answer-to-real mapping frozen before the next sample is judged**: A "if you had skipped, what
+could they do next?" (they win something or give mate: yes); B "does your move stop that, or answer it with something bigger?" (no:
+yes); C "could another legal move have avoided or answered it?" (yes: real; no: unavoidable, left out as uncertain, as
+`threat_unavoidable`). **Real = A yes, B yes (still there), C yes.** A separate "did you see it?" is collected as information and is
+not part of the mapping. (c) A new hand-check sample of different older games (about 350 remain), gate 27 of 30 again. (d) Do not
+report an M3 rate as a weakness until both pass the gate.
+
 ## Not in this step
 
 The frozen `missed_threat_v1` eval set and the hand-check page come in later pull requests.
