@@ -163,11 +163,12 @@ def _count_m3(c: dict, finding, ply: int, last: tuple[str, str | None] | None, m
     return finding.outcome, tid
 
 
-def analyse_game(pgn: str, user_color: str, analyser, types=TYPES) -> dict[str, dict]:
+def analyse_game(pgn: str, user_color: str, analyser, types=TYPES, collect: list | None = None) -> dict[str, dict]:
     """Run the detectors for `types` over every player move from each type's first ply. Returns {type: counts}.
 
     `analyser` is an `EvidenceAnalyser` (or a scripted stand-in with `analyse(board, depth=None)` and `.config`). M3 also gets
     the position before the opponent's last move (for its origin label), and M1's finding on the same move for `also_m1`.
+    `collect`, when given, receives one record per counted M3 `missed` move (not a repeat): the hand-check reads these.
     """
     game = chess.pgn.read_game(io.StringIO(pgn))
     if game is None or game.errors:
@@ -189,6 +190,9 @@ def analyse_game(pgn: str, user_color: str, analyser, types=TYPES) -> dict[str, 
                     if finding.outcome == "missed" and m1_finding is None and ply >= R.MIN_PLY:
                         m1_finding = DETECTORS["M1"].detect(board, move, ply, analyser)
                     last_m3 = _count_m3(out[t], finding, ply, last_m3, m1_finding)
+                    if collect is not None and out[t]["event_plies"][-1:] == [ply]:
+                        collect.append({"ply": ply, "fen": board.fen(), "move": move.uci(), "evidence": finding.evidence,
+                                        "also_m1": m1_finding is not None and m1_finding.outcome == "mistake"})
                 else:
                     finding = DETECTORS[t].detect(board, move, ply, analyser)
                     if t == "M1":

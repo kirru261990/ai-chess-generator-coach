@@ -94,7 +94,7 @@ Each task should fit one 1–2 hour session. Tick when merged to `main`.
 - [x] M3b M3 in `realgame_rates`: schema v11 accepts M3, `details_json`, `also_m1`, a standing threat counted once, `--types`, `freeze` for the M3 window (2026-10-26, branch `feat/m3-realgame-rates`)
 - [x] M3c Frozen eval set `missed_threat_v1` (203 items, frozen 2026-10-26, branch `feat/m3-eval-set`); scored once: precision 72/72, **recall 72/100 = 0.72, misses the 0.85 target**; causes are two set flaws (decided margin, engine-only threats), see `evals/reports/missed_threat_v1_2026-10-26_notes.md`
 - [x] M3c2 `missed_threat_v2` set (175 items, frozen 2026-10-26, branch `feat/m3-eval-set-v2`): decided margin 400 cp, `met` only with a concrete threat; scored once: **precision 84/85 = 0.99, recall 84/88 = 0.95, both meet the targets**. Still one `uncertain` item (could not build trustworthy ones), so `threat_unavoidable` is untested; notes in `evals/reports/missed_threat_v2_2026-10-26_notes.md`
-- [ ] M3d Hand-check page: 30 missed flags (15 per time control) from games outside the M3 windows; gate 27 of 30
+- [~] M3d Hand-check page: 30 missed flags (15 per time control) from games older than the M3 window; gate 27 of 30. Code, scan and page built 2026-10-27 (branch `feat/m3-handcheck`, `learner/handcheck_m3.py`); **waiting for the owner's answers** (`handcheck_m3 score ANSWERS.txt`)
 - [ ] M3e On the owner's Mac: `freeze`, then `run --types M3` over the M3 window; report per time control (threats faced, missed-threat rate, by kind, overlap with M1, uncertain)
 
 ## Next (proposed order for the next session)
