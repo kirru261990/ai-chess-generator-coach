@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceptGame, hasEngineOpponent, opponentLabel, type GameView } from './gameState'
+import { acceptGame, DEFAULT_MAIA_ELO, hasEngineOpponent, opponentLabel, startingOpponent, type GameView } from './gameState'
 
 const game = (over: Partial<GameView> = {}): GameView => ({
   id: 'g1',
@@ -279,5 +279,13 @@ describe('hasEngineOpponent', () => {
     expect(hasEngineOpponent({ engine_level: 3 })).toBe(true)
     expect(hasEngineOpponent({ engine_level: null, opponent: 'maia3', opponent_elo: 900 })).toBe(true)
     expect(hasEngineOpponent({ engine_level: null })).toBe(false)
+  })
+})
+
+describe('startingOpponent', () => {
+  it('starts with Maia-3 at 800 when installed and with Stockfish when not', () => {
+    expect(startingOpponent(true)).toBe('maia3')
+    expect(startingOpponent(false)).toBe('stockfish')
+    expect(DEFAULT_MAIA_ELO).toBe(800)
   })
 })

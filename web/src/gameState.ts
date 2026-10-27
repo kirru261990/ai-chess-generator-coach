@@ -234,3 +234,9 @@ export function opponentLabel(g: Pick<GameView, 'engine_level' | 'opponent' | 'o
 export function hasEngineOpponent(g: Pick<GameView, 'engine_level' | 'opponent' | 'opponent_elo'>): boolean {
   return g.engine_level !== null || (g.opponent === 'maia3' && g.opponent_elo != null)
 }
+
+/** What a new page starts with: Maia-3 at 800 when the server has it (owner's choice, 2026-10-27), else Stockfish. */
+export const DEFAULT_MAIA_ELO = 800
+export function startingOpponent(maiaAvailable: boolean): 'stockfish' | 'maia3' {
+  return maiaAvailable ? 'maia3' : 'stockfish'
+}

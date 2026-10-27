@@ -18,6 +18,8 @@ import {
   storeFeedback,
   opponentLabel,
   hasEngineOpponent,
+  startingOpponent,
+  DEFAULT_MAIA_ELO,
   whyLabel,
   type Why,
   threatArrows,
@@ -46,7 +48,7 @@ export default function App() {
   const [color, setColor] = useState<'white' | 'black'>('white')
   const [level, setLevel] = useState(3)
   const [opponent, setOpponent] = useState<'stockfish' | 'maia3'>('stockfish')
-  const [elo, setElo] = useState(900)
+  const [elo, setElo] = useState(DEFAULT_MAIA_ELO)
   const [maia, setMaia] = useState<{ min_elo: number; max_elo: number } | null>(null) // null = Maia-3 not installed on the server
   const [mode, setMode] = useState<'play' | 'practice'>('practice') // Practice first: that is where the coaching is
   const engineInFlight = useRef(false)
@@ -89,20 +91,26 @@ export default function App() {
     }
   }, [])
 
-  async function newGame() {
+  async function newGame(who: 'stockfish' | 'maia3' = opponent) {
     setBusy(true)
     setEngineFailed(false)
-    const g = await call('/games', { color, mode, level, opponent, elo: opponent === 'maia3' ? elo : null })
+    const g = await call('/games', { color, mode, level, opponent: who, elo: who === 'maia3' ? elo : null })
     setBusy(false)
     if (g) setGame((current) => acceptGame(current, g, true)) // a new game takes over the screen
   }
 
   useEffect(() => {
-    void newGame()
+    // Ask what the server can play first, so the very first game already uses the starting opponent.
     fetch(`${API}/opponents`)
       .then((r) => r.json())
-      .then((o) => setMaia(o.maia3?.available ? o.maia3 : null))
-      .catch(() => setMaia(null))
+      .then((o) => (o.maia3?.available ? (o.maia3 as { min_elo: number; max_elo: number }) : null))
+      .catch(() => null)
+      .then((m) => {
+        setMaia(m)
+        const who = startingOpponent(m !== null)
+        setOpponent(who)
+        void newGame(who)
+      })
   }, [])
 
   useEffect(() => {
