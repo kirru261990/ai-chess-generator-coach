@@ -27,7 +27,7 @@ REFUSAL_PREFIX = "I could not do that: "
 MAX_GAMES = 20  # chat games kept in memory; starting one more drops the oldest
 
 # The only keys a Play game's data may have. Everything that helps the player lives under `practice`, which Play never has.
-PLAY_KEYS = ("id", "fen", "moves", "revision", "turn", "user_color", "mode", "engine_level", "outcome", "legal_moves")
+PLAY_KEYS = ("id", "fen", "moves", "revision", "turn", "user_color", "mode", "engine_level", "opponent", "opponent_elo", "outcome", "legal_moves")
 PRACTICE_KEYS = ("assisted", "hints_used", "can_take_back", "show_threats", "threats", "feedback", "hint")
 
 _UCI = re.compile(r"^[a-h][1-8][a-h][1-8][qrbn]?$")
@@ -194,7 +194,7 @@ def text(gid: str, note: str = "") -> str:
         status = "Your move."
     else:
         status = "The opponent is to move."
-    lines = [f"Game {gid}, {mode} against Stockfish level {view['engine_level']}. You are {colour}. {status}"]
+    lines = [f"Game {gid}, {mode} against {_opponent_name(view)}. You are {colour}. {status}"]
     if note:
         lines.append(note)
     lines.append("Moves: " + (" ".join(pairs) if pairs else "none yet"))
@@ -250,9 +250,15 @@ def _reply(gid: str) -> str:
     return f"Stockfish replied {_san_moves(game)[-1]}." if len(game.moves) > before else ""
 
 
-def game_new(color: str = "white", level: int = 3, mode: str = "play"):
+def _opponent_name(view: dict) -> str:
+    if view.get("opponent") == "maia3":
+        return f"Maia-3 at {view['opponent_elo']}"
+    return f"Stockfish level {view['engine_level']}"
+
+
+def game_new(color: str = "white", level: int = 3, mode: str = "play", opponent: str = "stockfish", elo: int | None = None):
     def run():
-        game = T.create_game(color, mode, level)  # kept by id: the opening search below may fail, and games can start concurrently
+        game = T.create_game(color, mode, level, opponent, elo)  # kept by id: the opening search below may fail, and games can start concurrently
         _remember(game)
         return _result(game.id, _reply(game.id).replace("replied", "opened with"))
     return _guard(run)

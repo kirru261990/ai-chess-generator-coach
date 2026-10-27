@@ -26,7 +26,8 @@ The Maia-2 README now points new projects to Maia-3 (CSSLab/maia3). The owner as
 5. **Versioning (rule 6):** model alias, device and temperature come from `maia.settings()`. Seen on the first real run (2026-10-27): maia3 package commit `1e13597c`,
    `Maia3-5M` Hugging Face snapshot `b6559de2398d7140b985f28fd2c19fb5e47ddabe`, torch 2.14.1, CPU. Not yet recorded by the code per game.
 6. **Practice and Play rules are unchanged** (ADR 0005). The opponent is not assistance. A Practice game against Maia is still assisted.
-7. **Scope of this slice:** `POST /games` takes `opponent` ("stockfish" default, or "maia3") and `elo`. Not done: web selector,
+7. **Web and chat (second slice):** `GET /opponents` says whether Maia-3 is installed; the web app shows an Opponent choice and a Rating list (600 to 2000) only then. MCP `game_new` takes `opponent` and `elo`.
+8. **Scope of the first slice:** `POST /games` takes `opponent` ("stockfish" default, or "maia3") and `elo`. Not done: web selector,
    MCP `game_new` option, the under-1000 band check, checkpoint pinning.
 
 ## How to reverse

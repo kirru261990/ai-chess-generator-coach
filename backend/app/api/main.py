@@ -71,6 +71,13 @@ class MoveIn(BaseModel):
     engine_reply: bool = True  # false lets a client show its own move first, then call /engine-move
 
 
+@app.get("/opponents")
+def opponents():
+    """Which opponents this server can play: Stockfish always, Maia-3 only when installed (ADR 0012)."""
+    from app.engine import maia
+    return {"maia3": {"available": maia.available(), "min_elo": maia.MIN_ELO, "max_elo": maia.MAX_ELO}}
+
+
 @app.post("/games")
 def start_game(body: StartGame):
     return tools.start_game(body.color, body.mode, body.level, body.opponent, body.elo)

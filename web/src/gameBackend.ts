@@ -5,7 +5,7 @@ import type { ToolCaller } from './practiceBackend'
  *  and Practice. Everything that helps the player is under `practice`, which a Play game never has. */
 export type GameData = Pick<
   GameView,
-  'id' | 'fen' | 'moves' | 'revision' | 'turn' | 'user_color' | 'mode' | 'engine_level' | 'outcome' | 'legal_moves'
+  'id' | 'fen' | 'moves' | 'revision' | 'turn' | 'user_color' | 'mode' | 'engine_level' | 'opponent' | 'opponent_elo' | 'outcome' | 'legal_moves'
 >
 export type PracticeExtras = {
   assisted: boolean

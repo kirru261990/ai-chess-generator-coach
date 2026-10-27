@@ -115,3 +115,19 @@ def test_stockfish_games_are_unchanged_by_default():
     game = tools.create_game()
     assert game.engine_level == 3 and game.opponent_elo is None
     assert tools.game_view(game)["opponent"] == "stockfish"
+
+
+def test_opponents_endpoint_reports_availability(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
+    monkeypatch.setenv("MAIA3_CMD", "definitely-not-installed-maia")
+    assert TestClient(app).get("/opponents").json()["maia3"]["available"] is False
+
+
+def test_the_chat_game_text_names_a_maia_opponent(fake_maia):
+    from app.mcp import game_tools
+
+    _, text = game_tools.game_new("white", 3, "play", "maia3", 900)
+    assert "Maia-3 at 900" in text and "Stockfish" not in text

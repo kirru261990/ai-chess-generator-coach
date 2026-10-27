@@ -7,6 +7,8 @@ export type GameView = {
   mode: string
   assisted: boolean
   engine_level: number | null
+  opponent?: 'stockfish' | 'maia3'
+  opponent_elo?: number | null
   outcome: { result: string; termination: string } | null
   legal_moves: string[]
   moves: string[]
@@ -221,4 +223,9 @@ export type Hint = { gameId: string; revision: number; level: number; maxLevel: 
 export function hintToShow(hint: Hint | null, game: Pick<GameView, 'id' | 'revision' | 'mode' | 'outcome'>): Hint | null {
   if (!hint || game.mode !== 'practice' || game.outcome) return null
   return hint.gameId === game.id && hint.revision === game.revision ? hint : null
+}
+
+/** "Stockfish Level 3" or "Maia-3 at 900": who the player is facing. The Elo is what the model is conditioned on, not a measured strength. */
+export function opponentLabel(g: Pick<GameView, 'engine_level' | 'opponent' | 'opponent_elo'>): string {
+  return g.opponent === 'maia3' ? `Maia-3 at ${g.opponent_elo}` : `Stockfish Level ${g.engine_level}`
 }

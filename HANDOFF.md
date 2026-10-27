@@ -72,6 +72,9 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-27 (later) · MacBook · Claude Code: Maia-3 web selector and MCP option (branch `feat/maia3-web-mcp`, stacked on `feat/maia3-opponent`)
+- **Done:** `GET /opponents`, web Opponent and Rating selects (shown only when Maia-3 is installed), `opponentLabel`, MCP `game_new` `opponent`/`elo`; backend 1079 passed, web 124 passed, tsc clean. **Not checked in a browser** (only unit tests): the owner should try it with `MAIA3_CMD=maia3-uci` in `.env`. Merge PR 103 first, then this one (do not delete the base branch of a stacked PR before retargeting).
+
 ### 2026-10-27 · MacBook · Claude Code: Maia-3 opponent, first slice (branch `feat/maia3-opponent`)
 - **Done:** `app/engine/maia.py` (Maia-3 as a UCI subprocess, `MAIA3_CMD`), `Game.opponent_elo`, `POST /games` takes `opponent` and `elo`, PGN and view name the opponent, `tests/test_maia.py` (fake UCI engine). **Real run done 2026-10-27:** `uv tool install` of maia3, 5M weights cached, `MAIA3_CMD=maia3-uci`; a scripted game at Elo 900 played 9 legal, plausible moves through `start_game`/`apply_move` (the other side was random, so this shows it works, not how strong it is), ADR 0012, `docs/maia-setup.md`.
 - **Not verified:** its lowest Elo band for under-1000 players (spec A2), the weights licence (not stated upstream), checkpoint pinning.

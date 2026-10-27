@@ -16,6 +16,7 @@ import {
   latestUserPly,
   feedbackKey,
   storeFeedback,
+  opponentLabel,
   whyLabel,
   type Why,
   threatArrows,
@@ -31,6 +32,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 // Show its reply no sooner than this after the player's move.
 const ENGINE_MIN_REPLY_MS = 1000
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
+const MAIA_ELOS = [600, 700, 800, 900, 1000, 1100, 1200, 1400, 1600, 1800, 2000]
 
 const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
 const CONFETTI = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#ffd166', '#9b5de5']
@@ -42,6 +44,9 @@ export default function App() {
   const [engineFailed, setEngineFailed] = useState(false)
   const [color, setColor] = useState<'white' | 'black'>('white')
   const [level, setLevel] = useState(3)
+  const [opponent, setOpponent] = useState<'stockfish' | 'maia3'>('stockfish')
+  const [elo, setElo] = useState(900)
+  const [maia, setMaia] = useState<{ min_elo: number; max_elo: number } | null>(null) // null = Maia-3 not installed on the server
   const [mode, setMode] = useState<'play' | 'practice'>('practice') // Practice first: that is where the coaching is
   const engineInFlight = useRef(false)
   const [selected, setSelected] = useState<string | null>(null)
@@ -86,13 +91,17 @@ export default function App() {
   async function newGame() {
     setBusy(true)
     setEngineFailed(false)
-    const g = await call('/games', { color, mode, level })
+    const g = await call('/games', { color, mode, level, opponent, elo: opponent === 'maia3' ? elo : null })
     setBusy(false)
     if (g) setGame((current) => acceptGame(current, g, true)) // a new game takes over the screen
   }
 
   useEffect(() => {
     void newGame()
+    fetch(`${API}/opponents`)
+      .then((r) => r.json())
+      .then((o) => setMaia(o.maia3?.available ? o.maia3 : null))
+      .catch(() => setMaia(null))
   }, [])
 
   useEffect(() => {
@@ -363,7 +372,7 @@ export default function App() {
     : game.outcome
       ? `Game over: ${game.outcome.result} (${game.outcome.termination})`
       : engineToMove
-        ? `Stockfish Level ${game.engine_level} is thinking…`
+        ? `${opponentLabel(game)} is thinking…`
         : 'Your move'
 
   return (
@@ -384,16 +393,38 @@ export default function App() {
             <option value="practice">Practice (assisted)</option>
           </select>
         </label>
-        <label>
-          Level{' '}
-          <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
-            {LEVELS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+        {maia && (
+          <label>
+            Opponent{' '}
+            <select value={opponent} onChange={(e) => setOpponent(e.target.value as 'stockfish' | 'maia3')}>
+              <option value="stockfish">Stockfish</option>
+              <option value="maia3">Maia-3 (human-like)</option>
+            </select>
+          </label>
+        )}
+        {opponent === 'maia3' && maia ? (
+          <label>
+            Rating{' '}
+            <select value={elo} onChange={(e) => setElo(Number(e.target.value))}>
+              {MAIA_ELOS.filter((n) => n >= maia.min_elo && n <= maia.max_elo).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label>
+            Level{' '}
+            <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
+              {LEVELS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button onClick={() => void newGame()} disabled={busy}>
           New game
         </button>
