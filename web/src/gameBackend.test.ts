@@ -59,3 +59,10 @@ describe('the game page backend over chat tools', () => {
     expect(toGameView(p)).toMatchObject({ assisted: true, can_take_back: true, hints_used: 2 })
   })
 })
+
+describe('a Maia-3 game in the chat board', () => {
+  it('keeps the opponent fields, so the board can name Maia and know the engine plays', () => {
+    const p: GamePayload = { kind: 'game', game: { ...game('play'), engine_level: null, opponent: 'maia3', opponent_elo: 900 } }
+    expect(toGameView(p)).toMatchObject({ engine_level: null, opponent: 'maia3', opponent_elo: 900 })
+  })
+})

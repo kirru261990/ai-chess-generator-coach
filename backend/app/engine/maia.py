@@ -2,7 +2,7 @@
 
 Maia-3 (CSSLab/maia3, code AGPL-3.0) speaks UCI, so it runs as a subprocess the same way Stockfish does and
 PyTorch stays out of this project's dependencies. Install it in its own environment (docs/maia-setup.md) and
-point `MAIA3_CMD` at it. Without it, `available()` is False and a game asking for Maia-3 is refused: the
+set `MAIA3_CMD` to it (opt-in: unset or blank means no Maia-3). Without it, `available()` is False and a game asking for Maia-3 is refused: the
 caller chooses the Stockfish fallback, we never swap the opponent silently (the label must say who was played).
 
 Strength is the Elo the model is conditioned on, not a measured playing strength: label it "Maia-3 at 1100",
@@ -23,7 +23,6 @@ import chess.engine
 
 from app.engine.stockfish import EngineError
 
-DEFAULT_CMD = "maia3-uci"
 DEFAULT_MODEL = "maia3-5m"
 # Bounds we accept, not bounds the model supports: the Maia-3 docs do not state its rating range. Narrow these
 # once the lowest band has been checked against players under 1000 (spec A2, ADR 0012).
@@ -35,7 +34,7 @@ START_TIMEOUT_S = 120  # the first start may download weights
 def settings() -> dict:
     """The model setup in force, recorded with every Maia game (AGENTS.md rule 6)."""
     return {
-        "cmd": os.environ.get("MAIA3_CMD", DEFAULT_CMD),
+        "cmd": os.environ.get("MAIA3_CMD", "").strip(),  # blank = not configured
         "model": os.environ.get("MAIA3_MODEL", DEFAULT_MODEL),
         "device": os.environ.get("MAIA3_DEVICE", "cpu"),
         "temperature": float(os.environ.get("MAIA3_TEMPERATURE", DEFAULT_TEMPERATURE)),
@@ -44,6 +43,8 @@ def settings() -> dict:
 
 def command(cfg: dict | None = None) -> list[str]:
     cfg = cfg or settings()
+    if not cfg["cmd"]:
+        raise EngineError("maia_unavailable", "MAIA3_CMD is not set")
     args = [*shlex.split(cfg["cmd"]), "--model", cfg["model"], "--device", cfg["device"], "--use-uci-history"]
     if cfg["device"] == "cpu":
         args.append("--no-use-amp")
@@ -51,7 +52,11 @@ def command(cfg: dict | None = None) -> list[str]:
 
 
 def available() -> bool:
-    return shutil.which(shlex.split(settings()["cmd"])[0]) is not None
+    try:
+        argv = shlex.split(settings()["cmd"])
+    except ValueError:  # unbalanced quotes in MAIA3_CMD
+        return False
+    return bool(argv) and shutil.which(argv[0]) is not None
 
 
 def check_elo(elo: int) -> int:

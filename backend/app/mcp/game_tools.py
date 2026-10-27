@@ -229,7 +229,9 @@ def _remember(game: Game) -> None:
             _forget(next(iter(_OWNED)))
 
 
-ENGINE_DOWN = "Stockfish did not answer. Your move is saved; use game_show to ask it again."
+def _engine_name(game: Game) -> str:
+    """Who plays the other side, for the notes: "Maia-3" or "Stockfish" (the heading adds the level or Elo)."""
+    return "Maia-3" if game.opponent_elo is not None else "Stockfish"
 
 
 def _engine_turn(game: Game) -> bool:
@@ -246,8 +248,8 @@ def _reply(gid: str) -> str:
         T.engine_reply(gid)
     except EngineError:
         log.exception("engine failed in a game tool")
-        return ENGINE_DOWN
-    return f"Stockfish replied {_san_moves(game)[-1]}." if len(game.moves) > before else ""
+        return f"{_engine_name(game)} did not answer. Your move is saved; use game_show to ask it again."
+    return f"{_engine_name(game)} replied {_san_moves(game)[-1]}." if len(game.moves) > before else ""
 
 
 def _opponent_name(view: dict) -> str:
@@ -284,7 +286,7 @@ def _to_uci(game: Game, move: str) -> str:
 
 
 def game_move(game_id: str, move: str, expected_revision: int | None = None, reply: bool = True):
-    """Play the player's move; with `reply` (the default, for text-only clients) Stockfish answers in the same call. The board page
+    """Play the player's move; with `reply` (the default, for text-only clients) the opponent answers in the same call. The board page
     uses reply=False and then `game_engine_move`, so the player's move shows before the reply."""
     def run():
         game = _own(game_id)

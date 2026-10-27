@@ -131,3 +131,45 @@ def test_the_chat_game_text_names_a_maia_opponent(fake_maia):
 
     _, text = game_tools.game_new("white", 3, "play", "maia3", 900)
     assert "Maia-3 at 900" in text and "Stockfish" not in text
+
+@pytest.mark.parametrize("value", ["", "   ", "'unbalanced"])
+def test_a_blank_or_broken_maia_command_means_unavailable_not_a_crash(monkeypatch, value):
+    monkeypatch.setenv("MAIA3_CMD", value)
+    assert maia.available() is False
+    with pytest.raises(GameError) as e:
+        tools.create_game(opponent="maia3", elo=900)
+    assert e.value.code == "opponent_unavailable"
+
+
+def test_maia_is_off_when_the_command_is_not_set_at_all(monkeypatch):
+    monkeypatch.delenv("MAIA3_CMD", raising=False)
+    assert maia.available() is False
+
+
+def test_chat_notes_name_the_maia_opponent_when_it_opens_replies_or_fails(fake_maia, monkeypatch):
+    from app.mcp import game_tools
+
+    _, text = game_tools.game_new("black", 3, "play", "maia3", 900)  # Maia opens
+    assert "Maia-3 at 900" in text and "Maia-3 opened with" in text and "Stockfish" not in text
+    gid = next(iter(game_tools._OWNED))
+    move = min(tools.get_game(gid)["legal_moves"])
+    _, text = game_tools.game_move(gid, move)
+    assert "Maia-3 replied" in text and "Stockfish" not in text
+
+    def down(*a):
+        raise EngineError("maia_unavailable", "gone")
+
+    monkeypatch.setattr(maia.MaiaOpponent, "play", down)
+    move = min(tools.get_game(gid)["legal_moves"])
+    _, text = game_tools.game_move(gid, move)
+    assert "Maia-3 did not answer" in text and "Stockfish" not in text
+
+
+def test_the_shipped_board_page_can_name_a_maia_opponent():
+    """server.py serves the committed board.html, not the TSX: rebuild it (pnpm build:mcp) after changing GameBoard.tsx."""
+    from pathlib import Path
+
+    import app.mcp
+
+    page = (Path(app.mcp.__file__).parent / "ui" / "board.html").read_text()
+    assert "Maia-3 at " in page
