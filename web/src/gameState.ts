@@ -229,3 +229,8 @@ export function hintToShow(hint: Hint | null, game: Pick<GameView, 'id' | 'revis
 export function opponentLabel(g: Pick<GameView, 'engine_level' | 'opponent' | 'opponent_elo'>): string {
   return g.opponent === 'maia3' ? `Maia-3 at ${g.opponent_elo}` : `Stockfish Level ${g.engine_level}`
 }
+
+/** Whether the machine plays the other side. A Maia-3 game has no engine_level, so test the opponent, not the level. */
+export function hasEngineOpponent(g: Pick<GameView, 'engine_level' | 'opponent' | 'opponent_elo'>): boolean {
+  return g.engine_level !== null || (g.opponent === 'maia3' && g.opponent_elo != null)
+}

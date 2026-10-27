@@ -17,6 +17,7 @@ import {
   feedbackKey,
   storeFeedback,
   opponentLabel,
+  hasEngineOpponent,
   whyLabel,
   type Why,
   threatArrows,
@@ -176,7 +177,7 @@ export default function App() {
   }, [positionKey])
 
   const engineToMove =
-    !!game && !game.outcome && game.engine_level !== null && game.turn !== game.user_color
+    !!game && !game.outcome && hasEngineOpponent(game) && game.turn !== game.user_color
 
   // Whenever it is the engine's turn, ask the server for its move. The server
   // call is idempotent, so a retry can never play two moves.

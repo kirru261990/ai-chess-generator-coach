@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceptGame, opponentLabel, type GameView } from './gameState'
+import { acceptGame, hasEngineOpponent, opponentLabel, type GameView } from './gameState'
 
 const game = (over: Partial<GameView> = {}): GameView => ({
   id: 'g1',
@@ -271,5 +271,13 @@ describe('opponentLabel', () => {
   it('names Stockfish by level and Maia-3 by the Elo it is set to', () => {
     expect(opponentLabel({ engine_level: 3 })).toBe('Stockfish Level 3')
     expect(opponentLabel({ engine_level: null, opponent: 'maia3', opponent_elo: 900 })).toBe('Maia-3 at 900')
+  })
+})
+
+describe('hasEngineOpponent', () => {
+  it('is true for Stockfish and for Maia-3 (which has no level), false for neither', () => {
+    expect(hasEngineOpponent({ engine_level: 3 })).toBe(true)
+    expect(hasEngineOpponent({ engine_level: null, opponent: 'maia3', opponent_elo: 900 })).toBe(true)
+    expect(hasEngineOpponent({ engine_level: null })).toBe(false)
   })
 })
