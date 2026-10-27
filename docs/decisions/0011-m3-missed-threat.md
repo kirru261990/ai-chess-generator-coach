@@ -97,6 +97,43 @@ every game from the freeze on, as for M1 and M2. The hand-check sample (TASKS M3
   4 to 7 are never `also_m1`.
 - The Progress screen and its endpoint keep M1 and M2 only; M3 is read with `report --types M3` until it has a screen.
 
+## Hand-check result (2026-10-27, TASKS M3d): the gate was not met
+
+The owner judged 30 flagged moves from games older than the M3 window (15 per time control, one per game; `handcheck_m3.py`,
+questions A "could they win material or mate if you had skipped your turn?", B "can they still do it after your move?", C "could
+you have stopped it with another move?"). A flag is real only with yes to all three. **14 of 30 were real; the gate is 27.** 10|0 7
+of 15, 15|10 7 of 15. A 95% Wilson interval for 14 of 30 is about 0.30 to 0.64.
+
+Where the 16 went wrong (the first "no" on each): A no 7 (the owner sees no threat), B no 5 (the owner says the move stopped it,
+the detector says it still works), C no 4 (the owner sees no other move that would have stopped it).
+
+Breakdown (the numbers are small; read them as leads, not findings):
+
+| By | Real / flagged |
+| --- | --- |
+| kind `mate` | 3 / 3 |
+| kind `capture` | 7 / 15 (5 of the 8 misses are B no) |
+| kind `fork` | 3 / 6 |
+| kind `other` | 1 / 5 (4 of the 5 are A no) |
+| kind `discovered` | 0 / 1 |
+| origin `new` | 13 / 24 |
+| origin `standing` | 1 / 6 |
+| also flagged by M1 | 5 / 7 |
+
+The size of the loss (230 to 1517 cp) and of the threat (298 to 1516 cp) do not separate real from not real, so the thresholds are
+not the obvious cause. The owner's reasons for each "no" are not recorded; they are the next thing to learn.
+
+**What this means.** M3 v1 is not accurate enough on real games to be shown as a weakness. The eval-set score (precision 0.99, recall
+0.95 on `missed_threat_v2`) and this result disagree: the set holds puzzle positions with clean, immediate captures and mates, and
+real games are messier. That is a finding about the set as well as the detector. Nothing was changed after seeing the answers.
+Per AGENTS rule 5 and the gate, the M3 rate (TASKS M3e) is not to be reported as a weakness, and the detector is not to be retuned on
+these 30 positions and then scored on them again.
+
+**Ways forward (owner decides).** (1) Record the owner's reason for each of the 16 (especially the 5 B no and 7 A no). (2) Find the
+common cause; candidates to check, none decided: `standing` threats (1 of 6 real), `other` kind (1 of 5), and how "still works after
+the move" is read when the move is itself a capture or check. (3) A change is a new detector version (`missed_threat` v2) with its own
+eval and a **new** hand-check sample of different older games (about 350 remain unsampled), gate 27 of 30 again.
+
 ## Not in this step
 
 The frozen `missed_threat_v1` eval set and the hand-check page come in later pull requests.
