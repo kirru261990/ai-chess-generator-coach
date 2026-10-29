@@ -18,6 +18,7 @@ import {
   storeFeedback,
   opponentLabel,
   hasEngineOpponent,
+  probeOnce,
   startingOpponent,
   DEFAULT_MAIA_ELO,
   whyLabel,
@@ -105,17 +106,20 @@ export default function App() {
     // Ask what the server can play first, so the very first game already uses the starting opponent.
     // The controls stay locked until it settles, so nothing the player does can be overwritten by the automatic first game.
     // The timeout keeps a hung probe from locking them for good.
-    fetch(`${API}/opponents`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
-      .then((r) => r.json())
-      .then((o) => (o.maia3?.available ? (o.maia3 as { min_elo: number; max_elo: number }) : null))
-      .catch(() => null)
-      .then((m) => {
+    // The cleanup cancels this run's continuation (StrictMode replays the effect), including the timeout fallback.
+    return probeOnce(
+      () =>
+        fetch(`${API}/opponents`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+          .then((r) => r.json())
+          .then((o) => (o.maia3?.available ? (o.maia3 as { min_elo: number; max_elo: number }) : null)),
+      (m) => {
         setMaia(m)
         const who = startingOpponent(m !== null)
         setOpponent(who)
         setProbing(false)
         void newGame(who)
-      })
+      },
+    )
   }, [])
 
   useEffect(() => {

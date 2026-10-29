@@ -240,3 +240,20 @@ export const DEFAULT_MAIA_ELO = 800
 export function startingOpponent(maiaAvailable: boolean): 'stockfish' | 'maia3' {
   return maiaAvailable ? 'maia3' : 'stockfish'
 }
+
+/**
+ * Run `onSettled` once when the opponent probe finishes, unless the returned cancel function was called first.
+ * React StrictMode replays the startup effect (setup, cleanup, setup), so the first run's continuation must go quiet:
+ * otherwise two automatic first games start and the second replaces a game the player began meanwhile.
+ */
+export function probeOnce<T>(probe: () => Promise<T | null>, onSettled: (result: T | null) => void): () => void {
+  let cancelled = false
+  void probe()
+    .catch(() => null)
+    .then((result) => {
+      if (!cancelled) onSettled(result)
+    })
+  return () => {
+    cancelled = true
+  }
+}
