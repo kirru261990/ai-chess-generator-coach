@@ -345,3 +345,29 @@ def test_the_verdict_and_reply_steps_asking_together_search_once(monkeypatch):
     for t in ts:
         t.join()
     assert calls == [0]
+
+
+def test_a_maia_game_is_refused_when_maia_is_not_installed(monkeypatch):
+    from app.engine import maia
+
+    monkeypatch.setattr(maia, "available", lambda: False)
+    d, t = G.game_new("white", 3, "practice", "maia3", 1600)
+    assert d is None and "not installed" in t and "Stockfish" in t
+
+
+def test_a_maia_game_names_its_opponent_and_rating(monkeypatch):
+    from app.engine import maia
+
+    monkeypatch.setattr(maia, "available", lambda: True)
+    d, t = G.game_new("white", 3, "practice", "maia3", 1600)  # White moves first: no engine search is needed
+    assert d is not None, t
+    assert d["game"]["opponent"] == "maia3" and d["game"]["opponent_elo"] == 1600
+    assert "Maia-3 at 1600" in t
+
+
+def test_a_maia_rating_outside_the_range_is_refused(monkeypatch):
+    from app.engine import maia
+
+    monkeypatch.setattr(maia, "available", lambda: True)
+    d, t = G.game_new("white", 3, "play", "maia3", 100)
+    assert d is None and "elo" in t

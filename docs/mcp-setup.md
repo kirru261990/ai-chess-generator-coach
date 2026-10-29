@@ -53,12 +53,12 @@ lowercase Black). The board is one HTML file, `backend/app/mcp/ui/board.html`, b
 rebuild it after changing the Practice page. Restart the server, and in Claude remove and add the connector again (or start a new
 chat) so it re-reads the tool list.
 
-## Games against Stockfish in chat (ADR 0009)
+## Games against Stockfish or Maia-3 in chat (ADR 0009, ADR 0012)
 
-Seven more tools play a game on the same board: `game_new` (colour, level 1 to 10, mode `play` or `practice`), `game_move` (`Nf3`,
+Seven more tools play a game on the same board: `game_new` (colour, level 1 to 10, mode `play` or `practice`, and `opponent` `stockfish` or `maia3` with `elo` 400 to 2800), `game_move` (`Nf3`,
 `exd5`, `O-O` or `g1f3`; Stockfish replies in the same call), `game_show`, `game_resign`, and, **Practice games only**, `game_undo`,
 `game_hint` (steps 1 to 5) and `game_threats` (arrows on or off). Say: "Play a game against level 3, I am White", or "start an
-assisted game".
+assisted game", or "Play a Practice game against Maia at 1600". Maia-3 needs `MAIA3_CMD` set in the environment of the server process (`docs/maia-setup.md`); without it `game_new` says so and the chat offers Stockfish. The open Render connector has no Maia-3 and stays Stockfish only.
 
 - **Play shows no help, anywhere.** The board, a one-line status and Resign only. No verdict, evaluation, badge, hint, undo or threat
   arrows: not in the widget, not in the tool text, not in the data. There is no tool to switch a game's mode.
