@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceptGame, hasEngineOpponent, opponentLabel, type GameView } from './gameState'
+import { acceptGame, DEFAULT_MAIA_ELO, hasEngineOpponent, opponentLabel, probeOnce, startingOpponent, type GameView } from './gameState'
 
 const game = (over: Partial<GameView> = {}): GameView => ({
   id: 'g1',
@@ -279,5 +279,49 @@ describe('hasEngineOpponent', () => {
     expect(hasEngineOpponent({ engine_level: 3 })).toBe(true)
     expect(hasEngineOpponent({ engine_level: null, opponent: 'maia3', opponent_elo: 900 })).toBe(true)
     expect(hasEngineOpponent({ engine_level: null })).toBe(false)
+  })
+})
+
+describe('startingOpponent', () => {
+  it('starts with Maia-3 at 800 when installed and with Stockfish when not', () => {
+    expect(startingOpponent(true)).toBe('maia3')
+    expect(startingOpponent(false)).toBe('stockfish')
+    expect(DEFAULT_MAIA_ELO).toBe(800)
+  })
+})
+
+describe('probeOnce', () => {
+  const later = <T,>(v: T) => {
+    let resolve!: (x: T) => void
+    const p = new Promise<T>((r) => (resolve = r))
+    return { p, resolve: (x: T = v) => resolve(x) }
+  }
+
+  it('settles once with the result', async () => {
+    const got: (number | null)[] = []
+    probeOnce(() => Promise.resolve(7), (r) => got.push(r))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(got).toEqual([7])
+  })
+
+  it('goes quiet when cancelled first, so a replayed effect starts only one game', async () => {
+    const first = later(1)
+    const second = later(2)
+    const got: (number | null)[] = []
+    const cancelFirst = probeOnce(() => first.p, (r) => got.push(r)) // StrictMode: run, cleanup, run again
+    cancelFirst()
+    probeOnce(() => second.p, (r) => got.push(r))
+    first.resolve()
+    second.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(got).toEqual([2])
+  })
+
+  it('treats a failed probe as no result', async () => {
+    const got: (number | null)[] = []
+    probeOnce(() => Promise.reject(new Error('down')), (r) => got.push(r))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(got).toEqual([null])
   })
 })

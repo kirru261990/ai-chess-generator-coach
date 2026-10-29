@@ -18,6 +18,9 @@ import {
   storeFeedback,
   opponentLabel,
   hasEngineOpponent,
+  probeOnce,
+  startingOpponent,
+  DEFAULT_MAIA_ELO,
   whyLabel,
   type Why,
   threatArrows,
@@ -36,17 +39,19 @@ const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1)
 const MAIA_ELOS = [600, 700, 800, 900, 1000, 1100, 1200, 1400, 1600, 1800, 2000]
 
 const HINT_STEPS = ['Think', 'Idea', 'Piece', 'Why', 'Move'] // one per server step (spec D4)
+const PROBE_TIMEOUT_MS = 5000
 const CONFETTI = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#ffd166', '#9b5de5']
 
 export default function App() {
   const [game, setGame] = useState<GameView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [probing, setProbing] = useState(true) // /opponents has not answered yet: the first game starts when it does
   const [engineFailed, setEngineFailed] = useState(false)
   const [color, setColor] = useState<'white' | 'black'>('white')
   const [level, setLevel] = useState(3)
   const [opponent, setOpponent] = useState<'stockfish' | 'maia3'>('stockfish')
-  const [elo, setElo] = useState(900)
+  const [elo, setElo] = useState(DEFAULT_MAIA_ELO)
   const [maia, setMaia] = useState<{ min_elo: number; max_elo: number } | null>(null) // null = Maia-3 not installed on the server
   const [mode, setMode] = useState<'play' | 'practice'>('practice') // Practice first: that is where the coaching is
   const engineInFlight = useRef(false)
@@ -89,20 +94,32 @@ export default function App() {
     }
   }, [])
 
-  async function newGame() {
+  async function newGame(who: 'stockfish' | 'maia3' = opponent) {
     setBusy(true)
     setEngineFailed(false)
-    const g = await call('/games', { color, mode, level, opponent, elo: opponent === 'maia3' ? elo : null })
+    const g = await call('/games', { color, mode, level, opponent: who, elo: who === 'maia3' ? elo : null })
     setBusy(false)
     if (g) setGame((current) => acceptGame(current, g, true)) // a new game takes over the screen
   }
 
   useEffect(() => {
-    void newGame()
-    fetch(`${API}/opponents`)
-      .then((r) => r.json())
-      .then((o) => setMaia(o.maia3?.available ? o.maia3 : null))
-      .catch(() => setMaia(null))
+    // Ask what the server can play first, so the very first game already uses the starting opponent.
+    // The controls stay locked until it settles, so nothing the player does can be overwritten by the automatic first game.
+    // The timeout keeps a hung probe from locking them for good.
+    // The cleanup cancels this run's continuation (StrictMode replays the effect), including the timeout fallback.
+    return probeOnce(
+      () =>
+        fetch(`${API}/opponents`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+          .then((r) => r.json())
+          .then((o) => (o.maia3?.available ? (o.maia3 as { min_elo: number; max_elo: number }) : null)),
+      (m) => {
+        setMaia(m)
+        const who = startingOpponent(m !== null)
+        setOpponent(who)
+        setProbing(false)
+        void newGame(who)
+      },
+    )
   }, [])
 
   useEffect(() => {
@@ -382,14 +399,14 @@ export default function App() {
       <div className="controls">
         <label>
           Play as{' '}
-          <select value={color} onChange={(e) => setColor(e.target.value as 'white' | 'black')}>
+          <select disabled={probing} value={color} onChange={(e) => setColor(e.target.value as 'white' | 'black')}>
             <option value="white">White</option>
             <option value="black">Black</option>
           </select>
         </label>
         <label>
           Mode{' '}
-          <select value={mode} onChange={(e) => setMode(e.target.value as 'play' | 'practice')}>
+          <select disabled={probing} value={mode} onChange={(e) => setMode(e.target.value as 'play' | 'practice')}>
             <option value="play">Play</option>
             <option value="practice">Practice (assisted)</option>
           </select>
@@ -397,7 +414,7 @@ export default function App() {
         {maia && (
           <label>
             Opponent{' '}
-            <select value={opponent} onChange={(e) => setOpponent(e.target.value as 'stockfish' | 'maia3')}>
+            <select disabled={probing} value={opponent} onChange={(e) => setOpponent(e.target.value as 'stockfish' | 'maia3')}>
               <option value="stockfish">Stockfish</option>
               <option value="maia3">Maia-3 (human-like)</option>
             </select>
@@ -406,7 +423,7 @@ export default function App() {
         {opponent === 'maia3' && maia ? (
           <label>
             Rating{' '}
-            <select value={elo} onChange={(e) => setElo(Number(e.target.value))}>
+            <select disabled={probing} value={elo} onChange={(e) => setElo(Number(e.target.value))}>
               {MAIA_ELOS.filter((n) => n >= maia.min_elo && n <= maia.max_elo).map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -417,7 +434,7 @@ export default function App() {
         ) : (
           <label>
             Level{' '}
-            <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
+            <select disabled={probing} value={level} onChange={(e) => setLevel(Number(e.target.value))}>
               {LEVELS.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -426,7 +443,7 @@ export default function App() {
             </select>
           </label>
         )}
-        <button onClick={() => void newGame()} disabled={busy}>
+        <button onClick={() => void newGame()} disabled={busy || probing}>
           New game
         </button>
       </div>
