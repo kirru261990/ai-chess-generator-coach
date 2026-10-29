@@ -283,10 +283,10 @@ describe('hasEngineOpponent', () => {
 })
 
 describe('startingOpponent', () => {
-  it('starts with Maia-3 at 800 when installed and with Stockfish when not', () => {
+  it('starts with Maia-3 at 1600 when installed and with Stockfish when not', () => {
     expect(startingOpponent(true)).toBe('maia3')
     expect(startingOpponent(false)).toBe('stockfish')
-    expect(DEFAULT_MAIA_ELO).toBe(800)
+    expect(DEFAULT_MAIA_ELO).toBe(1600)
   })
 })
 
