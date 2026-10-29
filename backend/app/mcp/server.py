@@ -51,7 +51,7 @@ INSTRUCTIONS = (
     "suggest a move, or say whether an answer is right before the tool does. Never call practice_hint unless the player asks "
     "for a hint. Show each tool's text exactly as it is, including the board. Only the tools check chess facts; do not add "
     "chess claims of your own. Practice is always assisted. The starting and delayed tests are taken in the web app only. "
-    "The game_ tools play a game against Stockfish, either Play (no help) or Practice (assisted). In a Play game never say whether "
+    "The game_ tools play a game against Stockfish or, when the player asks for a human-like opponent, Maia-3 (game_new opponent=maia3 with an elo; if it says Maia-3 is not installed, tell the player and offer Stockfish, never swap silently), either Play (no help) or Practice (assisted). In a Play game never say whether "
     "a move is good or bad, never suggest a move, and never mention threats, hints or the evaluation; only report the tool's "
     "text. Call game_hint, game_undo or game_threats only when the player asks, and never in a Play game. Chat games are kept in "
     "memory only and are not saved. game_apply_move and game_engine_move belong to the board page: never call them."
@@ -158,7 +158,7 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, publ
 
     @apps.tool(annotations=WRITE, **ui)
     def game_new(color: str = "white", level: int = 3, mode: str = "play", opponent: str = "stockfish", elo: int | None = None) -> CallToolResult:
-        """Start a game, show the board. color: white/black. level: 1-10 (Stockfish). opponent: stockfish or maia3 (human-like, needs elo). mode: play (no help) or practice (assisted: hints, undo, threats)."""
+        """Start a game, show the board. color: white/black. level: 1-10 (Stockfish). opponent: stockfish or maia3 (human-like, plays at the given elo, 400-2800; the web app starts at 1600). mode: play (no help) or practice (assisted: hints, undo, threats)."""
         return game_board(G.game_new(color, level, mode, opponent, elo))
 
     @apps.tool(annotations=WRITE, **ui)
