@@ -105,8 +105,8 @@ def card(n, total, r):
     move = chess.Move.from_uci(r["move_uci"])
     X, Y = side(board.turn), side(not board.turn)
     svg = chess.svg.board(board, orientation=board.turn, size=340, arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
-    qs = {"A": f"If {X} passes, can {Y} win a piece or checkmate?",
-          "B": f"After {X}'s real move, can {Y} still do it?",
+    qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} win a piece or checkmate? (An even trade does not count.)",
+          "B": f"Now {X} plays the real move (the red arrow). Can {Y} still do that?",
           "C": f"Was there a {X} move that stops it?",
           "D": f"Does {X}'s move lose something else?"}
     return (f'<section class="card" data-id="{r["id"]}" data-q="{html.escape(json.dumps(qs))}" hidden><p class="n">{n} of {total}</p>'
