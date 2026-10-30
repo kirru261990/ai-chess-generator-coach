@@ -264,8 +264,9 @@ def card(it: dict) -> str:
           f'rook 5, queen 9. An even trade does not count.)</span></p><p class="line">{line}</p>{buttons(it["id"], "A")}</div>'
           f'<div class="q" data-qid="B"><p><b>B.</b> After your red move, can they still do it?</p>'
           f'{buttons(it["id"], "B")}</div>'
-          f'<div class="q" data-qid="C"><p><b>C.</b> Could you have stopped it, for example with '
-          f'{html.escape(plain(board, best.uci()))} (green)?</p>{buttons(it["id"], "C")}</div>')
+          f'<div class="q" data-qid="C"><p><b>C.</b> Instead of your red move, could you have played a different move, for '
+          f'example {html.escape(plain(board, best.uci()))} (green), so that they could not win 2 or more points that way? '
+          f'<span class="note">(Imagine you played the green move instead of the red one. Then it is their turn.)</span></p>{buttons(it["id"], "C")}</div>')
     return (f'<section class="card" id="{it["id"]}"><div class="boards">{boards}</div>{qa}</section>')
 
 
