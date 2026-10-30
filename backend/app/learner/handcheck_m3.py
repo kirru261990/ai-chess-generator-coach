@@ -259,7 +259,8 @@ def card(it: dict) -> str:
               f'<figcaption>If you had skipped your turn</figcaption></figure>')
     line = plain_line(pb, e["threat_line"]["uci"])
     qa = (f'<div class="q" data-qid="A"><p><b>A.</b> If you had skipped your turn, could they start with the orange move and, after the '
-          f'next few moves below, end up 2 or more points ahead, or give checkmate? <span class="note">(Pawn 1, knight or bishop 3, '
+          f'steps listed below, end up 2 or more points ahead, or give checkmate? <span class="note">(The list is at most 4 steps: their move, '
+          f'your reply, their move, your reply. Add up what each side takes in those steps.)</span> <span class="note">(Pawn 1, knight or bishop 3, '
           f'rook 5, queen 9. An even trade does not count.)</span></p><p class="line">{line}</p>{buttons(it["id"], "A")}</div>'
           f'<div class="q" data-qid="B"><p><b>B.</b> After your red move, can they still do it?</p>'
           f'{buttons(it["id"], "B")}</div>'
