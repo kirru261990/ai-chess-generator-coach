@@ -74,7 +74,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ### 2026-10-30 (night) · MacBook · Claude Code: M3 hand-check v3 failed, 23 of 30 (branch `feat/m3-handcheck-v3`)
 - **Done:** `handcheck_m3` version 3 (fresh games, answered by the owner without chat; sampler tops a short time control up from the other, scan `--target`). **Result 23 of 30 real, gate 27 not met** (600: 17/19, 900+10: 6/11); reasons in ADR 0013 ("version 3"). The `uncertain` probe (`evals/sets/m3_uncertain_probe/`, engine-labelled, not a score): 6/20 and 6/15 abstain as expected, one `missed` in the second group (up-028).
-- **Next:** detector v4 (best move must neutralise the threat; skip already-lost positions), tested only on the frozen Lichess sets and unit tests. **The owner will not do another 30-game hand-check and the detector is not to be run on the owner's games again.** So M3 stays off the weakness list and M3e (real-game rates) stays blocked unless the owner decides otherwise.
+- **Detector v4 built (ADR 0015):** skip already-lost positions (below -400) and require that the best move neutralises the threat. Frozen sets: v3 set 1.00 / 0.90, v4 set 1.00 / 0.90 (precision / recall). Not validated on the owner's games.
+- **Next:** nothing planned for M3. **The owner will not do another 30-game hand-check and the detector is not to be run on the owner's games again.** So M3 stays off the weakness list and M3e (real-game rates) stays blocked unless the owner decides otherwise.
 - **Files:** owner's sample, key, page and answers stay in git-ignored `data/evidence/handcheck_m3_v3*`, `m3c_answers.txt`.
 
 ### 2026-10-31 · MacBook · Claude Code: M3 `missed_threat` v3 and the `missed_threat_v4` set (branch `feat/missed-threat-v3-detector`)

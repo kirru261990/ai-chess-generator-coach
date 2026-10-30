@@ -1,4 +1,4 @@
-"""M3 missed threat (`missed_threat` v3, ADR 0011, 0013 and 0014) and its rules-only labels (`threat_kind`).
+"""M3 missed threat (`missed_threat` v4, ADR 0011, 0013, 0014 and 0015) and its rules-only labels (`threat_kind`).
 
 Engine results are scripted (`FakeAnalyser`), so each test pins down one rule. Scores in `L(...)` are from White's side, as the
 evidence engine stores them. The positions are real openings, so each example can be set up on a board:
@@ -116,7 +116,7 @@ def test_castling_into_the_pawn_attack_is_a_missed_threat_with_a_full_record():
     assert (e["eval_before"], e["eval_after"], e["eval_loss"], e["eval_loss_stability"]) == (20, -290, 310, 310)
     assert e["threat_after_move"] == "works"
     assert e["target_squares"] == ["a4"]
-    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "3", R.RULES_VERSION)
+    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "4", R.RULES_VERSION)
     assert (e["ftl"], e["ftl_config_id"]) == (310, CFG.id)
     assert e["m3_thresholds"]["ftl_min_share"] == 0.5
     assert e["m3_thresholds"]["material_min"] == 2 and e["m3_thresholds"]["min_ply"] == 4
@@ -443,3 +443,23 @@ def test_real_engine_finds_the_ruy_and_scholar_misses():
         assert MT.detect(chess.Board(RUY), mv("a4b3"), RUY_PLY, analyser, chess.Board(RUY_PREV)).outcome == "met"
         g = MT.detect(chess.Board(SCHOLAR), mv("g8f6"), 5, analyser, chess.Board(SCHOLAR_PREV))
         assert g.outcome == "missed" and g.evidence["threat_kind"] == "mate", g
+
+
+# --- v4 (ADR 0015) --------------------------------------------------------------------------------------------------------
+
+def test_a_position_that_is_already_lost_is_skipped():
+    f = ruy("e1g1", ruy_scripts(**{RUY: [L("a4b3", -450), L("a4c2", -470)]}))
+    assert (f.outcome, f.reason) == ("skipped", "already_lost")
+
+
+def test_a_threat_the_best_move_does_not_neutralise_is_unavoidable_not_missed():
+    # The engine's best move (d4) leaves bxa4 working too and White still ends 220 cp down: no move stopped it, the player's move was only worse.
+    scripts = ruy_scripts(**{RUY: [L("d2d4", 20), L("a4b3", 10)], forced(RUY, "d2d4", "b5a4"): [L("d4e5", -200)]})
+    f = ruy("e1g1", scripts)
+    assert (f.outcome, f.reason) == ("uncertain", "threat_unavoidable")
+    assert f.evidence["best_move_ftl"] == 220
+
+
+def test_a_best_move_that_stops_the_threat_leaves_it_missed():
+    f = ruy("e1g1")  # Bb3 makes bxa4 illegal
+    assert f.outcome == "missed" and "best_move_ftl" not in f.evidence

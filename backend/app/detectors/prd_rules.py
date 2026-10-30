@@ -39,6 +39,7 @@ M3_MATERIAL_MIN = 2  # owner, ADR 0011 decision 2: a knight lost for a pawn coun
 M3_THREAT_MIN_CP = 150  # ADR 0011 decision 3
 M3_EVAL_LOSS_CP = 150  # ADR 0011 decision 3
 M3_FTL_MIN_SHARE = 0.5  # ADR 0013: the forced-threat loss must be at least this share of the move's loss (and M3_EVAL_LOSS_CP)
+M3_LOST_LIMIT_CP = 400  # ADR 0015: below this score for the player the position is already lost, and a missed threat is not the story
 M3_MATE_MAX_MOVES = 2  # a mate threat counts when the engine mates in at most this many opponent moves
 
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
