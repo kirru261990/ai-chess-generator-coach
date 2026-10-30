@@ -132,7 +132,7 @@ const S='m3v3check_r2',cards=[...document.querySelectorAll('.card')];let ans={},
 try{ans=JSON.parse(localStorage.getItem(S)||'{}')}catch(e){}
 const save=()=>{try{localStorage.setItem(S,JSON.stringify(ans))}catch(e){}};
 function next(c){const a=ans[c.dataset.id]||{};
- if(k==='A')return a.A==='yes'?'B':null; if(k==='B')return a.B==='yes'?'C':null; if(k==='C')return a.C==='yes'?'D':null; return null}
+ if(k==='A')return a.A==='yes'?'B':null; if(k==='B')return a.B==='yes'?'C':null; if(k==='C')return a.C==='yes'&&JSON.parse(c.dataset.q).D?'D':null; return null}
 function show(){if(i>=cards.length){document.getElementById('stage').hidden=true;document.getElementById('done').hidden=false;
  document.getElementById('fill').style.width='100%';
  document.getElementById('out').value=Object.keys(ans).sort().map(id=>id+' '+Object.entries(ans[id]).map(([q,v])=>q+'='+({yes:'y',no:'n',cant:'?'})[v]).join(' ')).join('\\n');return}
