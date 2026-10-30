@@ -1,0 +1,22 @@
+{
+  "set": "missed_threat_v4",
+  "rule": "LABEL_RULE.md",
+  "seed": 20261101,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "games_file": "rapid_600_1200_2026-09_b.pgn",
+  "games_file_sha256": "fbc5e83fdd0dbfac9091528a22fff8255ec8119cfbeab5b4894c3b21d81d9b89",
+  "counts": {
+    "missed": 30,
+    "met": 30,
+    "not_applicable": 30
+  },
+  "quota": {
+    "missed": 30,
+    "met": 30,
+    "not_applicable": 30
+  },
+  "check_sample": 24,
+  "detectors_run": false,
+  "frozen": false
+}
