@@ -68,7 +68,7 @@ def main(set_name="missed_threat_v3", seed=SEED, round_no=3):
             pv = engine.analyse(p, V.ORACLE, perspective=p.turn).pv
             blues[r["id"]] = chess.Move.from_uci(pv[0])
     page = V3.PAGE.replace("@@CARDS@@", "".join(card(i, len(sample), r, blues[r["id"]]) for i, r in enumerate(sample, 1)))
-    page = page.replace("m3v3check_r2", f"m3check_{set_name}_r{round_no}")
+    page = page.replace("m3v3check_r2", ("m3v3check_r3" if (set_name, round_no) == ("missed_threat_v3", 3) else f"m3check_{set_name}_r{round_no}"))
     (SET / f"check_page_r{round_no}.html").write_text(page)
     (SET / f"check_key_r{round_no}.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
     print(len(sample), {k: sum(r["label"] == k for r in sample) for k in PER})
