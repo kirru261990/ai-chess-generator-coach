@@ -1,0 +1,24 @@
+mt3-004 A=n
+mt3-005 A=y B=y C=y
+mt3-007 A=n
+mt3-009 A=y B=n
+mt3-010 A=n
+mt3-013 A=y B=n
+mt3-018 A=y B=n
+mt3-019 A=n
+mt3-020 A=y B=y C=n
+mt3-024 A=n
+mt3-027 A=y B=n
+mt3-032 A=y B=n
+mt3-039 A=n
+mt3-043 A=y B=y C=y
+mt3-050 A=y B=y C=y
+mt3-055 A=y B=y C=y
+mt3-060 A=y B=y C=y
+mt3-076 A=y B=y C=y
+mt3-083 A=y B=y C=y
+mt3-084 A=n
+mt3-087 A=y B=y C=y
+mt3-090 A=y B=n
+mt3-096 A=y B=n
+mt3-097 A=n

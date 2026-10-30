@@ -19,3 +19,24 @@ Mapping (unchanged, minus D): `missed` = A yes, B yes, C yes. `met` = A yes, B n
 agree.** If it is met, the exception recorded in FROZEN.md (gate not met in rounds 1 and 2) is answered for the three scored classes;
 the `uncertain` class stays apart either way. If it is not met, the labels are reported with all three rounds and nothing is re-run to
 reach 20.
+
+## Result (2026-10-30): 23 of 24 agree. Gate (20 of 24) met.
+Answers: `check_round3_answers.txt`. Key: `check_key_r3.json` (git-ignored).
+
+| Engine label | Items | Agree |
+|---|---|---|
+| not_applicable | 8 | 8 |
+| missed | 8 | 8 |
+| met (clean 4, other_loss 4) | 8 | 7 |
+
+The one difference is mt3-020 (`met`, other_loss): the owner answered A yes, B yes, C no (the threat still works and no other move helps),
+which maps to nothing. The frozen file cannot be edited; score it as is and also report the numbers without it.
+
+## What this does and does not show
+- With the blue arrow, the owner's answers matched the engine labels almost completely, so the labels of the three scored classes are
+  sound on this sample. Rounds 1 and 2 had failed because of the builder defect, the `uncertain` class and threats the owner did not
+  spot, not because of general label noise.
+- **Not independent in two places:** the owner asked for help on two boards while answering (mt3-024: the blue move was a queen swap, so A
+  no; mt3-087: the blue move was a checkmate, so A and B yes, C yes) and the explanations were given in chat. Both answers match the labels,
+  and the other 22 were answered without help from the assistant on those boards.
+- The 24 items per round are still a small sample of 84; the `uncertain` class is untested by a person.

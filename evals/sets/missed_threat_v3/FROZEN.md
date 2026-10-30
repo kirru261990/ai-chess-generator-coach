@@ -23,3 +23,8 @@ From this point `positions.jsonl`, `LABEL_RULE.md` and `provenance.json` are nev
 `missed_threat` v2 with the evidence engine (depth 18), by `evals/tools/score_missed_threat.py --set missed_threat_v3`. Targets (fixed
 before the run): precision >= 0.90, recall >= 0.85. Report the set's limits next to the numbers: only 24 items were checked by a person,
 static threats only, and a 600 to 1200 owner could not verify some labels.
+
+## Update (2026-10-30, after the freeze): owner check round 3, gate met
+Round 3 (`check_round3.md`) checked 24 frozen items never shown before, with the opponent's best reply drawn on every board: **23 of 24
+agree** (gate 20). The exception above stands as history (rounds 1 and 2 missed the gate); round 3 answers it for the three scored
+classes. `uncertain` is still apart and unchecked. This file is not part of the hashed set.
