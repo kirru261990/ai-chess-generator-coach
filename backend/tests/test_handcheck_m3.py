@@ -128,9 +128,15 @@ def test_the_sample_is_the_newest_flagged_games_shown_newest_to_oldest():
     assert {p["game"] for p in picked if p["time_control"] == "600"} == {f"chesscom:600-{i}" for i in range(15)}
 
 
+def test_a_short_time_control_is_topped_up_from_the_other():
+    picked = H.sample({**flagged(25, "600"), **flagged(11, "900+10")})
+    assert len(picked) == 30 and len({p["game"] for p in picked}) == 30
+    assert sum(p["time_control"] == "900+10" for p in picked) == 11 and sum(p["time_control"] == "600" for p in picked) == 19
+
+
 def test_sample_refuses_to_run_short():
     with pytest.raises(SystemExit):
-        H.sample({**flagged(20, "600"), **flagged(14, "900+10")})
+        H.sample({**flagged(20, "600"), **flagged(9, "900+10")})
 
 
 def test_make_freezes_the_sample_and_the_page_asks_three_questions(data_dir):

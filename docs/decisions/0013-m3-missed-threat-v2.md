@@ -98,3 +98,23 @@ on C (a fork the owner thought could not have been stopped, 10|0); one "can't te
 **Reading:** the detector's flags on the owner's real games are mostly real (at least 27 of 30 on this sample), which is a first, thin pass of ADR
 0011 (d)'s second condition. It is not yet a clean one. Before M3 is shown as a weakness: repeat with a fresh sample from games the assistant has not
 discussed (or have the owner answer without chat), then run the real-game rates report (TASKS M3e) and show it with its denominators and floors.
+
+## Hand-check result on the owner's games, version 3 (2026-10-30): 23 of 30, the gate (27) is not met
+
+`handcheck_m3` version 3: fresh sample (none of the games of versions 1 and 2), flags from `missed_threat` v3, and **answered by the owner without
+asking the assistant**. Only 11 fresh flagged games existed at 900+10, so the 30 are 11 at 900+10 and 19 at 600 (the sampler tops a short time
+control up from the other; the scan took `--target 19`). **Result: 23 real of 30.** 600: 17 of 19; 900+10: 6 of 11.
+The seven not real: five "no" on C (m3c-01, 19, 21, 26, 30), one "can't tell" on C (28), one "no" on B (20).
+
+**Why (engine check of the seven, 2026-10-30, depth 16):**
+- m3c-21: the engine's best move does not stop the threat either (`Bc5+` still works, eval stays +377); the player's move was only worse against it. A fault: a `missed` needs a move that neutralises the threat.
+- m3c-19: already lost (-508 before; the best move is -509 after). The threat is real, nothing saves the game.
+- m3c-01, 26: only one or two defences hold, hard to find.
+- m3c-28, 30: the defence is a counter-attack or a capture of the attacker (`exd5`, `c6`), not a block.
+- m3c-20: after `e6` the capture `Bxf5` looks like an even trade; the loss comes from the opened e-file afterwards.
+
+**Reading:** the version 2 pass (27 of 30) did not hold on a clean, fresh sample. M3 is **not** shown as a weakness (ADR 0011 (d)); the real-game
+rates (TASKS M3e) stay blocked. Candidate v4 rules: the engine's best move must neutralise
+the threat (its forced-threat loss below the threshold), and skip positions already lost. **The owner has said there will be no further
+hand-check on their games and the detector is not to be run on them again**, so v4 can be tested only on the frozen Lichess sets and unit tests;
+the seven positions above must not be used to claim an improvement (the rules were fitted to them).

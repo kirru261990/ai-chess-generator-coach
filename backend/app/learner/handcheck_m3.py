@@ -17,7 +17,7 @@ Rules fixed before the owner answers (so the result cannot move the goalposts):
   (`realgame_rates freeze`). With no window frozen yet, older means every game before the latest `WINDOW_GAMES` of its time
   control; once the window is frozen, every game played before its earliest game. Games are scanned in a fixed pseudo-random order.
 - **Flags:** `missed_threat` findings (v3 detector) of outcome `missed`, counted the way the rates count them (a repeat of the same standing
-  threat is not a flag). At most one flag per game; `PER_TC` (15) per time control, 30 in all, shown in a fixed pseudo-random order.
+  threat is not a flag). At most one flag per game; `PER_TC` (15) per time control, 30 in all (a time control with fewer flagged games gives all it has and the other makes up the difference), shown in a fixed pseudo-random order.
   The sample is frozen in `data/evidence/handcheck_m3_v3.json` the first time; `make` afterwards only rebuilds the page.
 - **Questions** (plain words, from the board): A "if you had skipped your turn, could they win material or give checkmate with
   this move?"; B (only if A is yes) "after the move you played, can they still do it?"; C (only if B is yes) "could you have
@@ -148,7 +148,7 @@ def _process(task: dict) -> dict:
             "config_id": analyser.config.id, "seconds": time.monotonic() - started}
 
 
-def scan(db_path: Path, workers: int) -> dict:
+def scan(db_path: Path, workers: int, target: int = PER_TC) -> dict:
     conn = connect(db_path)
     pools.import_games(conn, games_path(), config.case_study_time_controls())
     older = older_games(conn)
@@ -157,7 +157,7 @@ def scan(db_path: Path, workers: int) -> dict:
     evidence_dir().mkdir(parents=True, exist_ok=True)
     with ctx.Pool(workers, initializer=realgame_rates._init_worker, initargs=(str(db_path),)) as pool:
         for tc, ids in older.items():
-            while flags_by_tc(scanned).get(tc, 0) < PER_TC:
+            while flags_by_tc(scanned).get(tc, 0) < target:
                 batch = [g for g in ids if g not in scanned][: workers * 2]
                 if not batch:
                     print(f"  {tc}: all {len(ids)} older games scanned, {flags_by_tc(scanned).get(tc, 0)} with a flag", flush=True)
@@ -189,13 +189,21 @@ def sample(scanned: dict[str, dict]) -> list[dict]:
             flag = min(r["flags"], key=lambda f: _order("flag", f"{gid}:{f['ply']}"))
             by_tc.setdefault(r["time_control"], []).append(
                 {"game": gid, "time_control": r["time_control"], "played_at": r.get("played_at", 0), "flag": flag})
-    picked: list[dict] = []
-    for tc in sorted(by_tc):
-        if len(by_tc[tc]) < PER_TC:
-            raise SystemExit(f"only {len(by_tc[tc])} flagged games at {tc}; need {PER_TC} (run `scan` again)")
-        picked += by_tc[tc][:PER_TC]
     if len(by_tc) < 2:
         raise SystemExit("flags found for fewer than two time controls")
+    # Each time control gives PER_TC; a short one gives all it has and the others make up the difference (newest first), so the page keeps
+    # its size and the gate stays 27 of 30.
+    take = {tc: min(len(v), PER_TC) for tc, v in by_tc.items()}
+    short = PER_TC * len(by_tc) - sum(take.values())
+    for tc in sorted(by_tc, key=lambda t: -len(by_tc[t])):
+        extra = min(short, len(by_tc[tc]) - take[tc])
+        take[tc] += extra
+        short -= extra
+    if short:
+        raise SystemExit(f"only {PER_TC * len(by_tc) - short} flagged games in all; need {PER_TC * len(by_tc)} (run `scan` again)")
+    picked: list[dict] = []
+    for tc in sorted(by_tc):
+        picked += by_tc[tc][: take[tc]]
     picked.sort(key=lambda p: (-p["played_at"], p["game"]))
     for i, p in enumerate(picked, 1):
         p["id"] = f"{PREFIX}-{i:02d}"
@@ -395,12 +403,13 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("scan")
     s.add_argument("--db", type=Path, default=None, help="store to use (default: the real one; use a copy to leave it alone)")
     s.add_argument("--workers", type=int, default=4)
+    s.add_argument("--target", type=int, default=PER_TC, help="flagged games to find per time control (more, to top up a short one)")
     sub.add_parser("make")
     sc = sub.add_parser("score")
     sc.add_argument("answers", type=Path)
     args = p.parse_args(argv)
     if args.cmd == "scan":
-        print(json.dumps(scan(args.db or default_path(), args.workers), indent=1))
+        print(json.dumps(scan(args.db or default_path(), args.workers, args.target), indent=1))
     elif args.cmd == "make":
         print(make())
     else:
