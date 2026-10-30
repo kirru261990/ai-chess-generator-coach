@@ -113,7 +113,7 @@ def card(n, total, r):
     qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} checkmate, or win 2 or more points of material once everyone has taken back? (Pawn 1, knight or bishop 3, rook 5, queen 9. Just 1 pawn up does not count.)",
           "B": f"Now {X} plays the real move (the red arrow). Can {Y} still do that?",
           "C": f"Was there a {X} move that stops it?",
-          "D": f"Does {X}'s move lose something else?"}
+          "D": f"Besides that threat, does {X}'s move (the arrow) leave something else to be taken?"}
     return (f'<section class="card" data-id="{r["id"]}" data-q="{html.escape(json.dumps(qs))}" hidden><p class="n">{n} of {total}</p>'
             f'<div class="board">{svg}</div><p class="mv">Red arrow = the move {X} played. {html.escape(plain_move(board, move))}</p></section>')
 
