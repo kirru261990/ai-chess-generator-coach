@@ -81,3 +81,20 @@ No change to M1 or M2 (`RULES_VERSION` stays 1), the rates pass, or the web app.
 
 Set `missed_threat.VERSION` back to `"1"` and remove the FTL block in `detect`. v1 records stay readable; retire v2 rows with
 `evidence_run retire`.
+
+## Hand-check result on the owner's games, version 2 (2026-10-31): 27 of 30, the gate is met exactly
+
+`handcheck_m3` version 2 (flags from `missed_threat` v3, ADR 0014; 15 games per time control, the newest older-than-the-window games, none of the 30 of
+version 1; page wording as the eval-set checks: point values, the whole line shown, "green instead of red"). The owner answered all 30: **27 real,
+3 not real** (gate 27). By time control: 10|0 12 of 15, 15|10 15 of 15. The three: one "no" on A (the owner saw no threat, 10|0, a capture); one "no"
+on C (a fork the owner thought could not have been stopped, 10|0); one "can't tell" on C (10|0). Version 1 scored 14 of 30 on `missed_threat` v1.
+**Caveats, stated before any use of the number:**
+- It passes **exactly at the gate**, on 30 items, so the interval is wide (27 of 30 has a 95% Wilson interval of about 0.74 to 0.97).
+- **Not fully independent:** the owner asked the assistant about several boards while answering, and the assistant explained the position and the
+  question on three of them that were then answered as real (items 2 and 7) or not (item 4); the wording of A and C was also changed twice during the
+  answering because the owner found them unclear (the answers already given were kept; the saved sample did not change). Without the two assisted
+  real items the figure would be 25 of 28 (0.89), just under the same proportion.
+- The owner's games are not in the repository (aggregate numbers only here); the sample, key, page and answers are in the git-ignored `data/evidence/`.
+**Reading:** the detector's flags on the owner's real games are mostly real (at least 27 of 30 on this sample), which is a first, thin pass of ADR
+0011 (d)'s second condition. It is not yet a clean one. Before M3 is shown as a weakness: repeat with a fresh sample from games the assistant has not
+discussed (or have the owner answer without chat), then run the real-game rates report (TASKS M3e) and show it with its denominators and floors.
