@@ -48,3 +48,17 @@ Positive class `missed`. Precision and recall with 95% Wilson intervals for all 
 disagreement. Targets as for v1 and v2: precision at least 0.90, recall at least 0.85. Nothing is tuned on the set; a change to
 `missed_threat` after seeing scores means a new detector version and a new set. This set measures detection accuracy on real games, not
 how often players miss threats (items are chosen by quota, not by chance).
+
+## Amendment 1 (2026-10-30, after round 1 of the owner's check: 10 of 24, gate not met; see `check_round1.md`)
+Made after seeing the owner's answers, so stated here and not hidden. The mapping and the gate are unchanged.
+1. **The threat must still win after the player's move.** For `missed` and `uncertain`, T must be legal after M **and** still win by
+   the exchange count (`wins`, as in the static-threat definition). Round 1's builder skipped this.
+2. **New `met` kind.** T is no longer legal or no longer wins after M, and `L >= 300`: the move stopped the threat but lost for another
+   reason (the detector's `met` / `defended_other_loss`). Labelled `met` with `met_kind = other_loss`; the original kind is `clean`
+   (`L < 100`). Quota of the 25 `met` items: 15 clean, 10 other_loss.
+3. **A new check sample.** The 24 shown in round 1 are never shown again. Round 2 shows a new 24 (8 `missed`, 6 `uncertain`, 5 `met`,
+   5 `not_applicable`), same questions and mapping, same gate (20 of 24). The page for A now says that winning a piece counts even if a
+   pawn is taken back.
+4. **"No threat" answers.** An owner's A "no" on a position where the exchange count finds a threat with no recapture is reported as an
+   owner miss and is not used to remove the item (the exchange count is deterministic and does not depend on opinion). It still counts as
+   a disagreement in the 20-of-24 gate, so the gate is deliberately hard; if it is not met again the set is not frozen.

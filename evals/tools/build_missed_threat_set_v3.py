@@ -30,6 +30,8 @@ OUT = ROOT / "evals" / "sets" / "missed_threat_v3"
 SEED = 20261030
 QUOTA = {"missed": 30, "uncertain": 15, "met": 25, "not_applicable": 30}
 CHECK = {"missed": 8, "uncertain": 6, "met": 5, "not_applicable": 5}
+MET_SPLIT = {"clean": 15, "other_loss": 10}  # of the 25 `met` items (round 2)
+ROUND = 2
 CALM = 400
 LOSS, MET_LOSS, FTL_ABS, FTL_SHARE, FTL_LOW, AVOID = 300, 100, 250, 0.6, 100, 100
 THREAT_CP, NO_THREAT_CP = 200, 60
@@ -69,13 +71,16 @@ def classify(engine, board, move, ply):
     loss = F.loss(move)
     facts = {**base, "loss_cp": loss, "threat_move": T.uci(), "threat_cp": F.threat_cp}
     if loss < MET_LOSS:
+        facts["met_kind"] = "clean"
         return ("met", facts)
     if loss < LOSS:
         return None
     after = board.copy()
     after.push(move)
-    if T not in after.legal_moves:
-        return None  # M stopped T yet lost 300+: another mistake; not a case this set labels
+    works = T in after.legal_moves and V.wins(after, T)  # round 2: the threat must still win after the move, by the exchange count
+    if not works:
+        facts["met_kind"] = "other_loss"
+        return ("met", facts)  # the move stopped the threat but lost for another reason (detector: defended_other_loss)
     forced = after.copy()
     forced.push(T)
     ftl = F.best_cp - score_after(F, forced)
@@ -105,7 +110,7 @@ def card(n, total, r):
     move = chess.Move.from_uci(r["move_uci"])
     X, Y = side(board.turn), side(not board.turn)
     svg = chess.svg.board(board, orientation=board.turn, size=340, arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
-    qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} win a piece or checkmate? (An even trade does not count.)",
+    qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} win a piece or checkmate? (Winning a knight, bishop, rook or queen counts, even if they take a pawn back. An even trade does not.)",
           "B": f"Now {X} plays the real move (the red arrow). Can {Y} still do that?",
           "C": f"Was there a {X} move that stops it?",
           "D": f"Does {X}'s move lose something else?"}
@@ -123,7 +128,7 @@ PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="wi
 <div id="stage">@@CARDS@@<div id="q"></div><div class="row" id="btns"><button data-v="yes">Yes</button><button data-v="no">No</button><button data-v="cant">Can't tell</button></div><button id="back">&larr; back</button></div>
 <div id="done" hidden><h3>All done. Thank you!</h3><p>Tap the button, then paste what it copied into the chat.</p><button id="copy">Copy my answers</button><textarea id="out" readonly></textarea></div>
 <script>
-const S='m3v3check2',cards=[...document.querySelectorAll('.card')];let ans={},i=0,k='A';
+const S='m3v3check_r2',cards=[...document.querySelectorAll('.card')];let ans={},i=0,k='A';
 try{ans=JSON.parse(localStorage.getItem(S)||'{}')}catch(e){}
 const save=()=>{try{localStorage.setItem(S,JSON.stringify(ans))}catch(e){}};
 function next(c){const a=ans[c.dataset.id]||{};
@@ -171,7 +176,8 @@ def main():
                 board = chess.Board(board.fen())
                 res = classify(engine, board, moves[p], p)
                 if res and len(got[res[0]]) < QUOTA[res[0]] and (res[0] != "not_applicable" or sum(
-                        1 for r in got["not_applicable"] if r["blunder"] == res[1]["blunder"]) < QUOTA["not_applicable"] // 2):
+                        1 for r in got["not_applicable"] if r["blunder"] == res[1]["blunder"]) < QUOTA["not_applicable"] // 2) and (
+                        res[0] != "met" or sum(1 for r in got["met"] if r["met_kind"] == res[1]["met_kind"]) < MET_SPLIT[res[1]["met_kind"]]):
                     label, facts = res
                     got[label].append({"label": label, "fen": board.fen(), "move_uci": moves[p].uci(), "move_san": board.san(moves[p]),
                                        "ply": p, "game": g.headers.get("Site", ""), "band": (min(int(g.headers["WhiteElo"]), int(g.headers["BlackElo"])) // 200) * 200,
@@ -189,11 +195,13 @@ def main():
 
 def finish(items, pgn, engine_name):
     got = {k: [r for r in items if r["label"] == k] for k in QUOTA}
+    seen = {(x["fen"], x["move_uci"]) for x in json.loads((OUT / "check_round1_items.json").read_text()).values()}
+    pool = {k: [r for r in got[k] if (r["fen"], r["move_uci"]) not in seen] for k in QUOTA}  # a new 24: none the owner has seen
     srng = random.Random(SEED + 2)
-    sample = [r for k in CHECK for r in srng.sample(got[k], min(CHECK[k], len(got[k])))]
+    sample = [r for k in CHECK for r in srng.sample(pool[k], min(CHECK[k], len(pool[k])))]
     srng.shuffle(sample)
-    (OUT / "check_page.html").write_text(PAGE.replace("@@CARDS@@", "".join(card(i, len(sample), r) for i, r in enumerate(sample, 1))))
-    (OUT / "check_key.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
+    (OUT / f"check_page_r{ROUND}.html").write_text(PAGE.replace("@@CARDS@@", "".join(card(i, len(sample), r) for i, r in enumerate(sample, 1))))
+    (OUT / f"check_key_r{ROUND}.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
     prov = {"set": "missed_threat_v3", "rule": "LABEL_RULE.md", "seed": SEED, "engine": engine_name, "oracle_depth": V.ORACLE.depth,
             "games_file": pgn.name, "games_file_sha256": hashlib.sha256(pgn.read_bytes()).hexdigest(),
             "counts": {k: len(v) for k, v in got.items()}, "quota": QUOTA, "check_sample": len(sample), "detectors_run": False, "frozen": False}
