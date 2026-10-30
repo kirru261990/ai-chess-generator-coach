@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-30 (night) · MacBook · Claude Code: M3 hand-check v3 failed, 23 of 30 (branch `feat/m3-handcheck-v3`)
+- **Done:** `handcheck_m3` version 3 (fresh games, answered by the owner without chat; sampler tops a short time control up from the other, scan `--target`). **Result 23 of 30 real, gate 27 not met** (600: 17/19, 900+10: 6/11); reasons in ADR 0013 ("version 3"). The `uncertain` probe (`evals/sets/m3_uncertain_probe/`, engine-labelled, not a score): 6/20 and 6/15 abstain as expected, one `missed` in the second group (up-028).
+- **Detector v4 built (ADR 0015):** skip already-lost positions (below -400) and require that the best move neutralises the threat. Frozen sets: v3 set 1.00 / 0.90, v4 set 1.00 / 0.90 (precision / recall). Not validated on the owner's games.
+- **Next:** nothing planned for M3. **The owner will not do another 30-game hand-check and the detector is not to be run on the owner's games again.** So M3 stays off the weakness list and M3e (real-game rates) stays blocked unless the owner decides otherwise.
+- **Files:** owner's sample, key, page and answers stay in git-ignored `data/evidence/handcheck_m3_v3*`, `m3c_answers.txt`.
+
 ### 2026-10-31 · MacBook · Claude Code: M3 `missed_threat` v3 and the `missed_threat_v4` set (branch `feat/missed-threat-v3-detector`)
 - **Done:** v2's first score (0.96 / 0.93 on `missed_threat_v3`) exposed a false positive: an even trade after the player's move guarded the piece (mt3-049). ADR 0014 / detector v3: after the threat move the engine plays both sides and the exchange count decides plain captures. New frozen set `missed_threat_v4` (88 items, other Lichess games, owner check 22 of 24, gate met first time). v3 scored once on it: **precision 27/27 = 1.00, recall 27/30 = 0.90** (CIs 0.88-1.00 and 0.74-0.97; both targets met as point estimates only). Read `evals/reports/missed_threat_v4_2026-10-31_notes.md` before quoting. Backend 1103 tests.
 - **M3 hand-check v2 on the owner's games: 27 of 30 real, the gate met exactly** (12 of 15 at 10|0, 15 of 15 at 15|10; ADR 0013 "Hand-check result, version 2" has the caveats: thin, and not independent on three boards the assistant explained). Files in git-ignored `data/evidence/handcheck_m3_v2*`. Chess.com synced to 580 games (55 new) and the fast pass run on them on 2026-10-31.

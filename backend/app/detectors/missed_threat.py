@@ -1,4 +1,4 @@
-"""`missed_threat` v3 = mistake type M3, missed threat (ADR 0011, v2 in ADR 0013, v3 in ADR 0014).
+"""`missed_threat` v4 = mistake type M3, missed threat (ADR 0011, v2 in ADR 0013, v3 in ADR 0014, v4 in ADR 0015).
 
 In the position after the opponent's move (player to move), the player skips a turn and the evidence engine searches the passed
 position: its best line is the **threat line**. The position holds a threat when that line mates or nets at least
@@ -14,7 +14,7 @@ Outcomes (the rate is missed / (missed + met); the others are in neither part, A
 - uncertain: `loss_not_from_threat` (v2: the move loses, the threat still works, but the threat does not explain the loss),
   `threat_unavoidable` (the best move cannot stop the threat line either) or `loss_not_stable`
 - no_threat: `no_concrete_threat` or `passing_costs_little`
-- skipped: `before_min_ply` (M3_MIN_PLY), `in_check`, `only_legal_move`, `decided`
+- skipped: `before_min_ply` (M3_MIN_PLY), `in_check`, `only_legal_move`, `decided`, `already_lost` (v4: the player is below -M3_LOST_LIMIT_CP)
 
 Every finding that has a threat carries `evidence`, so later drills can use met positions too.
 """
@@ -29,7 +29,7 @@ from app.detectors.hanging_own_v4 import Finding
 from app.detectors.see import capture_net
 
 DETECTOR = "missed_threat"
-VERSION = "3"
+VERSION = "4"
 
 THRESHOLDS = {
     "min_ply": R.M3_MIN_PLY,
@@ -40,6 +40,7 @@ THRESHOLDS = {
     "max_refutation_plies": R.MAX_REFUTATION_PLIES,
     "decided_limit_cp": R.DECIDED_LIMIT_CP,
     "ftl_min_share": R.M3_FTL_MIN_SHARE,
+    "lost_limit_cp": R.M3_LOST_LIMIT_CP,
 }
 
 
@@ -53,6 +54,8 @@ def gates(board: chess.Board, ply: int, before) -> str | None:
         return "only_legal_move"
     if before.best is None or abs(R.line_score(before.best, board.turn)) > R.DECIDED_LIMIT_CP:
         return "decided"
+    if R.line_score(before.best, board.turn) < -R.M3_LOST_LIMIT_CP:  # v4 (ADR 0015)
+        return "already_lost"
     return None
 
 
@@ -192,6 +195,16 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
     record.update({"ftl": ftl, "ftl_config_id": ftl_id})
     if ftl < max(R.M3_EVAL_LOSS_CP, loss * R.M3_FTL_MIN_SHARE):
         return Finding("uncertain", "loss_not_from_threat", record)
+
+    # v4 (ADR 0015): a move must have existed that neutralises the threat. If the engine's best move meets the same threat line with a
+    # loss as big as the one that makes this move `missed`, the threat is not what the player could have avoided.
+    best_status, best_forced, best_forced_line = forced_threat(best_board, pv[0], analyser, opponent)
+    if best_status == "works":
+        best_score = R.line_score(best_forced_line, mover) if best_forced_line else R.terminal_score(best_forced, mover)
+        best_ftl = eval_before - best_score
+        record["best_move_ftl"] = best_ftl
+        if best_ftl >= R.M3_EVAL_LOSS_CP:
+            return Finding("uncertain", "threat_unavoidable", record)
 
     record["target_squares"] = _targets(passed, pv, mover)
     alternatives = tuple(

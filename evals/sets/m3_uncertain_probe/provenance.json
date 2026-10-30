@@ -1,0 +1,12 @@
+{
+  "seed": 20261103,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "counts": {
+    "unavoidable": 20,
+    "not_from_threat": 15
+  },
+  "games_file": "rapid_600_1200_2026-09_b.pgn",
+  "frozen": false,
+  "checked_by_person": false
+}

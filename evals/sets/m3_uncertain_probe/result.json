@@ -1,0 +1,238 @@
+{
+ "detector_version": "3",
+ "summary": {
+  "unavoidable": {
+   "n": 20,
+   "expected": "uncertain:threat_unavoidable",
+   "as_expected": 6,
+   "outcomes": {
+    "uncertain:threat_unavoidable": 6,
+    "no_threat:no_concrete_threat": 11,
+    "no_threat:passing_costs_little": 3
+   }
+  },
+  "not_from_threat": {
+   "n": 15,
+   "expected": "uncertain:loss_not_from_threat",
+   "as_expected": 6,
+   "outcomes": {
+    "no_threat:no_concrete_threat": 4,
+    "uncertain:loss_not_from_threat": 6,
+    "met:defended_other_loss": 4,
+    "missed:all_checks_hold": 1
+   }
+  }
+ },
+ "items": [
+  {
+   "id": "up-001",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-002",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-003",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-004",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-005",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-006",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:passing_costs_little"
+  },
+  {
+   "id": "up-007",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-008",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:passing_costs_little"
+  },
+  {
+   "id": "up-009",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:passing_costs_little"
+  },
+  {
+   "id": "up-010",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-011",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-012",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-013",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-014",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-015",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-016",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-017",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-018",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-019",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "uncertain:threat_unavoidable"
+  },
+  {
+   "id": "up-020",
+   "group": "unavoidable",
+   "expected": "uncertain:threat_unavoidable",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-021",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-022",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-023",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-024",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-025",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "no_threat:no_concrete_threat"
+  },
+  {
+   "id": "up-026",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "met:defended_other_loss"
+  },
+  {
+   "id": "up-027",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "met:defended_other_loss"
+  },
+  {
+   "id": "up-028",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "missed:all_checks_hold"
+  },
+  {
+   "id": "up-029",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "met:defended_other_loss"
+  },
+  {
+   "id": "up-030",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-031",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-032",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "met:defended_other_loss"
+  },
+  {
+   "id": "up-033",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-034",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "uncertain:loss_not_from_threat"
+  },
+  {
+   "id": "up-035",
+   "group": "not_from_threat",
+   "expected": "uncertain:loss_not_from_threat",
+   "got": "no_threat:no_concrete_threat"
+  }
+ ]
+}
