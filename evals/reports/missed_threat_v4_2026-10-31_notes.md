@@ -22,6 +22,19 @@ Nothing was tuned on this set. The report file is named 2026-10-31 (the scorer s
   detector's depth-18 pass search finds no concrete threat.
 - **Two `met` items called `no_threat` (mt3-016, mt3-074):** the depth-18 pass search finds nothing concrete where the depth-14 builder did. No effect on precision.
 
+## mt3-035 and mt3-085 looked at (2026-10-31)
+Both are ...Qe7 moves, and the cause is the same. The detector takes **the engine's best move after a pass** as "the threat", and here that is a
+forcing check (035: Bf7+; 085: Qh5+) that starts a combination. After Qe7 the check is answered (Qxf7), so v3 calls the threat stopped. But the
+combination's real gain is still there: in 035 Bxg8 wins a rook and a knight for a bishop (the queen on b3 x-rays behind the bishop), in 085
+Bxh8 wins the rook with no recapture. The builder, which counts every capture that wins material, labelled them right. v2 caught both
+because its replay of the pass line reached the capture on ply 3. So v3 fixes the even-trade false positive (v2's flaw) and opens a different
+gap: it tests one move, `pv[0]`, and a decoy first move hides a threat that survives.
+**Possible v4 rule (not built):** after the player's move, the threat also works when the engine's best line for the opponent wins material and
+its captures land on the squares the pass line attacked (the `target_squares` of the record). It would need its own set and owner check.
+**Recommendation:** do not build it now. The cost of this gap is 2 of 30 missed items (recall 0.90, still above 0.85) and zero wrong
+accusations, which is the safer side for a coach (AGENTS rule 5: abstain rather than guess). Record it as a known limit and revisit if the
+owner hand-check on real games shows misses of this kind.
+
 ## Next
 M3 may still not be shown as a weakness (ADR 0011 (d)): the detector now has a passing score on two sets, but the second condition is a new
 owner hand-check on real Chess.com games with the new wording, gate 27 of 30. Then the real-game rates (TASKS M3e). Not done: the hand-check, the
