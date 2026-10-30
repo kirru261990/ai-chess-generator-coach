@@ -110,7 +110,7 @@ def card(n, total, r):
     move = chess.Move.from_uci(r["move_uci"])
     X, Y = side(board.turn), side(not board.turn)
     svg = chess.svg.board(board, orientation=board.turn, size=340, arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
-    qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} win a piece or checkmate? (Winning a knight, bishop, rook or queen counts, even if they take a pawn back. An even trade does not.)",
+    qs = {"A": f"Imagine {X} does nothing this turn and {Y} moves next. Can {Y} checkmate, or win 2 or more points of material once everyone has taken back? (Pawn 1, knight or bishop 3, rook 5, queen 9. Just 1 pawn up does not count.)",
           "B": f"Now {X} plays the real move (the red arrow). Can {Y} still do that?",
           "C": f"Was there a {X} move that stops it?",
           "D": f"Does {X}'s move lose something else?"}
