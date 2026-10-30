@@ -168,7 +168,7 @@ def test_m3_row_keeps_its_details_and_m1_m2_rows_have_none(conn):
     rows = {r["mistake_type"]: r for r in conn.execute("SELECT * FROM realgame_game WHERE game_id = ?", (gid,))}
     assert set(rows) == {"M1", "M2", "M3"}
     assert rows["M1"]["details_json"] is None and json.loads(rows["M3"]["details_json"])["also_m1"] == 2
-    assert rows["M3"]["detector_version"] == "missed_threat@2+rules1"
+    assert rows["M3"]["detector_version"] == "missed_threat@3+rules1"
 
 
 def test_a_pass_checks_only_the_types_still_missing(conn):
