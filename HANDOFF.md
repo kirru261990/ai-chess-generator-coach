@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-30 · MacBook · Claude Code: M3 `missed_threat` v2 built (branch `docs/m3-v2-adr`)
+- **Done:** ADR 0013 and the detector: `missed` now also needs the forced-threat loss (move, then the threat move, then best play) to be at least 150 cp and half the move's loss; otherwise `uncertain` / `loss_not_from_threat`. Version "2", `M3_FTL_MIN_SHARE`. Backend 1095 tests pass, ruff clean. Existing v1 M3 rows in `data/coach.sqlite3`, if any, are stale: run `evidence_run retire` before any M3 report.
+- **Not done (needs the owner):** the frozen real-game eval set `missed_threat_v3` (builder in `evals/tools/`, no detector import, labels first); new hand-check wording and sample (`handcheck_m3.py` still describes v1 flags); gate 27 of 30. No M3 rate as a weakness until both pass.
+
 ### 2026-10-27 (night) · MacBook · Claude Code: Maia-3 at 800 is the starting opponent (branch `feat/maia3-default`)
 - **Done:** on page load the web app asks `GET /opponents` first; if Maia-3 is installed the first game and the selectors start as Maia-3 at 800 (Practice was already the default mode), otherwise Stockfish level 3 as before. Owner's request. Web 127 tests, tsc clean; checked in the browser pane (selectors and the started game: practice, maia3, 800). Reverse: `startingOpponent` in `web/src/gameState.ts` returns `'stockfish'`.
 - **Review fix (P2):** the controls and New game stay locked until `/opponents` settles (5 s timeout), so the automatic first game can no longer replace a game the player started or use stale colour/mode/level. Guarded by source-level tests in `web/src/appGuards.test.ts` (there is no component-test setup; a rendered delayed-probe test would need jsdom and testing-library plus a THIRD_PARTY.md row). Web 129 tests, tsc clean.

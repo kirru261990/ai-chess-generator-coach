@@ -1,6 +1,6 @@
 # 0013 — M3 `missed_threat` v2: the threat must explain the loss
 
-Status: proposed, 2026-10-29. Decided by: Claude (all decisions below; the owner may change them). Builds on ADR 0011 ("Hand-check
+Status: detector built 2026-10-30 (PR pending); eval set and hand-check not done. Decided by: Claude (all decisions below; the owner may change them). Builds on ADR 0011 ("Hand-check
 result" and "Next"). Nothing in `missed_threat` v1, the frozen M3 window or the 30 judged positions changes.
 
 ## Problem
@@ -56,6 +56,13 @@ Positions are taken from FENs in the repo's hand-check data; they guide tests, t
 - **New sample:** 30 flags (15 per time control, one per game) from older games neither in the M3 window nor in the first sample
   (about 350 remain). Gate **27 of 30**.
 - **No M3 rate is reported as a weakness** until both the eval and the new hand-check pass (ADR 0011 (d); TASKS M3e stays blocked).
+
+## Built (2026-10-30)
+
+`missed_threat.VERSION` = "2"; `M3_FTL_MIN_SHARE` = 0.5 in `prd_rules.py` (copied into `m3_thresholds`). The check runs last, only for moves
+that would otherwise be `missed`, so it adds one engine search per missed candidate and none for the other outcomes. A forced
+threat that ends the game (mate) is scored without a search. Tests: `tests/test_detector_missed_threat.py` (cases 1 to 6 above as
+scripted-engine rules, plus the boundaries at half the loss and at 150 cp). Not yet run on real positions.
 
 ## Not in this step
 
