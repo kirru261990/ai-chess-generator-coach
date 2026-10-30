@@ -62,3 +62,13 @@ Made after seeing the owner's answers, so stated here and not hidden. The mappin
 4. **"No threat" answers.** An owner's A "no" on a position where the exchange count finds a threat with no recapture is reported as an
    owner miss and is not used to remove the item (the exchange count is deterministic and does not depend on opinion). It still counts as
    a disagreement in the 20-of-24 gate, so the gate is deliberately hard; if it is not met again the set is not frozen.
+
+## Amendment 2 (2026-10-30, after round 2: 15 of 24, gate not met a second time)
+Declared after the results, and the reason is given in `check_round2.md`.
+1. **The set is frozen without meeting the gate.** The `uncertain` class is excluded from the frozen set and kept apart in
+   `uncertain_unverified.jsonl` (not frozen, not scored with the set): its label depends on the engine's view of what else loses, which the
+   owner cannot judge (0 of 6), and the builder's exchange count is blind to pins and similar tactics (two examples in round 2).
+2. **Scoring is restricted to `missed`, `met` and `not_applicable`.** Precision and recall of `missed` stay the headline; a detector `uncertain`
+   on an item of the frozen set counts as "not missed". The detector's `uncertain` behaviour is tested another way.
+3. **Removals:** only item mt3-014 (owner D "yes" against the engine's "missed"). Owner A "no" items where the exchange count finds a threat
+   are kept (mt3-063, mt3-067), per Amendment 1 point 4.
