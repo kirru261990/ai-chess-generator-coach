@@ -19,3 +19,8 @@ count; a move that stops the threat but loses for another reason is `met` with `
 `missed_threat` v3 with the evidence engine (depth 18), `score_missed_threat.py --set missed_threat_v4`. Positive class `missed`; precision >= 0.90 and
 recall >= 0.85 with 95% Wilson intervals; every disagreement listed. Nothing is tuned on the set; report next to v2's score on `missed_threat_v3`, not
 instead of it. Limits as for v3: static threats only, the exchange count does not see pins, 24 items checked by a person, 600 to 1200 Lichess games.
+
+## Round 1 result (2026-10-31): 22 of 24 agree, gate met
+Applied before freezing, as point 4 says: mt3-078 (`met`, the owner said missed: a mating attack the exchange count does not see) is removed;
+mt3-082 (`missed`, the owner saw no threat but Rxf3 wins a piece with no recapture) is kept as an owner miss. See `check_round1_answers.txt`.
+Also removed: mt3-069, the same position and move as an item of `missed_threat_v3` (no position is shared between sets; the owner agreed with it).
