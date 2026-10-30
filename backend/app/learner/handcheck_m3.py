@@ -1,16 +1,21 @@
 """M3 hand-check (TASKS M3d; ADR 0011): the owner judges 30 flagged missed threats from older games. Gate: at least 27 are real.
 
+Version 2 (ADR 0013 and 0014): flags come from `missed_threat` v3, the games exclude the 30 of version 1, the questions use the point values
+that worked in the eval-set checks, and the ids are `m3b-NN`. Version 1's files are left alone. **Order (owner's decision, 2026-10-31):**
+games are scanned and shown newest to oldest (version 1 used a fixed pseudo-random order); the sample is the newest `PER_TC` flagged games
+per time control, still one flag per game and all older than the M3 window.
+
   uv run python -m app.learner.handcheck_m3 scan [--db PATH] [--workers 4]   # run the M3 detector on older games until each time control has enough flags
-  uv run python -m app.learner.handcheck_m3 make                              # sample once, write data/evidence/handcheck_m3_v1.html
+  uv run python -m app.learner.handcheck_m3 make                              # sample once, write data/evidence/handcheck_m3_v2.html
   uv run python -m app.learner.handcheck_m3 score ANSWERS.txt                 # score the owner's copied answers
 
 Rules fixed before the owner answers (so the result cannot move the goalposts):
 - **Games:** only games *older* than the M3 real-game window, so the sample never touches the games the M3 rates will use
   (`realgame_rates freeze`). With no window frozen yet, older means every game before the latest `WINDOW_GAMES` of its time
   control; once the window is frozen, every game played before its earliest game. Games are scanned in a fixed pseudo-random order.
-- **Flags:** `missed_threat` v1 findings of outcome `missed`, counted the way the rates count them (a repeat of the same standing
+- **Flags:** `missed_threat` findings (v3 detector) of outcome `missed`, counted the way the rates count them (a repeat of the same standing
   threat is not a flag). At most one flag per game; `PER_TC` (15) per time control, 30 in all, shown in a fixed pseudo-random order.
-  The sample is frozen in `data/evidence/handcheck_m3_v1.json` the first time; `make` afterwards only rebuilds the page.
+  The sample is frozen in `data/evidence/handcheck_m3_v2.json` the first time; `make` afterwards only rebuilds the page.
 - **Questions** (plain words, from the board): A "if you had skipped your turn, could they win material or give checkmate with
   this move?"; B (only if A is yes) "after the move you played, can they still do it?"; C (only if B is yes) "could you have
   stopped it with another move, for example the green one?".
@@ -44,7 +49,8 @@ from app.learner.evidence_run import games_path
 from app.learner.explorer import GREEN, ORANGE, RED, board_svg, plain, side
 from app.learner.handcheck import ANSWERS, GATE
 
-VERSION = 1
+VERSION = 2
+PREFIX = "m3b"  # item ids; version 1 used hc3
 PER_TC = 15
 QUESTIONS = ("A", "B", "C")
 
@@ -65,6 +71,16 @@ def page_path() -> Path:
     return evidence_dir() / f"handcheck_m3_v{VERSION}.html"
 
 
+def prior_games() -> set[str]:
+    """Games of the earlier versions' samples: a new sample never reuses a game the owner has judged."""
+    out: set[str] = set()
+    for v in range(1, VERSION):
+        path = evidence_dir() / f"handcheck_m3_v{v}.json"
+        if path.exists():
+            out |= {it["game"] for it in json.loads(path.read_text())["items"]}
+    return out
+
+
 def _order(salt: str, key: str) -> str:
     return hashlib.sha256(f"handcheck_m3_v{VERSION}:{salt}:{key}".encode()).hexdigest()
 
@@ -74,6 +90,7 @@ def _order(salt: str, key: str) -> str:
 def older_games(conn: sqlite3.Connection) -> dict[str, list[str]]:
     """{time control: game ids older than the M3 window, in scan order}. Never a game in or after the window."""
     out: dict[str, list[str]] = {}
+    used = prior_games()
     frozen = {w["time_control"]: w for w in realgame.frozen_windows(conn, "M3")}
     tcs = [r[0] for r in conn.execute("SELECT DISTINCT time_control FROM game WHERE user_color IS NOT NULL ORDER BY time_control")]
     for tc in tcs:
@@ -90,8 +107,9 @@ def older_games(conn: sqlite3.Connection) -> dict[str, list[str]]:
             out[tc] = []
             continue
         ids = [r[0] for r in conn.execute(
-            "SELECT id FROM game WHERE time_control = ? AND user_color IS NOT NULL AND played_at < ?", (tc, cutoff))]
-        out[tc] = sorted(ids, key=lambda g: _order("scan", g))
+            "SELECT id FROM game WHERE time_control = ? AND user_color IS NOT NULL AND played_at < ?"
+            " ORDER BY played_at DESC, id", (tc, cutoff))]
+        out[tc] = [g for g in ids if g not in used]  # newest first
     return out
 
 
@@ -123,7 +141,7 @@ def _process(task: dict) -> dict:
         error = None
     except ValueError as e:
         error = f"{type(e).__name__}: {e}"
-    return {"game": task["game"], "time_control": task["time_control"], "flags": found, "error": error,
+    return {"game": task["game"], "time_control": task["time_control"], "played_at": task["played_at"], "flags": found, "error": error,
             "config_id": analyser.config.id, "seconds": time.monotonic() - started}
 
 
@@ -143,8 +161,9 @@ def scan(db_path: Path, workers: int) -> dict:
                     break
                 tasks = []
                 for gid in batch:
-                    r = conn.execute("SELECT pgn, user_color FROM game WHERE id = ?", (gid,)).fetchone()
-                    tasks.append({"game": gid, "time_control": tc, "pgn": r["pgn"], "user_color": r["user_color"]})
+                    r = conn.execute("SELECT pgn, user_color, played_at FROM game WHERE id = ?", (gid,)).fetchone()
+                    tasks.append({"game": gid, "time_control": tc, "pgn": r["pgn"], "user_color": r["user_color"],
+                                  "played_at": r["played_at"]})
                 with scan_path().open("a") as out:
                     for res in pool.imap_unordered(_process, tasks):
                         if res["error"]:  # kept as a row with no flags, so it is never submitted again (review of PR 100)
@@ -159,13 +178,14 @@ def scan(db_path: Path, workers: int) -> dict:
 # --- the sample -------------------------------------------------------------------------------------------------------------
 
 def sample(scanned: dict[str, dict]) -> list[dict]:
-    """PER_TC flagged moves per time control, one per game, then all of them in a fixed pseudo-random order."""
+    """The newest PER_TC flagged games per time control (one flag per game), shown newest to oldest."""
     by_tc: dict[str, list[dict]] = {}
-    for gid in sorted(scanned, key=lambda g: _order("pick", g)):
+    for gid in sorted(scanned, key=lambda g: (-scanned[g].get("played_at", 0), g)):
         r = scanned[gid]
         if r["flags"]:
             flag = min(r["flags"], key=lambda f: _order("flag", f"{gid}:{f['ply']}"))
-            by_tc.setdefault(r["time_control"], []).append({"game": gid, "time_control": r["time_control"], "flag": flag})
+            by_tc.setdefault(r["time_control"], []).append(
+                {"game": gid, "time_control": r["time_control"], "played_at": r.get("played_at", 0), "flag": flag})
     picked: list[dict] = []
     for tc in sorted(by_tc):
         if len(by_tc[tc]) < PER_TC:
@@ -173,9 +193,9 @@ def sample(scanned: dict[str, dict]) -> list[dict]:
         picked += by_tc[tc][:PER_TC]
     if len(by_tc) < 2:
         raise SystemExit("flags found for fewer than two time controls")
-    picked.sort(key=lambda p: _order("show", f"{p['game']}:{p['flag']['ply']}"))
+    picked.sort(key=lambda p: (-p["played_at"], p["game"]))
     for i, p in enumerate(picked, 1):
-        p["id"] = f"hc3-{i:02d}"
+        p["id"] = f"{PREFIX}-{i:02d}"
     return picked
 
 
@@ -192,7 +212,7 @@ def make() -> Path:
     cards = [card(it) for it in key["items"]]
     out = page_path()
     out.write_text(PAGE.replace("__CARDS__", "\n".join(cards)).replace("__TOTAL__", str(len(cards)))
-                   .replace("__KEY__", f"handcheck_m3_v{VERSION}_{key['created_at']}"))
+                   .replace("__PREFIX__", PREFIX).replace("__KEY__", f"handcheck_m3_v{VERSION}_{key['created_at']}"))
     return out
 
 
@@ -224,8 +244,9 @@ def card(it: dict) -> str:
     boards = (f'<figure>{board_svg(board, me, arrows, {})}<figcaption>You ({side(me)}) played the red move</figcaption></figure>'
               f'<figure>{board_svg(pb, me, [chess.svg.Arrow(threat.from_square, threat.to_square, color=ORANGE)], {})}'
               f'<figcaption>If you had skipped your turn</figcaption></figure>')
-    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> Could they play {html.escape(plain(pb, threat.uci()))} (orange) and '
-          f'win material or give checkmate?</p>{buttons(it["id"], "A")}</div>'
+    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> If you had skipped your turn, could they play {html.escape(plain(pb, threat.uci()))} '
+          f'(orange) and win 2 or more points, or give checkmate? <span class="note">(Pawn 1, knight or bishop 3, rook 5, queen 9. '
+          f'An even trade does not count.)</span></p>{buttons(it["id"], "A")}</div>'
           f'<div class="q" data-qid="B"><p><b>B.</b> After your red move, can they still do it?</p>'
           f'{buttons(it["id"], "B")}</div>'
           f'<div class="q" data-qid="C"><p><b>C.</b> Could you have stopped it, for example with '
@@ -235,7 +256,7 @@ def card(it: dict) -> str:
 
 def parse_answers(text: str) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
-    for m in re.finditer(r"^(hc3-\d+):\s*(.+)$", text, re.MULTILINE):
+    for m in re.finditer(rf"^({PREFIX}-\d+):\s*(.+)$", text, re.MULTILINE):
         out[m.group(1)] = dict(re.findall(r"\b([ABC])\s+(yes|no|cant|-)\b", m.group(2)))
     return out
 
@@ -315,7 +336,7 @@ __CARDS__
 </main><script>
 const KEY='__KEY__', total=__TOTAL__, QS=['A','B','C'], VAL={y:'yes',n:'no',c:'cant'};
 let ans={}; try{ans=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
-const cards=[...document.querySelectorAll('.card[id^="hc3-"]')], items=cards.map(c=>c.id);
+const cards=[...document.querySelectorAll('.card[id^="__PREFIX__-"]')], items=cards.map(c=>c.id);
 let pos=0;
 function needed(a){const n=['A'];if(a.A==='yes'){n.push('B');if(a.B==='yes')n.push('C')}return n}
 function active(a){return needed(a).find(q=>!a[q])||null}
