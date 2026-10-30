@@ -47,7 +47,8 @@ def card(n, total, r, blue):
 def main():
     items = [json.loads(x) for x in (SET / "positions.jsonl").read_text().splitlines()]
     seen = {(x["fen"], x["move_uci"]) for x in json.loads((SET / "check_round1_items.json").read_text()).values()}
-    r2 = json.loads((SET / "check_key_r2.json").read_text())
+    # round 2 items: the ids in the committed answers file (the key itself is git-ignored)
+    r2 = [line.split()[0] for line in (SET / "check_round2_answers.txt").read_text().splitlines() if line.strip()]
     cands = {x["id"]: x for x in map(json.loads, (SET / "candidates.jsonl").read_text().splitlines())}
     seen |= {(cands[i]["fen"], cands[i]["move_uci"]) for i in r2}
     rng = random.Random(SEED)
