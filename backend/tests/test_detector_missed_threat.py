@@ -1,4 +1,4 @@
-"""M3 missed threat (`missed_threat` v1, ADR 0011) and its rules-only labels (`threat_kind`).
+"""M3 missed threat (`missed_threat` v2, ADR 0011 and 0013) and its rules-only labels (`threat_kind`).
 
 Engine results are scripted (`FakeAnalyser`), so each test pins down one rule. Scores in `L(...)` are from White's side, as the
 evidence engine stores them. The positions are real openings, so each example can be set up on a board:
@@ -64,6 +64,11 @@ def passed(fen):
     return MT.passed_position(chess.Board(fen)).fen()
 
 
+def forced(fen, move, threat):
+    """The position after the player's `move` and then the opponent's `threat` move (the forced-threat loss is measured here)."""
+    return after(after(fen, move), threat)
+
+
 def mv(uci):
     return chess.Move.from_uci(uci)
 
@@ -83,6 +88,7 @@ def ruy_scripts(**changes):
         after(RUY, "e1g1"): [L("b5a4", -290, pv=("b5a4", "d2d3"))],
         after(RUY, "a4b3"): [L("g8f6", 20)],
         after(RUY, "d2d4"): [L("b5a4", -60, pv=("b5a4", "d4e5"))],
+        forced(RUY, "e1g1", "b5a4"): [L("d2d3", -290)],  # the bishop is lost: the threat explains the whole loss
     }
     s.update(changes)
     return s
@@ -108,7 +114,9 @@ def test_castling_into_the_pawn_attack_is_a_missed_threat_with_a_full_record():
     assert (e["eval_before"], e["eval_after"], e["eval_loss"], e["eval_loss_stability"]) == (20, -290, 310, 310)
     assert e["threat_after_move"] == "works"
     assert e["target_squares"] == ["a4"]
-    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "1", R.RULES_VERSION)
+    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "2", R.RULES_VERSION)
+    assert (e["ftl"], e["ftl_config_id"]) == (310, CFG.id)
+    assert e["m3_thresholds"]["ftl_min_share"] == 0.5
     assert e["m3_thresholds"]["material_min"] == 2 and e["m3_thresholds"]["min_ply"] == 4
     assert e["engine_config_id"] == CFG.id and e["stability_config_id"] == CFG.stability.id
     assert [a["uci"] for a in f.alternatives] == ["a4b3", "a4c2"]  # h3 loses the bishop too
@@ -167,6 +175,57 @@ def test_a_threat_ignored_on_an_earlier_move_is_standing():
     assert TK.origin(chess.Board(RUY_PREV), ("b5a4",)) == "new"
 
 
+# --- v2: the threat must explain the loss (ADR 0013) ---------------------------------------------------------------------
+
+def ruy_with_forced_score(white_cp):
+    return ruy("e1g1", ruy_scripts(**{forced(RUY, "e1g1", "b5a4"): [L("d2d3", white_cp)]}))
+
+
+def test_a_loss_the_threat_does_not_explain_is_uncertain_not_missed():
+    # The move still loses 310 cp and bxa4 still works, but after bxa4 White stands fine (+20): the loss came from elsewhere.
+    f = ruy_with_forced_score(10)
+    assert (f.outcome, f.reason) == ("uncertain", "loss_not_from_threat")
+    assert f.evidence["ftl"] == 10 and f.evidence["eval_loss"] == 310
+
+
+def test_a_threat_that_backfires_on_the_opponent_is_uncertain_and_the_ftl_is_negative():
+    # The hc3-29 pattern: executing the threat is bad for the opponent (the owner judged the flag real; the rule abstains).
+    f = ruy_with_forced_score(300)
+    assert (f.outcome, f.reason) == ("uncertain", "loss_not_from_threat") and f.evidence["ftl"] == -280
+
+
+def test_the_threat_must_explain_at_least_half_of_the_loss():
+    assert ruy_with_forced_score(-135).outcome == "missed"  # ftl 155 = half of 310
+    f = ruy_with_forced_score(-134)  # ftl 154
+    assert (f.outcome, f.reason) == ("uncertain", "loss_not_from_threat")
+
+
+def test_the_threat_must_also_cost_the_eval_loss_minimum():
+    # The loss is 280 cp and the threat costs 140: exactly half, but under the 150 cp minimum, so uncertain.
+    scripts = ruy_scripts(**{after(RUY, "e1g1"): [L("b5a4", -260, pv=("b5a4", "d2d3"))],
+                             forced(RUY, "e1g1", "b5a4"): [L("d2d3", -120)]})
+    f = ruy("e1g1", scripts)
+    assert (f.outcome, f.reason) == ("uncertain", "loss_not_from_threat") and f.evidence["ftl"] == 140
+
+
+def test_other_winning_replies_do_not_matter_only_the_forced_threat_does():
+    # After the forced bxa4 the engine may prefer anything (scripted: a different best move); only the score counts.
+    f = ruy("e1g1", ruy_scripts(**{forced(RUY, "e1g1", "b5a4"): [L("h2h3", -300), L("d2d3", -310)]}))
+    assert f.outcome == "missed" and f.evidence["ftl"] == 320
+
+
+def test_a_forced_threat_that_mates_needs_no_engine_call():
+    # Scholar's mate: after ...Nf6?? Qxf7# the game is over, so the loss is scored as a mate without a search.
+    a = FakeAnalyser(scholar_scripts())
+    f = MT.detect(chess.Board(SCHOLAR), mv("g8f6"), 5, a, chess.Board(SCHOLAR_PREV))
+    assert f.outcome == "missed" and f.evidence["ftl"] == R.MATE_CP
+
+
+def test_a_stopped_threat_never_reaches_the_forced_threat_check():
+    a = ruy("a4b3")
+    assert a.outcome == "met" and "ftl" not in a.evidence
+
+
 # --- the threat line after the player's move (PR 96 review) ------------------------------------------------------------
 
 # Back rank: White threatens Rd8+ Rxd8 Rxd8#. Black plays ...Rb8??: the pass line's recapture a8xd8 is no longer legal, but the
@@ -181,6 +240,7 @@ def back_scripts(**changes):
         passed(BACK): [L("d2d8", pv=("d2d8", "a8d8", "d1d8"), **M2)],
         after(BACK, "a8b8"): [L("d2d8", pv=("d2d8", "b8d8", "d1d8"), **M2)],
         after(BACK, "h7h6"): [L("d2d8", 0, pv=("d2d8", "a8d8", "d1d8", "g8h7"))],
+        forced(BACK, "a8b8", "d2d8"): [L("b8d8", pv=("b8d8", "d1d8"), **M2)],
     }
     s.update(changes)
     return s
@@ -263,6 +323,7 @@ def test_losing_a_knight_for_a_pawn_is_a_missed_threat():
         KNIGHT: [L("f6d5", 0), L("f6g4", 10), L("f6e4", 40)],
         passed(KNIGHT): [L("e5f6", 250, pv=("e5f6", "e7f6"))],
         after(KNIGHT, "d7d6"): [L("e5f6", 230, pv=("e5f6", "e7f6"))],
+        forced(KNIGHT, "d7d6", "e5f6"): [L("e7f6", 220, pv=("e7f6",))],
     }
     f = MT.detect(chess.Board(KNIGHT), mv("d7d6"), 5, FakeAnalyser(scripts))
     assert (f.outcome, f.reason) == ("missed", "all_checks_hold")

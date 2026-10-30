@@ -1,15 +1,18 @@
-"""`missed_threat` v1 = mistake type M3, missed threat (ADR 0011).
+"""`missed_threat` v2 = mistake type M3, missed threat (ADR 0011, v2 in ADR 0013).
 
 In the position after the opponent's move (player to move), the player skips a turn and the evidence engine searches the passed
 position: its best line is the **threat line**. The position holds a threat when that line mates or nets at least
 M3_MATERIAL_MIN, and passing costs at least M3_THREAT_MIN_CP against the player's best move. The player's move is `missed` when it
-loses at least M3_EVAL_LOSS_CP at the evidence depth and at the stability depth, and the threat line still works after it.
+loses at least M3_EVAL_LOSS_CP at the evidence depth and at the stability depth, the threat line still works after it, and the
+threat explains the loss (v2): the **forced-threat loss** (score before the move minus the score after the move, the threat move
+and best play) is at least M3_EVAL_LOSS_CP and at least M3_FTL_MIN_SHARE of the move's loss.
 
 Outcomes (the rate is missed / (missed + met); the others are in neither part, AGENTS rule 5):
 - missed: every check holds; `evidence` is the record
 - met: `defended` (the threat line no longer works after the move), `countered` (it still works but the move loses less than
   M3_EVAL_LOSS_CP), or `defended_other_loss` (the move stops the threat but loses for another reason, often an M1 mistake)
-- uncertain: `threat_unavoidable` (the best move cannot stop the threat line either), `threat_line_diverged` (the move loses
+- uncertain: `loss_not_from_threat` (v2: the move loses, the threat still works, but the threat does not explain the loss),
+  `threat_unavoidable` (the best move cannot stop the threat line either), `threat_line_diverged` (the move loses
   M3_EVAL_LOSS_CP or more, the pass line breaks on a later reply, and the engine's best line does not start with the threat
   move, so we cannot tell; see `threat_after_move`) or `loss_not_stable`
 - no_threat: `no_concrete_threat` or `passing_costs_little`
@@ -27,7 +30,7 @@ from app.detectors import threat_kind as TK
 from app.detectors.hanging_own_v4 import Finding
 
 DETECTOR = "missed_threat"
-VERSION = "1"
+VERSION = "2"
 
 THRESHOLDS = {
     "min_ply": R.M3_MIN_PLY,
@@ -37,6 +40,7 @@ THRESHOLDS = {
     "mate_max_moves": R.M3_MATE_MAX_MOVES,
     "max_refutation_plies": R.MAX_REFUTATION_PLIES,
     "decided_limit_cp": R.DECIDED_LIMIT_CP,
+    "ftl_min_share": R.M3_FTL_MIN_SHARE,
 }
 
 
@@ -184,6 +188,20 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
     record.update({"eval_loss_stability": stab_loss, "stability_config_id": analyser.config.stability.id})
     if stab_loss < R.M3_EVAL_LOSS_CP:
         return Finding("uncertain", "loss_not_stable", record)
+
+    # v2: the threat must explain the loss. Play the threat move after M and let the engine finish the line.
+    forced = after_board.copy(stack=False)
+    forced.push(chess.Move.from_uci(pv[0]))  # `works` means the threat move is legal after M
+    if forced.is_game_over():
+        ftl_score, ftl_id = R.terminal_score(forced, mover), analyser.config.id
+    else:
+        ftl_line = analyser.analyse(forced).best
+        ftl_score = R.line_score(ftl_line, mover) if ftl_line else R.terminal_score(forced, mover)
+        ftl_id = analyser.config.id
+    ftl = eval_before - ftl_score
+    record.update({"ftl": ftl, "ftl_config_id": ftl_id})
+    if ftl < max(R.M3_EVAL_LOSS_CP, loss * R.M3_FTL_MIN_SHARE):
+        return Finding("uncertain", "loss_not_from_threat", record)
 
     record["target_squares"] = _targets(passed, pv, mover)
     alternatives = tuple(

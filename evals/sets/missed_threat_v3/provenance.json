@@ -1,0 +1,50 @@
+{
+  "set": "missed_threat_v3",
+  "rule": "LABEL_RULE.md",
+  "seed": 20261030,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "games_file": "rapid_600_1200_2026-09.pgn",
+  "games_file_sha256": "cd373a0133b3900f0897f0a99cb68d6ed9299cd5e6a2d460b07cb48beba3c9cb",
+  "counts": {
+    "missed": 30,
+    "uncertain": 15,
+    "met": 25,
+    "not_applicable": 30
+  },
+  "quota": {
+    "missed": 30,
+    "uncertain": 15,
+    "met": 25,
+    "not_applicable": 30
+  },
+  "check_sample": 24,
+  "detectors_run": false,
+  "frozen": true,
+  "frozen_items": 84,
+  "frozen_counts": {
+    "not_applicable": 30,
+    "missed": 29,
+    "met": 25
+  },
+  "uncertain_unverified": 15,
+  "removed_by_owner_check": [
+    {
+      "id": "mt3-014",
+      "fen": "r1bqkb1r/p1p2ppp/1pn2n2/1B1ppP2/4P3/4QN2/PPPP2PP/RNB1K2R b KQkq - 1 7",
+      "move_uci": "f8c5",
+      "engine": "missed",
+      "owner": "uncertain",
+      "why": "owner: the move also loses something else (D yes)"
+    }
+  ],
+  "owner_misses_kept": {
+    "mt3-063": "a mate in one (Qh4#) the owner did not see",
+    "mt3-067": "owner saw no threat on a met_other_loss item"
+  },
+  "owner_check": {
+    "round1": "10 of 24 (labels had a builder defect, fixed in Amendment 1)",
+    "round2": "15 of 24; missed, met, not_applicable 15 of 18; uncertain 0 of 6 (cannot be judged by the owner)"
+  },
+  "exception": "frozen without meeting the 20-of-24 gate (Amendment 2); `uncertain` items excluded"
+}
