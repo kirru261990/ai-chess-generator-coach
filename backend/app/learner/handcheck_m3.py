@@ -1,12 +1,15 @@
 """M3 hand-check (TASKS M3d; ADR 0011): the owner judges 30 flagged missed threats from older games. Gate: at least 27 are real.
 
+Version 3 repeats version 2 on a fresh sample (games never judged or discussed before), to be answered by the owner WITHOUT asking the
+assistant about boards (version 2 passed at the gate exactly but was not independent: ADR 0013).
+
 Version 2 (ADR 0013 and 0014): flags come from `missed_threat` v3, the games exclude the 30 of version 1, the questions use the point values
 that worked in the eval-set checks, and the ids are `m3b-NN`. Version 1's files are left alone. **Order (owner's decision, 2026-10-31):**
 games are scanned and shown newest to oldest (version 1 used a fixed pseudo-random order); the sample is the newest `PER_TC` flagged games
 per time control, still one flag per game and all older than the M3 window.
 
   uv run python -m app.learner.handcheck_m3 scan [--db PATH] [--workers 4]   # run the M3 detector on older games until each time control has enough flags
-  uv run python -m app.learner.handcheck_m3 make                              # sample once, write data/evidence/handcheck_m3_v2.html
+  uv run python -m app.learner.handcheck_m3 make                              # sample once, write data/evidence/handcheck_m3_v3.html
   uv run python -m app.learner.handcheck_m3 score ANSWERS.txt                 # score the owner's copied answers
 
 Rules fixed before the owner answers (so the result cannot move the goalposts):
@@ -15,7 +18,7 @@ Rules fixed before the owner answers (so the result cannot move the goalposts):
   control; once the window is frozen, every game played before its earliest game. Games are scanned in a fixed pseudo-random order.
 - **Flags:** `missed_threat` findings (v3 detector) of outcome `missed`, counted the way the rates count them (a repeat of the same standing
   threat is not a flag). At most one flag per game; `PER_TC` (15) per time control, 30 in all, shown in a fixed pseudo-random order.
-  The sample is frozen in `data/evidence/handcheck_m3_v2.json` the first time; `make` afterwards only rebuilds the page.
+  The sample is frozen in `data/evidence/handcheck_m3_v3.json` the first time; `make` afterwards only rebuilds the page.
 - **Questions** (plain words, from the board): A "if you had skipped your turn, could they win material or give checkmate with
   this move?"; B (only if A is yes) "after the move you played, can they still do it?"; C (only if B is yes) "could you have
   stopped it with another move, for example the green one?".
@@ -49,8 +52,8 @@ from app.learner.evidence_run import games_path
 from app.learner.explorer import GREEN, ORANGE, RED, board_svg, plain, side
 from app.learner.handcheck import ANSWERS, GATE
 
-VERSION = 2
-PREFIX = "m3b"  # item ids; version 1 used hc3
+VERSION = 3
+PREFIX = "m3c"  # item ids; version 1 used hc3, version 2 m3b
 PER_TC = 15
 QUESTIONS = ("A", "B", "C")
 

@@ -117,7 +117,7 @@ def test_sample_is_fifteen_per_time_control_one_per_game_and_fixed():
     picked = H.sample(scanned)
     assert len(picked) == 30 and len({p["game"] for p in picked}) == 30
     assert sum(p["time_control"] == "600" for p in picked) == 15 and sum(p["time_control"] == "900+10" for p in picked) == 15
-    assert [p["id"] for p in picked] == [f"m3b-{i:02d}" for i in range(1, 31)]
+    assert [p["id"] for p in picked] == [f"m3c-{i:02d}" for i in range(1, 31)]
     assert H.sample(scanned) == picked
 
 
@@ -143,14 +143,14 @@ def test_make_freezes_the_sample_and_the_page_asks_three_questions(data_dir):
         H.scan_path().write_text(H.scan_path().read_text() + json.dumps({**rows[gid], "game": gid + "x"}) + "\n")
     H.make()
     assert H.key_path().read_text() == first
-    assert page.count('<section class="card" id="m3b-') == 30
+    assert page.count('<section class="card" id="m3c-') == 30
     for q in ("A.", "B.", "C."):
         assert q in page
     assert "Qxf7" not in page and "eval" not in page.lower()  # notation and engine numbers stay off the page; plain words only
 
 
 def key_for(tmp):
-    items = [{"id": f"m3b-{i:02d}", "time_control": "600" if i <= 15 else "900+10",
+    items = [{"id": f"m3c-{i:02d}", "time_control": "600" if i <= 15 else "900+10",
               "flag": {"ply": 8, "fen": SCHOLAR.fen(), "move": "g8f6", "evidence": EVIDENCE, "also_m1": False}}
              for i in range(1, 31)]
     H.evidence_dir().mkdir(parents=True, exist_ok=True)
@@ -163,22 +163,22 @@ def all_yes(ids):
 
 def test_score_needs_yes_to_every_question_and_the_gate_is_27(data_dir):
     key_for(data_dir)
-    ids = [f"m3b-{i:02d}" for i in range(1, 31)]
+    ids = [f"m3c-{i:02d}" for i in range(1, 31)]
     lines = all_yes(ids).splitlines()
-    lines[0] = "m3b-01: A yes, B no, C -"
-    lines[1] = "m3b-02: A cant, B -, C -"
-    lines[2] = "m3b-03: A yes, B yes, C cant"
+    lines[0] = "m3c-01: A yes, B no, C -"
+    lines[1] = "m3c-02: A cant, B -, C -"
+    lines[2] = "m3c-03: A yes, B yes, C cant"
     r = H.score("\n".join(lines))
     assert (r["real"], r["of"], r["passed"], r["unanswered"]) == (27, 30, True, [])
     assert r["by_time_control"] == {"600": {"real": 12, "of": 15}, "900+10": {"real": 15, "of": 15}}
-    lines[3] = "m3b-04: A no, B -, C -"
+    lines[3] = "m3c-04: A no, B -, C -"
     assert H.score("\n".join(lines))["passed"] is False
 
 
 def test_an_unanswered_question_is_reported_and_is_not_real(data_dir):
     key_for(data_dir)
-    r = H.score("m3b-01: A yes, B yes, C -\nm3b-02: A no, B -, C -")
-    assert "m3b-01" in r["unanswered"] and "m3b-02" not in r["unanswered"] and r["real"] == 0
+    r = H.score("m3c-01: A yes, B yes, C -\nm3c-02: A no, B -, C -")
+    assert "m3c-01" in r["unanswered"] and "m3c-02" not in r["unanswered"] and r["real"] == 0
     assert len(r["unanswered"]) == 29  # the others have no answers at all
 
 
