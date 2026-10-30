@@ -64,6 +64,15 @@ that would otherwise be `missed`, so it adds one engine search per missed candid
 threat that ends the game (mate) is scored without a search. Tests: `tests/test_detector_missed_threat.py` (cases 1 to 6 above as
 scripted-engine rules, plus the boundaries at half the loss and at 150 cp). Not yet run on real positions.
 
+## Private regression run (2026-10-30)
+
+`evals/tools/m3_regression_private.py` builds `data/evidence/missed_threat_v3_private/` (git-ignored: the owner's games) from the first
+hand-check: 26 labelled items (20 `missed`, 6 `not_missed`; hc3-05, 20, 21, 28 left out as undecided), labels fixed in the script from
+the owner's answers and ADR 0011 before v2 was run. v2 result: all 6 defect cases abstain (`loss_not_from_threat`); 19 of 20 `missed`
+stay `missed`; the one that abstains is hc3-29, the known disagreement (case 4). **This is a regression check, not a score:** the
+rule was derived from these positions (ADR 0011 forbids scoring a retuned detector on them). The real test is the new hand-check
+sample. The public frozen set from Lichess rapid games is still to build and needs the owner's OK for the download.
+
 ## Not in this step
 
 No change to M1 or M2 (`RULES_VERSION` stays 1), the rates pass, or the web app.
