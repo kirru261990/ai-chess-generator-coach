@@ -230,6 +230,19 @@ def passed_board(board: chess.Board) -> chess.Board:
     return p
 
 
+def plain_line(board: chess.Board, ucis) -> str:
+    """The threat line in plain words, one numbered step per move ("1. Black's knight takes the bishop on d3 (check).")."""
+    b = board.copy(stack=False)
+    steps = []
+    for i, uci in enumerate(ucis, 1):
+        m = chess.Move.from_uci(uci)
+        if m not in b.legal_moves:
+            break
+        steps.append(f"{i}. {side(b.turn)}: {html.escape(plain(b, uci)).rstrip('.')}")
+        b.push(m)
+    return " &nbsp; ".join(steps)
+
+
 def card(it: dict) -> str:
     flag = it["flag"]
     e = flag["evidence"]
@@ -244,9 +257,10 @@ def card(it: dict) -> str:
     boards = (f'<figure>{board_svg(board, me, arrows, {})}<figcaption>You ({side(me)}) played the red move</figcaption></figure>'
               f'<figure>{board_svg(pb, me, [chess.svg.Arrow(threat.from_square, threat.to_square, color=ORANGE)], {})}'
               f'<figcaption>If you had skipped your turn</figcaption></figure>')
-    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> If you had skipped your turn, could they play {html.escape(plain(pb, threat.uci()))} '
-          f'(orange) and win 2 or more points, or give checkmate? <span class="note">(Pawn 1, knight or bishop 3, rook 5, queen 9. '
-          f'An even trade does not count.)</span></p>{buttons(it["id"], "A")}</div>'
+    line = plain_line(pb, e["threat_line"]["uci"])
+    qa = (f'<div class="q" data-qid="A"><p><b>A.</b> If you had skipped your turn, could they start with the orange move and, after the '
+          f'next few moves below, end up 2 or more points ahead, or give checkmate? <span class="note">(Pawn 1, knight or bishop 3, '
+          f'rook 5, queen 9. An even trade does not count.)</span></p><p class="line">{line}</p>{buttons(it["id"], "A")}</div>'
           f'<div class="q" data-qid="B"><p><b>B.</b> After your red move, can they still do it?</p>'
           f'{buttons(it["id"], "B")}</div>'
           f'<div class="q" data-qid="C"><p><b>C.</b> Could you have stopped it, for example with '
@@ -311,7 +325,7 @@ h1{font-size:22px} h2{font-size:18px;margin:0 0 .5em}
 .boards{display:flex;gap:10px;flex-wrap:wrap}figure{margin:0;flex:1;min-width:200px;max-width:300px}
 figure svg{width:100%;height:auto}figcaption{opacity:.7;font-size:.9em}
 .show{background:rgba(120,120,120,.12);padding:8px 10px;border-radius:8px}
-.q p{margin:.8em 0 .4em}.btns{display:flex;gap:8px;flex-wrap:wrap}
+.q p{margin:.8em 0 .4em}.line{font-size:.92em;opacity:.85}.btns{display:flex;gap:8px;flex-wrap:wrap}
 button{font:inherit;padding:10px 18px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);cursor:pointer}
 button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 #bar{position:sticky;top:0;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--line);z-index:5}
