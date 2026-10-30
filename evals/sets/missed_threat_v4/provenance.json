@@ -1,0 +1,50 @@
+{
+  "set": "missed_threat_v4",
+  "rule": "LABEL_RULE.md",
+  "seed": 20261101,
+  "engine": "Stockfish 19",
+  "oracle_depth": 14,
+  "games_file": "rapid_600_1200_2026-09_b.pgn",
+  "games_file_sha256": "fbc5e83fdd0dbfac9091528a22fff8255ec8119cfbeab5b4894c3b21d81d9b89",
+  "counts": {
+    "missed": 30,
+    "met": 30,
+    "not_applicable": 30
+  },
+  "quota": {
+    "missed": 30,
+    "met": 30,
+    "not_applicable": 30
+  },
+  "check_sample": 24,
+  "detectors_run": false,
+  "frozen": true,
+  "frozen_items": 88,
+  "frozen_counts": {
+    "not_applicable": 29,
+    "missed": 30,
+    "met": 29
+  },
+  "removed_by_owner_check": [
+    {
+      "id": "mt3-069",
+      "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+      "move_uci": "b1c3",
+      "engine": "not_applicable",
+      "owner": "not_applicable",
+      "why": "the same position and move as an item of missed_threat_v3 (two games reached it): no position is shared between sets"
+    },
+    {
+      "id": "mt3-078",
+      "fen": "r4rk1/ppp2pbp/3p2n1/3N4/4P3/4B2Q/PqPKB3/7R b - - 1 19",
+      "move_uci": "f7f5",
+      "engine": "met",
+      "owner": "missed",
+      "why": "owner: Qxh7 still wins after f5 (a mating attack); the builder's exchange count only sees a pawn"
+    }
+  ],
+  "owner_misses_kept": {
+    "mt3-082": "owner saw no threat; the exchange count finds Rxf3 with no recapture"
+  },
+  "owner_check": "22 of 24 agree (gate 20); missed 7/8, met 7/8, not_applicable 8/8"
+}

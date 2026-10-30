@@ -63,6 +63,18 @@ def test_once_the_m3_window_is_frozen_older_means_before_it_and_never_a_later_ga
     assert all(not g.endswith(("-100", "-101", "-102", "-103", "-104")) for g in older)
 
 
+def test_a_game_the_owner_judged_in_an_earlier_version_is_never_used_again(conn, data_dir):
+    ids = add_games(conn, 40)
+    (data_dir / "evidence").mkdir()
+    (data_dir / "evidence" / "handcheck_m3_v1.json").write_text(json.dumps({"items": [{"game": ids[0]}, {"game": ids[1]}]}))
+    assert set(H.older_games(conn)["600"]) == set(ids[2:10])
+
+
+def test_older_games_come_newest_first(conn):
+    ids = add_games(conn, 40)
+    assert H.older_games(conn)["600"] == list(reversed(ids[:10]))
+
+
 def test_scan_order_is_fixed(conn):
     add_games(conn, 50)
     assert H.older_games(conn) == H.older_games(conn)
@@ -96,7 +108,7 @@ def flagged(n_games, tc, *, with_flags=True, start=0):
         gid = f"chesscom:{tc}-{i}"
         flags = [{"ply": 8, "fen": SCHOLAR.fen(), "move": "g8f6", "evidence": EVIDENCE, "also_m1": False},
                  {"ply": 12, "fen": SCHOLAR.fen(), "move": "g8f6", "evidence": EVIDENCE, "also_m1": False}] if with_flags else []
-        out[gid] = {"game": gid, "time_control": tc, "flags": flags, "error": None}
+        out[gid] = {"game": gid, "time_control": tc, "played_at": 1000 - i, "flags": flags, "error": None}
     return out
 
 
@@ -105,8 +117,15 @@ def test_sample_is_fifteen_per_time_control_one_per_game_and_fixed():
     picked = H.sample(scanned)
     assert len(picked) == 30 and len({p["game"] for p in picked}) == 30
     assert sum(p["time_control"] == "600" for p in picked) == 15 and sum(p["time_control"] == "900+10" for p in picked) == 15
-    assert [p["id"] for p in picked] == [f"hc3-{i:02d}" for i in range(1, 31)]
+    assert [p["id"] for p in picked] == [f"m3b-{i:02d}" for i in range(1, 31)]
     assert H.sample(scanned) == picked
+
+
+def test_the_sample_is_the_newest_flagged_games_shown_newest_to_oldest():
+    scanned = {**flagged(20, "600"), **flagged(18, "900+10")}  # played_at 1000 - i: a smaller i is newer
+    picked = H.sample(scanned)
+    assert [p["played_at"] for p in picked] == sorted((p["played_at"] for p in picked), reverse=True)
+    assert {p["game"] for p in picked if p["time_control"] == "600"} == {f"chesscom:600-{i}" for i in range(15)}
 
 
 def test_sample_refuses_to_run_short():
@@ -124,14 +143,14 @@ def test_make_freezes_the_sample_and_the_page_asks_three_questions(data_dir):
         H.scan_path().write_text(H.scan_path().read_text() + json.dumps({**rows[gid], "game": gid + "x"}) + "\n")
     H.make()
     assert H.key_path().read_text() == first
-    assert page.count('<section class="card" id="hc3-') == 30
+    assert page.count('<section class="card" id="m3b-') == 30
     for q in ("A.", "B.", "C."):
         assert q in page
     assert "Qxf7" not in page and "eval" not in page.lower()  # notation and engine numbers stay off the page; plain words only
 
 
 def key_for(tmp):
-    items = [{"id": f"hc3-{i:02d}", "time_control": "600" if i <= 15 else "900+10",
+    items = [{"id": f"m3b-{i:02d}", "time_control": "600" if i <= 15 else "900+10",
               "flag": {"ply": 8, "fen": SCHOLAR.fen(), "move": "g8f6", "evidence": EVIDENCE, "also_m1": False}}
              for i in range(1, 31)]
     H.evidence_dir().mkdir(parents=True, exist_ok=True)
@@ -144,22 +163,22 @@ def all_yes(ids):
 
 def test_score_needs_yes_to_every_question_and_the_gate_is_27(data_dir):
     key_for(data_dir)
-    ids = [f"hc3-{i:02d}" for i in range(1, 31)]
+    ids = [f"m3b-{i:02d}" for i in range(1, 31)]
     lines = all_yes(ids).splitlines()
-    lines[0] = "hc3-01: A yes, B no, C -"
-    lines[1] = "hc3-02: A cant, B -, C -"
-    lines[2] = "hc3-03: A yes, B yes, C cant"
+    lines[0] = "m3b-01: A yes, B no, C -"
+    lines[1] = "m3b-02: A cant, B -, C -"
+    lines[2] = "m3b-03: A yes, B yes, C cant"
     r = H.score("\n".join(lines))
     assert (r["real"], r["of"], r["passed"], r["unanswered"]) == (27, 30, True, [])
     assert r["by_time_control"] == {"600": {"real": 12, "of": 15}, "900+10": {"real": 15, "of": 15}}
-    lines[3] = "hc3-04: A no, B -, C -"
+    lines[3] = "m3b-04: A no, B -, C -"
     assert H.score("\n".join(lines))["passed"] is False
 
 
 def test_an_unanswered_question_is_reported_and_is_not_real(data_dir):
     key_for(data_dir)
-    r = H.score("hc3-01: A yes, B yes, C -\nhc3-02: A no, B -, C -")
-    assert "hc3-01" in r["unanswered"] and "hc3-02" not in r["unanswered"] and r["real"] == 0
+    r = H.score("m3b-01: A yes, B yes, C -\nm3b-02: A no, B -, C -")
+    assert "m3b-01" in r["unanswered"] and "m3b-02" not in r["unanswered"] and r["real"] == 0
     assert len(r["unanswered"]) == 29  # the others have no answers at all
 
 

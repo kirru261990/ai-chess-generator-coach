@@ -147,6 +147,15 @@ show();
 </script>"""
 
 
+def configure(name, seed, quota, met_split, check, exclude_from):
+    """Re-aim the builder at another set (missed_threat_v4): same rule and code, new seed, no `uncertain` class, other games."""
+    global OUT, SEED, QUOTA, MET_SPLIT, CHECK, EXCLUDE_FROM
+    OUT, SEED, QUOTA, MET_SPLIT, CHECK, EXCLUDE_FROM = V.ROOT / "evals" / "sets" / name, seed, quota, met_split, check, exclude_from
+
+
+EXCLUDE_FROM = None  # a set whose candidate games must not be used again
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=str(Path.home() / "Projects" / "ai-chess-generator-coach" / "data"))
@@ -160,6 +169,9 @@ def main():
         return finish([json.loads(x) for x in (OUT / "candidates.jsonl").read_text().splitlines()], pgn, "Stockfish (see candidates)")
     rng = random.Random(SEED)
     gl = list(games(pgn))
+    if EXCLUDE_FROM:
+        used = {json.loads(x)["game"] for x in (V.ROOT / "evals" / "sets" / EXCLUDE_FROM / "candidates.jsonl").read_text().splitlines()}
+        gl = [g for g in gl if g.headers.get("Site", "") not in used]
     rng.shuffle(gl)
     got = {k: [] for k in QUOTA}
     with Engine() as engine:
@@ -175,7 +187,7 @@ def main():
                     board.push(m)
                 board = chess.Board(board.fen())
                 res = classify(engine, board, moves[p], p)
-                if res and len(got[res[0]]) < QUOTA[res[0]] and (res[0] != "not_applicable" or sum(
+                if res and res[0] in QUOTA and len(got[res[0]]) < QUOTA[res[0]] and (res[0] != "not_applicable" or sum(
                         1 for r in got["not_applicable"] if r["blunder"] == res[1]["blunder"]) < QUOTA["not_applicable"] // 2) and (
                         res[0] != "met" or sum(1 for r in got["met"] if r["met_kind"] == res[1]["met_kind"]) < MET_SPLIT[res[1]["met_kind"]]):
                     label, facts = res
@@ -195,14 +207,15 @@ def main():
 
 def finish(items, pgn, engine_name):
     got = {k: [r for r in items if r["label"] == k] for k in QUOTA}
-    seen = {(x["fen"], x["move_uci"]) for x in json.loads((OUT / "check_round1_items.json").read_text()).values()}
+    r1 = OUT / "check_round1_items.json"
+    seen = {(x["fen"], x["move_uci"]) for x in json.loads(r1.read_text()).values()} if r1.exists() else set()
     pool = {k: [r for r in got[k] if (r["fen"], r["move_uci"]) not in seen] for k in QUOTA}  # a new 24: none the owner has seen
     srng = random.Random(SEED + 2)
     sample = [r for k in CHECK for r in srng.sample(pool[k], min(CHECK[k], len(pool[k])))]
     srng.shuffle(sample)
     (OUT / f"check_page_r{ROUND}.html").write_text(PAGE.replace("@@CARDS@@", "".join(card(i, len(sample), r) for i, r in enumerate(sample, 1))))
     (OUT / f"check_key_r{ROUND}.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
-    prov = {"set": "missed_threat_v3", "rule": "LABEL_RULE.md", "seed": SEED, "engine": engine_name, "oracle_depth": V.ORACLE.depth,
+    prov = {"set": OUT.name, "rule": "LABEL_RULE.md", "seed": SEED, "engine": engine_name, "oracle_depth": V.ORACLE.depth,
             "games_file": pgn.name, "games_file_sha256": hashlib.sha256(pgn.read_bytes()).hexdigest(),
             "counts": {k: len(v) for k, v in got.items()}, "quota": QUOTA, "check_sample": len(sample), "detectors_run": False, "frozen": False}
     (OUT / "provenance.json").write_text(json.dumps(prov, indent=2) + "\n")

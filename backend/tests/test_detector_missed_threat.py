@@ -1,4 +1,4 @@
-"""M3 missed threat (`missed_threat` v2, ADR 0011 and 0013) and its rules-only labels (`threat_kind`).
+"""M3 missed threat (`missed_threat` v3, ADR 0011, 0013 and 0014) and its rules-only labels (`threat_kind`).
 
 Engine results are scripted (`FakeAnalyser`), so each test pins down one rule. Scores in `L(...)` are from White's side, as the
 evidence engine stores them. The positions are real openings, so each example can be set up on a board:
@@ -89,6 +89,8 @@ def ruy_scripts(**changes):
         after(RUY, "a4b3"): [L("g8f6", 20)],
         after(RUY, "d2d4"): [L("b5a4", -60, pv=("b5a4", "d4e5"))],
         forced(RUY, "e1g1", "b5a4"): [L("d2d3", -290)],  # the bishop is lost: the threat explains the whole loss
+        forced(RUY, "d2d4", "b5a4"): [L("d4e5", -60)],
+        forced(RUY, "h2h3", "b5a4"): [L("d2d3", -280)],
     }
     s.update(changes)
     return s
@@ -114,7 +116,7 @@ def test_castling_into_the_pawn_attack_is_a_missed_threat_with_a_full_record():
     assert (e["eval_before"], e["eval_after"], e["eval_loss"], e["eval_loss_stability"]) == (20, -290, 310, 310)
     assert e["threat_after_move"] == "works"
     assert e["target_squares"] == ["a4"]
-    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "2", R.RULES_VERSION)
+    assert (e["detector"], e["detector_version"], e["rules_version"]) == ("missed_threat", "3", R.RULES_VERSION)
     assert (e["ftl"], e["ftl_config_id"]) == (310, CFG.id)
     assert e["m3_thresholds"]["ftl_min_share"] == 0.5
     assert e["m3_thresholds"]["material_min"] == 2 and e["m3_thresholds"]["min_ply"] == 4
@@ -241,6 +243,7 @@ def back_scripts(**changes):
         after(BACK, "a8b8"): [L("d2d8", pv=("d2d8", "b8d8", "d1d8"), **M2)],
         after(BACK, "h7h6"): [L("d2d8", 0, pv=("d2d8", "a8d8", "d1d8", "g8h7"))],
         forced(BACK, "a8b8", "d2d8"): [L("b8d8", pv=("b8d8", "d1d8"), **M2)],
+        forced(BACK, "h7h6", "d2d8"): [L("a8d8", 0, pv=("a8d8", "d1d8", "g8h7"))],  # luft: the rooks trade and the king steps out
     }
     s.update(changes)
     return s
@@ -259,20 +262,33 @@ def test_making_luft_stops_the_back_rank_mate():
     assert f.evidence["threat_after_move"] == "stopped"  # the engine plays the threat move and it wins nothing
 
 
-def test_a_broken_replay_with_another_engine_line_is_uncertain_not_defended():
-    # After ...Rb8 the engine (scripted) prefers a different first move, so nothing confirms or refutes the threat.
-    scripts = back_scripts(**{after(BACK, "a8b8"): [L("d1d7", 400, pv=("d1d7", "b8b1"))]})
-    f = MT.detect(chess.Board(BACK), mv("a8b8"), 30, FakeAnalyser(scripts))
-    assert (f.outcome, f.reason) == ("uncertain", "threat_line_diverged")
-
-
-def test_threat_after_move_order_of_rules():
+def test_forced_threat_lets_the_engine_play_both_sides():
     after_rb8 = chess.Board(after(BACK, "a8b8"))
-    pv = ("d2d8", "a8d8", "d1d8")
-    assert MT.threat_after_move(after_rb8, pv, L("d2d8", pv=("d2d8", "b8d8", "d1d8"), **M2), chess.WHITE) == "works"
-    assert MT.threat_after_move(after_rb8, pv, L("d2d8", 0, pv=("d2d8",)), chess.WHITE) == "stopped"
-    assert MT.threat_after_move(after_rb8, pv, L("g1f1", 0), chess.WHITE) == "diverged"
-    assert MT.threat_after_move(after_rb8, ("d2e8",), L("g1f1", 0), chess.WHITE) == "stopped"  # threat move not legal
+    an = FakeAnalyser(back_scripts())
+    assert MT.forced_threat(after_rb8, "d2d8", an, chess.WHITE)[0] == "works"  # mate still comes, with the rook on b8 recapturing
+    assert MT.forced_threat(chess.Board(after(BACK, "h7h6")), "d2d8", an, chess.WHITE)[0] == "stopped"  # luft: nothing is won
+    assert MT.forced_threat(after_rb8, "d2e8", an, chess.WHITE) == ("stopped", None, None)  # the threat move is not legal
+
+
+# --- v3 (ADR 0014): an even trade is not a winning threat (the mt3-049 pattern) ---------------------------------------------
+
+TRADE = "r1bqk2r/pppp1ppp/2n5/2b1p3/4P1n1/2NPBN2/PPP1BPPP/R2QK2R b KQkq - 4 11"
+
+
+def trade_scripts():
+    return {
+        TRADE: [L("g4f2", -367), L("g4e3", -300)],
+        passed(TRADE): [L("e3c5", 1000, pv=("e3c5", "d7d6", "c5e3"))],  # the bishop on c5 hangs: Bxc5 wins it
+        after(TRADE, "d8e7"): [L("c3d5", 111)],  # Qe7 guards c5, but White has Nd5 and is better
+        forced(TRADE, "d8e7", "e3c5"): [L("e7c5", -20, pv=("e7c5", "d3d4"))],  # Qxc5 takes it back: a bishop for a bishop
+    }
+
+
+def test_a_move_that_guards_the_piece_turns_the_threat_into_an_even_trade():
+    # v2 replayed the pass line, in which Black never recaptures, and called Qe7 a missed threat. v3 lets the engine play both sides.
+    f = MT.detect(chess.Board(TRADE), mv("d8e7"), 11, FakeAnalyser(trade_scripts()))
+    assert (f.outcome, f.reason) == ("met", "defended_other_loss")
+    assert f.evidence["threat_after_move"] == "stopped" and f.evidence["eval_loss"] == 478
 
 
 # --- SCHOLAR: an early mate threat (ply 4 start) ---------------------------------------------------------------------

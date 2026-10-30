@@ -44,14 +44,18 @@ def card(n, total, r, blue):
             f'Blue = {Y}\'s move if {X} did nothing: {html.escape(plain_move(p, blue))}</p></section>')
 
 
-def main():
-    items = [json.loads(x) for x in (SET / "positions.jsonl").read_text().splitlines()]
-    seen = {(x["fen"], x["move_uci"]) for x in json.loads((SET / "check_round1_items.json").read_text()).values()}
-    # round 2 items: the ids in the committed answers file (the key itself is git-ignored)
-    r2 = [line.split()[0] for line in (SET / "check_round2_answers.txt").read_text().splitlines() if line.strip()]
-    cands = {x["id"]: x for x in map(json.loads, (SET / "candidates.jsonl").read_text().splitlines())}
-    seen |= {(cands[i]["fen"], cands[i]["move_uci"]) for i in r2}
-    rng = random.Random(SEED)
+def main(set_name="missed_threat_v3", seed=SEED, round_no=3):
+    global SET
+    SET = V.ROOT / "evals" / "sets" / set_name
+    src = "positions.jsonl" if (SET / "positions.jsonl").exists() else "candidates.jsonl"  # a set not yet frozen is read from its candidates
+    items = [json.loads(x) for x in (SET / src).read_text().splitlines()]
+    seen = set()
+    if set_name == "missed_threat_v3":  # exclude what the owner saw in rounds 1 and 2 (ids from the committed answers file; the key is git-ignored)
+        seen = {(x["fen"], x["move_uci"]) for x in json.loads((SET / "check_round1_items.json").read_text()).values()}
+        r2 = [line.split()[0] for line in (SET / "check_round2_answers.txt").read_text().splitlines() if line.strip()]
+        cands = {x["id"]: x for x in map(json.loads, (SET / "candidates.jsonl").read_text().splitlines())}
+        seen |= {(cands[i]["fen"], cands[i]["move_uci"]) for i in r2}
+    rng = random.Random(seed)
     sample = []
     for label, k in PER.items():
         pool = [r for r in items if r["label"] == label and (r["fen"], r["move_uci"]) not in seen]
@@ -64,11 +68,12 @@ def main():
             pv = engine.analyse(p, V.ORACLE, perspective=p.turn).pv
             blues[r["id"]] = chess.Move.from_uci(pv[0])
     page = V3.PAGE.replace("@@CARDS@@", "".join(card(i, len(sample), r, blues[r["id"]]) for i, r in enumerate(sample, 1)))
-    page = page.replace("m3v3check_r2", "m3v3check_r3")
-    (SET / "check_page_r3.html").write_text(page)
-    (SET / "check_key_r3.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
+    page = page.replace("m3v3check_r2", ("m3v3check_r3" if (set_name, round_no) == ("missed_threat_v3", 3) else f"m3check_{set_name}_r{round_no}"))
+    (SET / f"check_page_r{round_no}.html").write_text(page)
+    (SET / f"check_key_r{round_no}.json").write_text(json.dumps({r["id"]: r["label"] for r in sample}, indent=1) + "\n")
     print(len(sample), {k: sum(r["label"] == k for r in sample) for k in PER})
 
 
 if __name__ == "__main__":
-    main()
+    a = sys.argv[1:]
+    main(a[0], int(a[1]), int(a[2])) if len(a) == 3 else main()

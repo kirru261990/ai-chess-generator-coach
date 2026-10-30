@@ -1,4 +1,4 @@
-"""`missed_threat` v2 = mistake type M3, missed threat (ADR 0011, v2 in ADR 0013).
+"""`missed_threat` v3 = mistake type M3, missed threat (ADR 0011, v2 in ADR 0013, v3 in ADR 0014).
 
 In the position after the opponent's move (player to move), the player skips a turn and the evidence engine searches the passed
 position: its best line is the **threat line**. The position holds a threat when that line mates or nets at least
@@ -12,9 +12,7 @@ Outcomes (the rate is missed / (missed + met); the others are in neither part, A
 - met: `defended` (the threat line no longer works after the move), `countered` (it still works but the move loses less than
   M3_EVAL_LOSS_CP), or `defended_other_loss` (the move stops the threat but loses for another reason, often an M1 mistake)
 - uncertain: `loss_not_from_threat` (v2: the move loses, the threat still works, but the threat does not explain the loss),
-  `threat_unavoidable` (the best move cannot stop the threat line either), `threat_line_diverged` (the move loses
-  M3_EVAL_LOSS_CP or more, the pass line breaks on a later reply, and the engine's best line does not start with the threat
-  move, so we cannot tell; see `threat_after_move`) or `loss_not_stable`
+  `threat_unavoidable` (the best move cannot stop the threat line either) or `loss_not_stable`
 - no_threat: `no_concrete_threat` or `passing_costs_little`
 - skipped: `before_min_ply` (M3_MIN_PLY), `in_check`, `only_legal_move`, `decided`
 
@@ -28,9 +26,10 @@ import chess
 from app.detectors import prd_rules as R
 from app.detectors import threat_kind as TK
 from app.detectors.hanging_own_v4 import Finding
+from app.detectors.see import capture_net
 
 DETECTOR = "missed_threat"
-VERSION = "2"
+VERSION = "3"
 
 THRESHOLDS = {
     "min_ply": R.M3_MIN_PLY,
@@ -77,28 +76,27 @@ def threat_works(board: chess.Board, pv, beneficiary: chess.Color) -> bool:
     return TK.line_result(board, pv, beneficiary).wins
 
 
-def threat_after_move(after_board: chess.Board, pv, after_best, opponent: chess.Color) -> str:
-    """Does the threat still work after the player's move? `works`, `stopped` or `diverged`.
+def forced_threat(after_board: chess.Board, threat_uci: str, analyser, opponent: chess.Color):
+    """Does the threat still work after the player's move? Returns (`works` or `stopped`, forced board, engine's best line after the threat).
 
-    The pass line holds the player's replies chosen for the *passed* position, so after a real move it can break on a reply
-    that is no longer legal while the threat itself still stands (PR 96 review: ...Rb8 changes the recapture in
-    Rd8+ Rxd8 Rxd8# but does not stop the mate). A broken replay is therefore never taken as proof of a defence:
-    1. the pass line replayed as it stands wins -> works;
-    2. the engine's best line in the real position starts with the threat move -> that line decides (works or stopped);
-    3. the threat move itself is no longer legal -> stopped;
-    4. the replay broke on a later move and the engine does not play the threat move -> diverged (we cannot tell).
+    v3 (ADR 0014): play the threat move and let the evidence engine choose BOTH sides' replies, then count the material. The pass line
+    cannot decide this alone: its replies were chosen for the passed position, so a defender that appears with the player's move (Qe7
+    guarding the bishop Bxc5 wants) is missing from it and an even trade looks like a win.
     """
-    replay = TK.line_result(after_board, pv, opponent)
-    if replay.wins:
-        return "works"
-    if after_best is not None and after_best.move == pv[0]:
-        engine = TK.line_result(after_board, after_best.pv, opponent)
-        return "works" if engine.wins or engine_mates(after_best, opponent) else "stopped"
-    if chess.Move.from_uci(pv[0]) not in after_board.legal_moves:
-        return "stopped"
-    if replay.plies < min(len(pv), R.MAX_REFUTATION_PLIES):
-        return "diverged"
-    return "stopped"
+    move = chess.Move.from_uci(threat_uci)
+    if move not in after_board.legal_moves:
+        return "stopped", None, None
+    forced = after_board.copy(stack=False)
+    forced.push(move)
+    if forced.is_game_over():
+        return ("works" if forced.is_checkmate() else "stopped"), forced, None
+    line = analyser.analyse(forced).best
+    pv = (threat_uci, *(line.pv if line else ()))
+    # The exchange count decides a plain capture (an engine line cut at a few plies stops mid-exchange); the engine line decides the rest
+    # (forks, discovered attacks, mates), because it plays the player's best replies.
+    works = (after_board.is_capture(move) and capture_net(after_board, move) >= R.M3_MATERIAL_MIN) \
+        or TK.line_result(after_board, pv, opponent).wins or engine_mates(line, opponent)
+    return ("works" if works else "stopped"), forced, line
 
 
 def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: chess.Board | None = None) -> Finding:
@@ -156,7 +154,7 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
         record["opponent_last_move"] = R.move_ref(previous, last.uci())
 
     if threat_size < R.M3_THREAT_MIN_CP:
-        if threat_works(best_board, pv, opponent):
+        if forced_threat(best_board, pv[0], analyser, opponent)[0] == "works":
             return Finding("uncertain", "threat_unavoidable", record)
         return Finding("no_threat", "passing_costs_little")
 
@@ -165,7 +163,7 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
     after = analyser.analyse(after_board)
     eval_after = R.line_score(after.best, mover) if after.best else R.terminal_score(after_board, mover)
     loss = eval_before - eval_after
-    status = threat_after_move(after_board, pv, after.best, opponent)
+    status, forced, forced_line = forced_threat(after_board, pv[0], analyser, opponent)
     record.update({
         "player_move": R.move_ref(board, move.uci()),
         "eval_after": eval_after,
@@ -176,8 +174,6 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
         return Finding("met", "defended" if status == "stopped" else "countered", record)
     if status == "stopped":
         return Finding("met", "defended_other_loss", record)
-    if status == "diverged":
-        return Finding("uncertain", "threat_line_diverged", record)
 
     stab_depth = analyser.config.stability.depth
     s_before = analyser.analyse(board, depth=stab_depth)
@@ -189,15 +185,9 @@ def detect(board: chess.Board, move: chess.Move, ply: int, analyser, previous: c
     if stab_loss < R.M3_EVAL_LOSS_CP:
         return Finding("uncertain", "loss_not_stable", record)
 
-    # v2: the threat must explain the loss. Play the threat move after M and let the engine finish the line.
-    forced = after_board.copy(stack=False)
-    forced.push(chess.Move.from_uci(pv[0]))  # `works` means the threat move is legal after M
-    if forced.is_game_over():
-        ftl_score, ftl_id = R.terminal_score(forced, mover), analyser.config.id
-    else:
-        ftl_line = analyser.analyse(forced).best
-        ftl_score = R.line_score(ftl_line, mover) if ftl_line else R.terminal_score(forced, mover)
-        ftl_id = analyser.config.id
+    # v2: the threat must explain the loss: the engine's score after the player's move and the threat move (from `forced_threat`).
+    ftl_score = R.line_score(forced_line, mover) if forced_line else R.terminal_score(forced, mover)
+    ftl_id = analyser.config.id
     ftl = eval_before - ftl_score
     record.update({"ftl": ftl, "ftl_config_id": ftl_id})
     if ftl < max(R.M3_EVAL_LOSS_CP, loss * R.M3_FTL_MIN_SHARE):

@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-31 · MacBook · Claude Code: M3 `missed_threat` v3 and the `missed_threat_v4` set (branch `feat/missed-threat-v3-detector`)
+- **Done:** v2's first score (0.96 / 0.93 on `missed_threat_v3`) exposed a false positive: an even trade after the player's move guarded the piece (mt3-049). ADR 0014 / detector v3: after the threat move the engine plays both sides and the exchange count decides plain captures. New frozen set `missed_threat_v4` (88 items, other Lichess games, owner check 22 of 24, gate met first time). v3 scored once on it: **precision 27/27 = 1.00, recall 27/30 = 0.90** (CIs 0.88-1.00 and 0.74-0.97; both targets met as point estimates only). Read `evals/reports/missed_threat_v4_2026-10-31_notes.md` before quoting. Backend 1103 tests.
+- **M3 hand-check v2 on the owner's games: 27 of 30 real, the gate met exactly** (12 of 15 at 10|0, 15 of 15 at 15|10; ADR 0013 "Hand-check result, version 2" has the caveats: thin, and not independent on three boards the assistant explained). Files in git-ignored `data/evidence/handcheck_m3_v2*`. Chess.com synced to 580 games (55 new) and the fast pass run on them on 2026-10-31.
+- **Not done:** look at mt3-035 and mt3-085 (v3 may trade false positives for false negatives); the `uncertain` cases on real positions; the M3 real-game rates (M3e); old v1/v2 M3 rows in `data/coach.sqlite3` need `evidence_run retire`. No M3 rate as a weakness until the hand-check passes.
+
 ### 2026-10-30 · MacBook · Claude Code: M3 `missed_threat` v2 built (branch `docs/m3-v2-adr`)
 - **Done:** ADR 0013 and the detector: `missed` now also needs the forced-threat loss (move, then the threat move, then best play) to be at least 150 cp and half the move's loss; otherwise `uncertain` / `loss_not_from_threat`. Version "2", `M3_FTL_MIN_SHARE`. Backend 1095 tests pass, ruff clean. Existing v1 M3 rows in `data/coach.sqlite3`, if any, are stale: run `evidence_run retire` before any M3 report.
 - **Private regression run:** `evals/tools/m3_regression_private.py build|run` (data in git-ignored `data/evidence/missed_threat_v3_private/`): 26 labelled items from the first hand-check, v2 abstains on all 6 defect cases and keeps 19 of 20 `missed` (hc3-29 abstains, known). Regression only, not a score.
