@@ -13,3 +13,17 @@ describe('the board keeps its square styles when the move badge is drawn', () =>
     expect(source).toContain('squareStyles: boardStyles')
   })
 })
+
+// There is no browser test here, so these guard the startup race: the automatic first game must not replace one the player started.
+describe('the automatic first game waits for the opponent probe', () => {
+  it('locks every control and New game until /opponents settles', () => {
+    const controls = source.slice(source.indexOf('<div className="controls">'), source.indexOf('{game && ('))
+    expect(controls.match(/<select disabled=\{probing\}/g)).toHaveLength(5)
+    expect(controls).toContain('disabled={busy || probing}')
+  })
+
+  it('unlocks them when the probe settles, and gives up on a hung probe', () => {
+    expect(source).toContain('setProbing(false)')
+    expect(source).toContain('signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)')
+  })
+})

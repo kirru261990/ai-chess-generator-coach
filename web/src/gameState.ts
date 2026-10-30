@@ -234,3 +234,26 @@ export function opponentLabel(g: Pick<GameView, 'engine_level' | 'opponent' | 'o
 export function hasEngineOpponent(g: Pick<GameView, 'engine_level' | 'opponent' | 'opponent_elo'>): boolean {
   return g.engine_level !== null || (g.opponent === 'maia3' && g.opponent_elo != null)
 }
+
+/** What a new page starts with: Maia-3 at 1600 when the server has it (owner's level, 2026-10-29; was 800), else Stockfish. */
+export const DEFAULT_MAIA_ELO = 1600
+export function startingOpponent(maiaAvailable: boolean): 'stockfish' | 'maia3' {
+  return maiaAvailable ? 'maia3' : 'stockfish'
+}
+
+/**
+ * Run `onSettled` once when the opponent probe finishes, unless the returned cancel function was called first.
+ * React StrictMode replays the startup effect (setup, cleanup, setup), so the first run's continuation must go quiet:
+ * otherwise two automatic first games start and the second replaces a game the player began meanwhile.
+ */
+export function probeOnce<T>(probe: () => Promise<T | null>, onSettled: (result: T | null) => void): () => void {
+  let cancelled = false
+  void probe()
+    .catch(() => null)
+    .then((result) => {
+      if (!cancelled) onSettled(result)
+    })
+  return () => {
+    cancelled = true
+  }
+}

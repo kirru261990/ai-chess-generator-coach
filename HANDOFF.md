@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-10-27 (night) · MacBook · Claude Code: Maia-3 at 800 is the starting opponent (branch `feat/maia3-default`)
+- **Done:** on page load the web app asks `GET /opponents` first; if Maia-3 is installed the first game and the selectors start as Maia-3 at 800 (Practice was already the default mode), otherwise Stockfish level 3 as before. Owner's request. Web 127 tests, tsc clean; checked in the browser pane (selectors and the started game: practice, maia3, 800). Reverse: `startingOpponent` in `web/src/gameState.ts` returns `'stockfish'`.
+- **Review fix (P2):** the controls and New game stay locked until `/opponents` settles (5 s timeout), so the automatic first game can no longer replace a game the player started or use stale colour/mode/level. Guarded by source-level tests in `web/src/appGuards.test.ts` (there is no component-test setup; a rendered delayed-probe test would need jsdom and testing-library plus a THIRD_PARTY.md row). Web 129 tests, tsc clean.
+
 ### 2026-10-27 (evening) · MacBook · Claude Code: M3d scored, gate not met (branch `docs/m3-handcheck-result`)
 - **Result:** the owner answered the 30 flags: **14 real of 30 (gate 27)**, 7 of 15 at each time control. First "no": A 7, B 5, C 4. By kind: mate 3/3, capture 7/15, fork 3/6, other 1/5, discovered 0/1; by origin: new 13/24, standing 1/6. Details and the reading in ADR 0011 ("Hand-check result"). Raw result (git-ignored, owner's games): `data/evidence/handcheck_m3_v1_result.json`.
 - **Meaning:** M3 v1 scored 0.99 / 0.95 on `missed_threat_v2` (puzzle positions) but fails on real games. Do not show an M3 rate as a weakness, do not retune on these 30, and do not run M3e's report as a finding yet. The sample is frozen and used.
