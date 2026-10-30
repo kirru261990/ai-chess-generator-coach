@@ -34,8 +34,7 @@ qualifying position per game. Shortfalls are reported in `provenance.json`, not 
 are used (as in v1), so quiet engine-only threats are not covered; this is a stated limit.
 
 ## The owner's check (fixed before the page is shown)
-The owner sees a **sample of 24 items** (8 `missed`, 6 `uncertain`, 5 `met`, 5 `not_applicable`, labels hidden) and answers, in plain
-words, for the side to move X and the opponent Y: **A** "If X did nothing, could Y next win a piece or give checkmate?" **B** "After X's
+The owner sees a **sample of 24 items** (8 `missed`, 6 `uncertain`, 5 `met`, 5 `not_applicable`, labels hidden) and answers, one question at a time with big buttons (the wording below is the first version; the page uses shorter wording of the same four questions, changed before any answer was given), for the side to move X and the opponent Y: **A** "If X did nothing, could Y next win a piece or give checkmate?" **B** "After X's
 actual move, can Y still do that?" **C** "Could X have played a different move that avoids or answers it?" **D** "Does X's move lose
 something else that has nothing to do with this threat?" Each: yes / no / can't tell.
 Mapping to a label, **frozen here**: `missed` = A yes, B yes, C yes, D no. `uncertain` = A yes, B yes, C yes, D yes. `met` = A yes, B no.

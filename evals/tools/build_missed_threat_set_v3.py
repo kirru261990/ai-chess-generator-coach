@@ -104,27 +104,42 @@ def card(n, total, r):
     board = chess.Board(r["fen"])
     move = chess.Move.from_uci(r["move_uci"])
     X, Y = side(board.turn), side(not board.turn)
-    svg = chess.svg.board(board, orientation=board.turn, size=360, arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
-    qs = [("A", f"If {X} did nothing at all, could {Y} next win a piece (or about two pawns' worth) or give checkmate?"),
-          ("B", f"After {X}'s actual move, can {Y} still do that?"),
-          ("C", f"Could {X} have played a different move that avoids it or answers it?"),
-          ("D", f"Does {X}'s move lose something else that has nothing to do with that threat?")]
-    inputs = "".join(
-        f'<div class="q"><p><b>{k}.</b> {html.escape(t)}</p>' + "".join(
-            f'<label><input type="radio" name="{r["id"]}-{k}" value="{v}"> {lab}</label>'
-            for v, lab in (("yes", "Yes"), ("no", "No"), ("cant", "Can't tell"))) + "</div>" for k, t in qs)
-    return (f'<section class="card" id="{r["id"]}" data-id="{r["id"]}"><h3>{n} of {total}</h3><div class="board">{svg}</div>'
-            f'<p>The board is <b>before</b> the move. The red arrow is the move. {html.escape(plain_move(board, move))}</p>{inputs}</section>')
+    svg = chess.svg.board(board, orientation=board.turn, size=340, arrows=[chess.svg.Arrow(move.from_square, move.to_square, color="#d9534fcc")])
+    qs = {"A": f"If {X} passes, can {Y} win a piece or checkmate?",
+          "B": f"After {X}'s real move, can {Y} still do it?",
+          "C": f"Was there a {X} move that stops it?",
+          "D": f"Does {X}'s move lose something else?"}
+    return (f'<section class="card" data-id="{r["id"]}" data-q="{html.escape(json.dumps(qs))}" hidden><p class="n">{n} of {total}</p>'
+            f'<div class="board">{svg}</div><p class="mv">Red arrow = the move {X} played. {html.escape(plain_move(board, move))}</p></section>')
 
 
 PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>M3 check</title>
-<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#fff;color:#111}.card{border:1px solid #ccc;border-radius:8px;padding:12px;margin:16px 0}
-.board svg{max-width:100%;height:auto}.q{margin:8px 0}label{margin-right:12px}button{padding:10px 16px;font-size:16px}textarea{width:100%;height:120px}</style>
-<h1>Quick check: 24 positions</h1><p>Look at each board. Answer from the board only, in your own words of chess. "Can't tell" is fine. Answers are saved in this browser.</p>
-@@CARDS@@<button id="copy">Copy my answers</button><textarea id="out" readonly></textarea>
-<script>const S='m3v3check';let a={};try{a=JSON.parse(localStorage.getItem(S)||'{}')}catch(e){}
-document.querySelectorAll('input[type=radio]').forEach(i=>{if(a[i.name]===i.value)i.checked=true;i.onchange=()=>{a[i.name]=i.value;try{localStorage.setItem(S,JSON.stringify(a))}catch(e){}}});
-document.getElementById('copy').onclick=()=>{const t=Object.keys(a).sort().map(k=>k+'='+a[k]).join('\\n');const o=document.getElementById('out');o.value=t;o.select();try{navigator.clipboard.writeText(t)}catch(e){}}</script>"""
+<style>body{font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:12px;background:#fff;color:#111}
+.n{color:#666;margin:4px 0}.board svg{max-width:100%;height:auto}.mv{font-size:15px;color:#333}
+#q{font-size:20px;font-weight:600;margin:14px 0}.row{display:flex;gap:8px}.row button{flex:1;padding:16px 4px;font-size:18px;border-radius:10px;border:1px solid #888;background:#f4f4f4}
+.row button:active{background:#ddd}#bar{height:6px;background:#eee;border-radius:3px}#fill{height:6px;background:#2a7;border-radius:3px;width:0}
+#back{margin-top:12px;background:none;border:none;color:#06c;font-size:15px}textarea{width:100%;height:160px;font-size:14px}#done button{padding:14px;font-size:18px;width:100%}</style>
+<h2>Quick check</h2><div id="bar"><div id="fill"></div></div>
+<div id="stage">@@CARDS@@<div id="q"></div><div class="row" id="btns"><button data-v="yes">Yes</button><button data-v="no">No</button><button data-v="cant">Can't tell</button></div><button id="back">&larr; back</button></div>
+<div id="done" hidden><h3>All done. Thank you!</h3><p>Tap the button, then paste what it copied into the chat.</p><button id="copy">Copy my answers</button><textarea id="out" readonly></textarea></div>
+<script>
+const S='m3v3check2',cards=[...document.querySelectorAll('.card')];let ans={},i=0,k='A';
+try{ans=JSON.parse(localStorage.getItem(S)||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem(S,JSON.stringify(ans))}catch(e){}};
+function next(c){const a=ans[c.dataset.id]||{};
+ if(k==='A')return a.A==='yes'?'B':null; if(k==='B')return a.B==='yes'?'C':null; if(k==='C')return a.C==='yes'?'D':null; return null}
+function show(){if(i>=cards.length){document.getElementById('stage').hidden=true;document.getElementById('done').hidden=false;
+ document.getElementById('fill').style.width='100%';
+ document.getElementById('out').value=Object.keys(ans).sort().map(id=>id+' '+Object.entries(ans[id]).map(([q,v])=>q+'='+({yes:'y',no:'n',cant:'?'})[v]).join(' ')).join('\\n');return}
+ cards.forEach((c,j)=>c.hidden=j!==i);const c=cards[i];
+ document.getElementById('q').textContent=k+'. '+JSON.parse(c.dataset.q)[k];
+ document.getElementById('fill').style.width=(100*i/cards.length)+'%'}
+document.getElementById('btns').onclick=e=>{const v=e.target.dataset.v;if(!v)return;const c=cards[i];
+ (ans[c.dataset.id]=ans[c.dataset.id]||{})[k]=v;save();const n=next(c);if(n){k=n}else{i++;k='A';const t=cards[i];if(t)delete ans[t.dataset.id]}show()};
+document.getElementById('back').onclick=()=>{if(k!=='A'){k=String.fromCharCode(k.charCodeAt(0)-1)}else if(i>0){i--;const a=ans[cards[i].dataset.id]||{};k=a.D?'D':a.C?'C':a.B?'B':'A'}show()};
+document.getElementById('copy').onclick=()=>{const o=document.getElementById('out');o.select();try{navigator.clipboard.writeText(o.value)}catch(e){}};
+show();
+</script>"""
 
 
 def main():
