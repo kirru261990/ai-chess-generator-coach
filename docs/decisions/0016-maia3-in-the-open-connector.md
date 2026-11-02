@@ -25,6 +25,11 @@ connector to include the Maia changes"); reversible (see the end). Builds on ADR
    stay inside the image; they are not committed or offered for download. Find the licence before listing the connector in a directory.
 4. **Speed.** One forward pass per move on 0.1 CPU; expected to be a second or a few. Not measured.
 
+## Measured on Render, 2026-11-02 (first deploy)
+Stockfish moves 0.5 to 1.4 s; Maia-3 moves 9.7 to 10.7 s each, so risk 4 happened and the model load is not the cause. Memory was not
+read from the Metrics graph. Tried first: `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` (a guess that thread contention on 0.1 CPU is the
+cause; result to be recorded here after the redeploy).
+
 ## How to reverse
 Set `MAIA3_CMD` to a blank value in Render's environment (off, no rebuild), or revert the Dockerfile block. Games then answer
 `opponent_unavailable` for Maia and the chat offers Stockfish.
