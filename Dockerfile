@@ -23,8 +23,11 @@ ENV STOCKFISH_PATH=/usr/games/stockfish \
     MAIA3_CMD=/opt/maia3/bin/maia3-uci \
     HF_HOME=/opt/hf \
     HF_HUB_OFFLINE=1 \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
     MCP_BIND=0.0.0.0 \
     PORT=7860
+# One torch thread: the free host gives 0.1 CPU and many threads fight over it (Maia moves took ~10 s; ADR 0016).
 # To switch Maia-3 off without a rebuild, set MAIA3_CMD to a blank value in the host's settings (games then offer Stockfish only).
 # MCP_PUBLIC_URL (the https address the host gives this service) is set in the host's settings, not here.
 EXPOSE 7860
