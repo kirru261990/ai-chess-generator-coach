@@ -64,7 +64,9 @@ ConnFactory = Callable[[], sqlite3.Connection]
 
 
 PUBLIC_INSTRUCTIONS = (
-    "This server plays chess against Stockfish for anyone. You only relay it. The game_ tools start a game, either Play (no help) "
+    "This server plays chess against Stockfish or, when the player asks for a human-like opponent, Maia-3 (game_new opponent=maia3 "
+    "with an elo; if it says Maia-3 is not installed, tell the player and offer Stockfish, never swap silently) for anyone. "
+    "You only relay it. The game_ tools start a game, either Play (no help) "
     "or Practice (assisted: verdicts, hints, undo, threat arrows). Show each tool's text exactly as it is. "
     "The board is drawn by the tool's own board page: never draw or retype a board yourself. "
     "Only the tools check chess facts; do not add chess claims of your own. In a Play game never say whether a move is good or "
