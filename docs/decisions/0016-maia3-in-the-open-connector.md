@@ -28,7 +28,7 @@ connector to include the Maia changes"); reversible (see the end). Builds on ADR
 ## Measured on Render, 2026-11-02 (first deploy)
 Stockfish moves 0.5 to 1.4 s; Maia-3 moves 9.7 to 10.7 s each, so risk 4 happened and the model load is not the cause. Memory was not
 read from the Metrics graph. Tried first: `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` (a guess that thread contention on 0.1 CPU is the
-cause; result to be recorded here after the redeploy).
+cause). **Result after the redeploy (2026-11-02, PR 113): Maia-3 moves 0.8 to 1.1 s each (four moves), Stockfish 0.6 to 0.7 s; the guess held.** Memory still not read from the Metrics graph; one game each was timed, not many players at once.
 
 ## How to reverse
 Set `MAIA3_CMD` to a blank value in Render's environment (off, no rebuild), or revert the Dockerfile block. Games then answer
