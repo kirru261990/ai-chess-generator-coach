@@ -72,6 +72,10 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-02 (later) · MacBook · Claude Code: Maia-3 live on Render, thread fix worked (PRs 112, 113)
+- **Done:** deployed by hand. First timing: Maia moves about 10 s each. `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` (PR 113) brought them to 0.8 to 1.1 s (Stockfish 0.6 to 0.7 s). Numbers in ADR 0016. The connector can be given to friends.
+- **Not checked:** memory on the Metrics graph, many players at once, weights licence (before any directory listing), Maia's strength at 400 to 800.
+
 ### 2026-11-02 · MacBook · Claude Code: Maia-3 in the open connector (branch `feat/maia-public-connector`)
 - **Done (ADR 0016):** the open server already accepted `opponent=maia3`; the Render image had no Maia-3. `Dockerfile` now installs it (own venv, CPU PyTorch, `maia3` pinned to the full commit, weights fetched at build, runtime offline, `MAIA3_CMD` set). Public instructions and the privacy page name Maia-3; two tests added, one privacy test updated on purpose. Backend tests for the touched files pass, ruff clean.
 - **Not verified:** the Docker image was **not built** (no Docker here) and nothing is deployed. Render free has 512 MB / 0.1 CPU: Maia-3 memory and speed are unmeasured; an out-of-memory kill restarts the whole service. Weights licence still unknown (ADR 0012).
