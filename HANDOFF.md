@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-02 · MacBook · Claude Code: Maia-3 in the open connector (branch `feat/maia-public-connector`)
+- **Done (ADR 0016):** the open server already accepted `opponent=maia3`; the Render image had no Maia-3. `Dockerfile` now installs it (own venv, CPU PyTorch, `maia3` pinned to the full commit, weights fetched at build, runtime offline, `MAIA3_CMD` set). Public instructions and the privacy page name Maia-3; two tests added, one privacy test updated on purpose. Backend tests for the touched files pass, ruff clean.
+- **Not verified:** the Docker image was **not built** (no Docker here) and nothing is deployed. Render free has 512 MB / 0.1 CPU: Maia-3 memory and speed are unmeasured; an out-of-memory kill restarts the whole service. Weights licence still unknown (ADR 0012).
+- **Next (owner):** merge, Manual Deploy on Render, watch the build and the Metrics memory graph, start a Maia game; if it fails, set `MAIA3_CMD` blank in Render (off, no rebuild). Re-add the connector in Claude.
+
 ### 2026-10-30 (night) · MacBook · Claude Code: M3 hand-check v3 failed, 23 of 30 (branch `feat/m3-handcheck-v3`)
 - **Done:** `handcheck_m3` version 3 (fresh games, answered by the owner without chat; sampler tops a short time control up from the other, scan `--target`). **Result 23 of 30 real, gate 27 not met** (600: 17/19, 900+10: 6/11); reasons in ADR 0013 ("version 3"). The `uncertain` probe (`evals/sets/m3_uncertain_probe/`, engine-labelled, not a score): 6/20 and 6/15 abstain as expected, one `missed` in the second group (up-028).
 - **Detector v4 built (ADR 0015):** skip already-lost positions (below -400) and require that the best move neutralises the threat. Frozen sets: v3 set 1.00 / 0.90, v4 set 1.00 / 0.90 (precision / recall). Not validated on the owner's games.

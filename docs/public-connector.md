@@ -1,12 +1,12 @@
 # The open chess connector: how to publish it
 
-Games against Stockfish (Play, or Practice with hints, undo and threat arrows) for anyone, from Claude chat. No login, no stored data, no model calls. Decision: ADR 0010. Your private practice connector (`docs/mcp-setup.md`) is a different server and is not affected.
+Games against Stockfish or the human-like Maia-3 (Play, or Practice with hints, undo and threat arrows) for anyone, from Claude chat. No login, no stored data, no outside model calls (Maia-3 runs inside the server). Decision: ADR 0010. Your private practice connector (`docs/mcp-setup.md`) is a different server and is not affected.
 
 **Live (2026-10-25):** `https://chess-coach-public.onrender.com/mcp` (Render free plan). Privacy page: `https://chess-coach-public.onrender.com/privacy` (source: `backend/app/mcp/public_pages.py`; keep it true to ADR 0010 when limits change).
 
 ## What users get
 
-`game_new` (colour, level 1 to 10, mode `play` or `practice`), `game_move`, `game_show`, `game_resign`, and in Practice games `game_undo`, `game_hint`, `game_threats`, with the interactive board. Say: "Play chess against level 3, I am White."
+`game_new` (colour, level 1 to 10, mode `play` or `practice`, and `opponent` `maia3` with an `elo` 400 to 2800 for a human-like opponent; ADR 0016), `game_move`, `game_show`, `game_resign`, and in Practice games `game_undo`, `game_hint`, `game_threats`, with the interactive board. Say: "Play chess against level 3, I am White." or "Play against Maia at 900, I am White."
 
 ## Try it on your Mac first
 
@@ -63,6 +63,13 @@ With the SDK's client and schema libraries the board page was 562 KB and claude.
 ## Putting it in Claude's public directory (needs you)
 
 Adding it by address works for anyone who pastes the link. A listing in Anthropic's connector directory is a separate submission I cannot make for you. You have the stable address and a privacy page (`/privacy`); it also needs a support contact (the GitHub issues page is used on the privacy page, since the repo is public and your email must not go in it) and Anthropic's review. Check the current submission requirements on Anthropic's site: a service that sleeps for 50 seconds may count against it, and then a paid always-on instance would be the fix.
+
+## Maia-3 on Render (ADR 0016, not yet deployed)
+
+The image installs Maia-3 (CPU PyTorch, weights fetched at build). After the next Manual Deploy: watch the build log, check `/healthz`,
+then start a game with `opponent=maia3` and watch the Render **Metrics** memory graph. Out of memory restarts the whole service: set
+`MAIA3_CMD` to a blank value in Render's environment to turn Maia off without a rebuild. In Claude, remove and add the connector again
+after a tool change.
 
 ## Limits
 

@@ -108,7 +108,7 @@ def test_the_privacy_page_is_served_to_anyone_and_matches_the_limits():
     with TestClient(S.build_public_http_app(PUBLIC_URL), base_url=PUBLIC_URL) as c:
         r = c.get("/privacy")
         assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
-        for fact in ("No accounts", "2 hours", "500", "does not call any AI model", "Render"):
+        for fact in ("No accounts", "2 hours", "500", "does not call any outside AI service", "Render"):
             assert fact in r.text
         assert "@" not in r.text  # no personal email in a public page
     assert S.PUBLIC_IDLE_SECONDS == 2 * 3600 and S.PUBLIC_MAX_GAMES == 500  # the page states these
@@ -120,3 +120,36 @@ def test_the_open_server_leaves_the_letter_board_out_of_the_text_but_the_private
     assert "```" not in words and "CAPITALS" not in words and "FEN:" in words and data["game"]["fen"]
     G.configure(max_games=20, idle_seconds=None)
     assert "CAPITALS" in G.game_new("white", 1, "play")[1]
+
+
+def test_the_open_server_offers_maia_and_says_so_in_its_instructions_and_privacy_page():
+    from app.mcp.public_pages import PRIVACY_HTML
+
+    assert "maia3" in S.PUBLIC_INSTRUCTIONS and "never swap silently" in S.PUBLIC_INSTRUCTIONS
+    assert "Maia-3" in PRIVACY_HTML and "runs inside this server" in PRIVACY_HTML
+
+
+def test_the_open_server_plays_a_maia_game_and_refuses_one_cleanly_when_maia_is_missing(monkeypatch):
+    import pathlib
+    import sys
+    import tempfile
+
+    from app.engine import maia
+    from tests.test_maia import FAKE
+
+    server = S.build_server(public=True)
+    monkeypatch.setenv("MAIA3_CMD", "definitely-not-installed-maia")
+    refused = asyncio.run(server.call_tool("game_new", {"color": "white", "level": 3, "mode": "play", "opponent": "maia3", "elo": 900}))
+    assert refused.is_error or "not installed" in str(refused.content).lower()
+
+    with tempfile.TemporaryDirectory() as d:
+        script = pathlib.Path(d) / "fake_maia.py"
+        script.write_text(FAKE)
+        monkeypatch.setenv("MAIA3_CMD", f"{sys.executable} {script} {pathlib.Path(d) / 'log.json'}")
+        monkeypatch.setattr(maia, "_maia", None)
+        try:
+            ok = asyncio.run(server.call_tool("game_new", {"color": "black", "level": 3, "mode": "play", "opponent": "maia3", "elo": 900}))
+            game = ok.structured_content["game"]
+            assert game["opponent"] == "maia3" and game["opponent_elo"] == 900 and game["moves"]  # Maia opened as White
+        finally:
+            maia.close_maia()

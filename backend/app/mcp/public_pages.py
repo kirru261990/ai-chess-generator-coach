@@ -8,7 +8,7 @@ PRIVACY_HTML = """<!doctype html>
 h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:1.6rem}code{background:#f1f1f1;padding:0 .25em;border-radius:3px}</style></head>
 <body>
 <h1>Chess Coach connector: privacy</h1>
-<p>Last updated 25 October 2026. This covers the open chess connector at this address, which plays games against Stockfish for
+<p>Last updated 2 November 2026. This covers the open chess connector at this address, which plays games against Stockfish or Maia-3 for
 anyone who adds it to Claude or ChatGPT.</p>
 
 <h2>Short version</h2>
@@ -16,7 +16,7 @@ anyone who adds it to Claude or ChatGPT.</p>
 linked to you.</p>
 
 <h2>What the connector receives</h2>
-<p>Only what Claude sends when you play: the colour, level and mode you chose, your moves, and the id of your game. It does not
+<p>Only what Claude sends when you play: the colour, opponent (Stockfish level, or Maia-3 and a rating), and mode you chose, your moves, and the id of your game. It does not
 see your name, email, conversation or anything else about you.</p>
 
 <h2>What it keeps, and for how long</h2>
@@ -30,7 +30,7 @@ It does not record game contents, addresses or any identifier, and the web serve
 
 <h2>What it does not do</h2>
 <ul>
-<li>It does not call any AI model and does not send your data to any other service.</li>
+<li>It does not call any outside AI service. Maia-3 is a small chess model that runs inside this server, and its moves are computed there. It does not send your data to any other service.</li>
 <li>It does not sell or share data, because it does not keep any.</li>
 </ul>
 
