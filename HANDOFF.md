@@ -72,6 +72,14 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-05 · MacBook · Claude Code: drill library from public Lichess games, stage A (branch `feat/drill-library`, worktree `../acc-drills`)
+- **Why (owner):** a middlegame tactics trainer for anyone, built only from public data (Lichess CC0 + Stockfish), no account linking. Stage A = drill library, then stage B = "what happens if I move this piece" preview in Practice. **ADR 0017** has the definitions (middlegame = plies 12 to 60 and 3+ pieces per side besides king and pawns; ratings 500 to 1800; M3 off until it passes a real-game check; forcing lines proposed as a later motif).
+- **Done:** `evals/tools/lichess_stream_sample.py` takes `--low/--high` (default unchanged); new sample `data/lichess/rapid_500_1800_2026-09.pgn` (3000 games, 9 MB read; only 14 games have a player under 600). `app/learner/drillbank.py` (`build`, `summary`; shallow prefilter at depth 10 and 100 cp, then `hanging_own` v4 and `missed_free` v3 at the pinned depth 18; bank in git-ignored `data/drills/drillbank_v1.jsonl`, own engine cache, resumable). `app/learner/drillcheck.py` (`make`, `score`): 20-drill Yes / No / Can't tell page `data/drills/drillcheck_v1.html`, gate 18 of 20. Tests: `test_drillbank.py`, `test_drillcheck.py`.
+- **First run (300 games, 8 workers, about 40 min):** 229 drills, 154 M1 and 75 M2; by rating band 400s 2, 600s 11, 800s 40, 1000s 44, 1200s 47, 1400s 53, 1600s 32. 1004 M1 candidates were `uncertain` (dropped). Yields, not error rates. About 16 hours for all 3000 games.
+- **Bug found by the first real run:** `missed_free` calls a real error `missed`, not `mistake`; fixed and tested (`DRILL_OUTCOME`).
+- **Not done / not verified:** no person has checked the drills (the owner answers the page, then `drillcheck score ANSWERS.txt`); the detectors were hand-checked only on the owner's games (about 1200 and under); nothing is served in Practice yet (needs a pool and a schema change); low-rated games are scarce; stage B and the forcing-lines motif are only planned.
+- **Next:** owner answers `data/drills/drillcheck_v1.html`; record the result in ADR 0017; then more games, a Practice pool, stage B.
+
 ### 2026-11-02 (later) · MacBook · Claude Code: Maia-3 live on Render, thread fix worked (PRs 112, 113)
 - **Done:** deployed by hand. First timing: Maia moves about 10 s each. `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` (PR 113) brought them to 0.8 to 1.1 s (Stockfish 0.6 to 0.7 s). Numbers in ADR 0016. The connector can be given to friends.
 - **Not checked:** memory on the Metrics graph, many players at once, weights licence (before any directory listing), Maia's strength at 400 to 800.

@@ -3,7 +3,7 @@
 Run:  cd backend && uv run python ../evals/tools/lichess_stream_sample.py [--month 2026-09] [--games 3000] [--max-gb 3] [--out PATH]
 
 Reads https://database.lichess.org/standard/lichess_db_standard_rated_<month>.pgn.zst (CC0) as a stream, decompresses it on the fly
-and keeps rated Rapid games where both players are rated 600-1200, the game ended normally and has at least 20 moves. It stops at
+and keeps rated Rapid games where both players are rated 600-1200 (or `--low` / `--high`), the game ended normally and has at least 20 moves. It stops at
 `--games` kept games or `--max-gb` compressed bytes read, whichever comes first. The file is in time order, so the sample is the
 start of the month (stated in the sidecar JSON). Output (raw games, git-ignored): data/lichess/rapid_600_1200_<month>.pgn
 plus a .json sidecar with the counts and the byte position reached. ADR 0001 section 3; TASKS T13 and T14b.
@@ -41,7 +41,7 @@ class Counting(io.RawIOBase):
         return len(chunk)
 
 
-def keep(game) -> bool:
+def keep(game, low: int = LOW, high: int = HIGH) -> bool:
     h = game.headers
     try:
         w, b = int(h.get("WhiteElo", "")), int(h.get("BlackElo", ""))
@@ -49,7 +49,7 @@ def keep(game) -> bool:
         return False
     if "Rapid" not in h.get("Event", "") or h.get("Termination") != "Normal":
         return False
-    return LOW <= w <= HIGH and LOW <= b <= HIGH and sum(1 for _ in game.mainline_moves()) >= 20
+    return low <= w <= high and low <= b <= high and sum(1 for _ in game.mainline_moves()) >= 20
 
 
 def main():
@@ -57,10 +57,12 @@ def main():
     ap.add_argument("--month", default="2026-09")
     ap.add_argument("--games", type=int, default=3000)
     ap.add_argument("--max-gb", type=float, default=3.0)
+    ap.add_argument("--low", type=int, default=LOW)
+    ap.add_argument("--high", type=int, default=HIGH)
     ap.add_argument("--out")
     a = ap.parse_args()
     url = f"https://database.lichess.org/standard/lichess_db_standard_rated_{a.month}.pgn.zst"
-    out = Path(a.out) if a.out else ROOT / "data" / "lichess" / f"rapid_{LOW}_{HIGH}_{a.month}.pgn"
+    out = Path(a.out) if a.out else ROOT / "data" / "lichess" / f"rapid_{a.low}_{a.high}_{a.month}.pgn"
     out.parent.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "ai-chess-coach-research (github.com/kirru261990/ai-chess-generator-coach)"})
     kept = seen = 0
@@ -76,13 +78,14 @@ def main():
                 if g is None:
                     break
                 seen += 1
-                if keep(g):
+                if keep(g, a.low, a.high):
                     print(g, file=f, end="\n\n")
                     kept += 1
                 if seen % 20000 == 0:
                     print(f"seen {seen}, kept {kept}, read {src.n / 1e9:.2f} GB", file=sys.stderr, flush=True)
     meta = {"source": url, "licence": "CC0", "kept": kept, "seen": seen, "compressed_bytes_read": src.n,
-            "note": "start of the month only (the file is in time order); rated Rapid, both 600-1200, Termination Normal, >= 20 moves"}
+            "low": a.low, "high": a.high,
+            "note": f"start of the month only (the file is in time order); rated Rapid, both {a.low}-{a.high}, Termination Normal, >= 20 moves"}
     out.with_suffix(".json").write_text(json.dumps(meta, indent=1) + "\n")
     print(json.dumps(meta, indent=1))
 
