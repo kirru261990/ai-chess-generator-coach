@@ -49,3 +49,9 @@ def test_an_even_trade_with_no_follow_up_is_not_a_win():
 
 def test_classes_have_plain_names():
     assert T.CLASSES == {1: "right_away", 2: "next_move", 3: "within_3_moves"}
+
+
+def test_a_free_piece_is_not_right_away_when_their_reply_wins_material_elsewhere():
+    fen = "r3k3/8/8/3r4/8/8/8/R2QK3 w - - 0 1"  # Qxd5 wins a rook, but Rxa1 takes the rook the queen was guarding
+    best = {fen_after(fen, "d1d5"): "a8a1"}
+    assert T.moves_to_win(chess.Board(fen), "d1d5", Scripted(best)) != 1

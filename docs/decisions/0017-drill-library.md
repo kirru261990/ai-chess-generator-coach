@@ -48,7 +48,7 @@ evidence engine (depth 18, cached).
 | `within_3_moves` | ahead after your third move | "Could you win material within your next 3 moves? ..." |
 | `unclear` | not ahead within 3 moves along the engine's best replies | left out of the drill set |
 
-- **Bank, 75 missed-free-piece drills:** right away 38, next move 29, within 3 moves 2, unclear 6.
+- **Bank, 75 missed-free-piece drills:** right away 35, next move 32, within 3 moves 2, unclear 6 (after the review fix below; first run 38 / 29 / 2 / 6).
 - **Against the owner's version 1 answers on the same 10:** right away 5 of 5 "yes", next move 2 of 2 "yes", within 3 moves 0 of 1 (dc-17 "no"), unclear 0 of 2 (dc-12, dc-18 "no"). **This sample designed the rule, so it is not a test of it**; version 2 is the test.
 - **Correction:** in chat, dc-12 was first described as winning a bishop and ending 3 points ahead. The engine line continues 1.Nxd5 exd5 2.Rxe7 Rxc6, so the net is bishop for pawn, 2 points: `unclear` under the 3-point rule. The classifier caught what a hand count missed.
 - **Check version 2** (`drillcheck` VERSION 2): 10 hanging-own-piece drills and 10 missed-free-piece drills (5 right away, 4 next move, 1 within 3 moves; only 2 of that class exist and one was used in version 1), none from version 1, one per game, `unclear` never shown. Gate 18 of 20.
@@ -60,6 +60,11 @@ The owner answered `drillcheck_v2` (10 hanging-own-piece, 10 missed-free-piece w
 - The timing classes and per-class wording fixed the version 1 failures: every M2 drill was a real "win material within N moves" for the owner.
 - Caveats: 20 positions, one reviewer, ratings up to about 1700; M2 `within_3_moves` has one sample and only 2 drills exist in the 300-game bank. `unclear` drills were not shown, so they stay excluded. Drills are now "engine-verified and owner-checked on 40 positions (two checks)", not a rate claim.
 - Raw result: `data/drills/drillcheck_v2_result.json` (git-ignored).
+
+## Review fixes (2026-11-05, PR 115)
+
+- **Timing:** a drill with no direct retake used to skip the opponent's reply when judging `right_away`, so their best reply elsewhere was ignored. The reply is now always played. 3 of 75 drills moved from right away to next move; none was in check v1 or v2, so those results stand.
+- **Resume:** `drillbank_v1.done` now records (game, type) pairs, so `--types M3` or a later M2 run scans games already done for other types. Old lines (a game id alone) mean M1 and M2.
 
 ## Reversal
 

@@ -40,13 +40,11 @@ def _engine_move(board: chess.Board, analyser) -> chess.Move | None:
 def _after(board: chess.Board, retake: chess.Move | None, extra: int, mover: chess.Color, analyser) -> int:
     """Your material balance after `retake` (None: they play the engine's reply) and `extra` more moves of yours, each answered."""
     x = board.copy(stack=False)
-    if retake is not None:
-        x.push(retake)
-    elif extra:
-        reply = _engine_move(x, analyser)
-        if reply is None:
+    if retake is None:  # no way to take it straight back: they still get their best reply, which may win material elsewhere
+        retake = _engine_move(x, analyser)
+        if retake is None:
             return R.balance(x, mover)
-        x.push(reply)
+    x.push(retake)
     for _ in range(extra):
         mine = _engine_move(x, analyser)
         if mine is None:

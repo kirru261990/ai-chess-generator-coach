@@ -149,3 +149,13 @@ def test_each_type_keeps_the_outcome_its_detector_reports(monkeypatch):
     b13.push(b12.parse_san("Bb3"))
     drills = [d for d in DB.scan_game(pgn(), FakeAnalyser({b13.fen(): -250}), types=("M2",)) if d["ply"] == 12]
     assert [d["type"] for d in drills] == ["M2"]
+
+
+def test_resume_state_is_per_game_and_type(tmp_path):
+    out = tmp_path / "drillbank_v1.jsonl"
+    out.with_suffix(".done").write_text("old1\nnew1 M3\nnew2 M1 M2\n")
+    done = DB.done_games(out)
+    assert {("old1", "M1"), ("old1", "M2")} <= done  # a game id alone means the default types
+    assert ("old1", "M3") not in done  # so asking for M3 later scans it again
+    assert ("new1", "M3") in done and ("new1", "M1") not in done
+    assert ("new2", "M1") in done and ("new2", "M2") in done

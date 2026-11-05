@@ -151,14 +151,19 @@ def _process(task: tuple[str, str, tuple[str, ...]]) -> dict:
     gid, pgn, types = task
     stats: Counter = Counter()
     try:
-        return {"game": gid, "drills": scan_game(pgn, _worker["analyser"], types, stats), "stats": dict(stats), "error": None}
+        return {"game": gid, "types": types, "drills": scan_game(pgn, _worker["analyser"], types, stats), "stats": dict(stats), "error": None}
     except ValueError as e:  # one unreadable game must not stop the run
-        return {"game": gid, "drills": [], "stats": {}, "error": str(e)}
+        return {"game": gid, "types": types, "drills": [], "stats": {}, "error": str(e)}
 
 
-def done_games(path: Path) -> set[str]:
+def done_games(path: Path) -> set[tuple[str, str]]:
+    """(game id, drill type) pairs already scanned. A line with only a game id comes from before types were tracked: M1 and M2."""
     marker = path.with_suffix(".done")
-    return set(marker.read_text().split()) if marker.exists() else set()
+    out: set[tuple[str, str]] = set()
+    for line in marker.read_text().splitlines() if marker.exists() else []:
+        gid, *types = line.split()
+        out.update((gid, t) for t in (types or DEFAULT_TYPES))
+    return out
 
 
 def build(pgn: Path, limit: int | None, workers: int, types=DEFAULT_TYPES) -> dict:
@@ -167,8 +172,9 @@ def build(pgn: Path, limit: int | None, workers: int, types=DEFAULT_TYPES) -> di
     seen = done_games(out)
     tasks = []
     for gid, text in read_games(pgn):
-        if gid and gid not in seen:
-            tasks.append((gid, text, tuple(types)))
+        todo = tuple(t for t in types if (gid, t) not in seen)
+        if gid and todo:
+            tasks.append((gid, text, todo))
         if limit and len(tasks) >= limit:
             break
     stats: Counter = Counter()
@@ -182,7 +188,7 @@ def build(pgn: Path, limit: int | None, workers: int, types=DEFAULT_TYPES) -> di
                 f.write(json.dumps(d, default=str) + "\n")
                 added += 1
             if not r["error"]:
-                m.write(r["game"] + "\n")
+                m.write(f"{r['game']} {' '.join(r['types'])}\n")
             f.flush(), m.flush()
             if i % 10 == 0:
                 print(f"{i}/{len(tasks)} games, {added} drills", file=sys.stderr, flush=True)
@@ -193,7 +199,7 @@ def summary(path: Path | None = None) -> dict:
     path = path or bank_path()
     drills = [json.loads(line) for line in path.open()] if path.exists() else []
     by_band = Counter((d["avg_rating"] // 200 * 200) if d["avg_rating"] else None for d in drills)
-    return {"drills": len(drills), "games_scanned": len(done_games(path)), "by_type": dict(Counter(d["type"] for d in drills)),
+    return {"drills": len(drills), "games_scanned": len({g for g, _ in done_games(path)}), "by_type": dict(Counter(d["type"] for d in drills)),
             "by_rating_band": {str(k): v for k, v in sorted(by_band.items(), key=lambda kv: (kv[0] is None, kv[0]))},
             "by_side": dict(Counter(d["side"] for d in drills))}
 
