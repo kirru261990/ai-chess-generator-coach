@@ -41,8 +41,8 @@ def test_make_freezes_the_sample_and_writes_every_card(bank):
     page = drillcheck.make(bank).read_text()
     key = json.loads(drillcheck.key_path().read_text())
     assert [i["id"] for i in key["items"]] == [f"dc-{n:02d}" for n in range(1, 21)]
-    assert all(f'id="dc-{n:02d}"' in page for n in range(1, 21)) and "20 moves from other players" in page
-    assert "ould they win" in page
+    assert all(f'id="dc-{n:02d}"' in page for n in range(1, 21)) and "other players" in page
+    assert "come out ahead" in page and page.count("<svg") == 30 and "<!doctype" not in page
     first = drillcheck.key_path().read_text()
     drillbank.bank_path().write_text(bank.read_text() + json.dumps(drill(500, "M1", "gnew")) + "\n")
     drillcheck.make(bank)
