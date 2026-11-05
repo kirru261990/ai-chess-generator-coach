@@ -53,6 +53,14 @@ evidence engine (depth 18, cached).
 - **Correction:** in chat, dc-12 was first described as winning a bishop and ending 3 points ahead. The engine line continues 1.Nxd5 exd5 2.Rxe7 Rxc6, so the net is bishop for pawn, 2 points: `unclear` under the 3-point rule. The classifier caught what a hand count missed.
 - **Check version 2** (`drillcheck` VERSION 2): 10 hanging-own-piece drills and 10 missed-free-piece drills (5 right away, 4 next move, 1 within 3 moves; only 2 of that class exist and one was used in version 1), none from version 1, one per game, `unclear` never shown. Gate 18 of 20.
 
+## Hand-check result, version 2 (2026-11-05): 19 of 20 real, gate 18 met
+
+The owner answered `drillcheck_v2` (10 hanging-own-piece, 10 missed-free-piece with timing classes: 5 right away, 4 next move, 1 within 3 moves; none from version 1). **M1: 9 of 10 real; M2: 10 of 10 real.** Not real: dc-01 (M1, A "yes", B "no").
+
+- The timing classes and per-class wording fixed the version 1 failures: every M2 drill was a real "win material within N moves" for the owner.
+- Caveats: 20 positions, one reviewer, ratings up to about 1700; M2 `within_3_moves` has one sample and only 2 drills exist in the 300-game bank. `unclear` drills were not shown, so they stay excluded. Drills are now "engine-verified and owner-checked on 40 positions (two checks)", not a rate claim.
+- Raw result: `data/drills/drillcheck_v2_result.json` (git-ignored).
+
 ## Reversal
 
 Delete `data/drills/` and the `drillbank` module; nothing else depends on them. The `--low` / `--high` options of the sampler default to the old 600 to 1200.
