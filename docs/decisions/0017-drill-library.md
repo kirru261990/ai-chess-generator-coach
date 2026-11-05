@@ -34,6 +34,25 @@ The owner answered `drillcheck_v1` (10 hanging-own-piece, 10 missed-free-piece, 
 - **Decision (to confirm with the owner):** do not retune on these 20. Split M2 drills into "free" (nobody can retake it, or retaking loses more) and "wins after a follow-up" (a separate, harder kind with its own question wording), build a new check sample, and keep M1 as it is. This is a drill-library rule, not a change to `missed_free` v3 or to the owner's PRD v2 rates.
 - Raw result: `data/drills/drillcheck_v1_result.json` (git-ignored). The v1 sample is used and not reused.
 
+## Timing classes (2026-11-05, after the version 1 check)
+
+A missed-free-piece drill is now labelled by **how many of your moves it takes to be ahead**, so the question can say it plainly.
+"Ahead" = at least 3 points more than at the start (pawn 1, knight or bishop 3, rook 5, queen 9), counted after the engine's best
+reply to your last move, for **every** way they can take the piece back. `app/learner/drilltiming.py`, engine replies from the pinned
+evidence engine (depth 18, cached).
+
+| Class | Meaning | Question wording |
+|---|---|---|
+| `right_away` | ahead after the capture and their best retake (1 move) | "Could you win material right away? ... Even if they can take it back, you are then at least 3 points ahead." |
+| `next_move` | ahead after your second move: you capture, they retake, your next move wins something | "Could you win material on your next move? ..." |
+| `within_3_moves` | ahead after your third move | "Could you win material within your next 3 moves? ..." |
+| `unclear` | not ahead within 3 moves along the engine's best replies | left out of the drill set |
+
+- **Bank, 75 missed-free-piece drills:** right away 38, next move 29, within 3 moves 2, unclear 6.
+- **Against the owner's version 1 answers on the same 10:** right away 5 of 5 "yes", next move 2 of 2 "yes", within 3 moves 0 of 1 (dc-17 "no"), unclear 0 of 2 (dc-12, dc-18 "no"). **This sample designed the rule, so it is not a test of it**; version 2 is the test.
+- **Correction:** in chat, dc-12 was first described as winning a bishop and ending 3 points ahead. The engine line continues 1.Nxd5 exd5 2.Rxe7 Rxc6, so the net is bishop for pawn, 2 points: `unclear` under the 3-point rule. The classifier caught what a hand count missed.
+- **Check version 2** (`drillcheck` VERSION 2): 10 hanging-own-piece drills and 10 missed-free-piece drills (5 right away, 4 next move, 1 within 3 moves; only 2 of that class exist and one was used in version 1), none from version 1, one per game, `unclear` never shown. Gate 18 of 20.
+
 ## Reversal
 
 Delete `data/drills/` and the `drillbank` module; nothing else depends on them. The `--low` / `--high` options of the sampler default to the old 600 to 1200.

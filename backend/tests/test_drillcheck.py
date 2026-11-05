@@ -20,21 +20,43 @@ def drill(n, t, game, experimental=False):
 @pytest.fixture
 def bank(tmp_path, monkeypatch):
     monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
-    drills = [drill(n, "M1" if n % 2 else "M2", f"g{n // 2}") for n in range(60)]  # games hold one M1 and one M2 drill
+    drills = [drill(n, "M1" if n % 2 else "M2", f"g{n}") for n in range(60)]  # one drill per game
     drills.append(drill(99, "M1", "gx", experimental=True))
     drillbank.bank_dir().mkdir(parents=True)
     p = drillbank.bank_path()
     p.write_text("".join(json.dumps(d) + "\n" for d in drills))
+    classes = ["right_away", "next_move", "within_3_moves", "unclear"]  # cycles over the M2 drills
+    m2 = [d for d in drills if d["type"] == "M2"]
+    p.with_suffix(".timing.json").write_text(json.dumps({d["id"]: classes[n % 4] for n, d in enumerate(m2)}))
     return p
 
 
-def test_sample_is_ten_each_one_per_game_and_never_experimental(bank):
+def test_sample_follows_the_quotas_skips_unclear_and_never_repeats_a_game(bank):
     drills = [json.loads(line) for line in bank.open()]
-    s = drillcheck.sample(drills)
-    assert [d["type"] for d in s].count("M1") == 10 and [d["type"] for d in s].count("M2") == 10
-    assert len({d["game_id"] for d in s}) == 20
-    assert not any(d["experimental"] for d in s)
-    assert drillcheck.sample(list(reversed(drills))) == s  # the order of the bank does not matter
+    timing = json.loads(bank.with_suffix(".timing.json").read_text())
+    s = drillcheck.sample(drills, timing)
+    types = [d["type"] for d in s]
+    assert types.count("M1") == 10 and types.count("M2") == 10
+    assert len({d["game_id"] for d in s}) == 20 and not any(d["experimental"] for d in s)
+    m2 = [timing[d["id"]] for d in s if d["type"] == "M2"]
+    assert "unclear" not in m2 and m2.count("within_3_moves") == 2 and m2.count("right_away") >= 4
+    assert drillcheck.sample(list(reversed(drills)), timing) == s  # the order of the bank does not matter
+
+
+def test_drills_from_an_earlier_check_are_not_shown_again(bank, monkeypatch):
+    drills = [json.loads(line) for line in bank.open()]
+    first = drillcheck.sample(drills, json.loads(bank.with_suffix(".timing.json").read_text()))
+    v1 = drillbank.bank_dir() / "drillcheck_v1_key.json"
+    v1.write_text(json.dumps({"items": [{"drill_id": d["id"]} for d in first]}))
+    assert drillcheck.previous_drill_ids() == {d["id"] for d in first}
+    second = drillcheck.sample(drills, json.loads(bank.with_suffix(".timing.json").read_text()), drillcheck.previous_drill_ids())
+    assert not {d["id"] for d in second} & {d["id"] for d in first}
+
+
+def test_each_timing_class_has_its_own_plain_question():
+    right, nxt, three = (drillcheck.m2_question(c, "knight", "d5") for c in ("right_away", "next_move", "within_3_moves"))
+    assert "right away" in right and "next move" in nxt and "3 moves" in three
+    assert all("at least 3 points ahead" in q and "Points: pawn 1" in q for q in (right, nxt, three))
 
 
 def test_make_freezes_the_sample_and_writes_every_card(bank):

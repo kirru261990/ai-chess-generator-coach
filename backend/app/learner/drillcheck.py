@@ -20,12 +20,23 @@ from pathlib import Path
 import chess
 import chess.svg
 
-from app.learner import drillbank, handcheck
+from app.learner import drillbank, drilltiming, handcheck
 
-VERSION = 1
+VERSION = 2  # v2: missed-free-piece drills carry a timing class (ADR 0017); v1 scored 16 of 20 and its drills are not reused
+M2_QUOTA = {"right_away": 4, "next_move": 4, "within_3_moves": 2}
 PER_TYPE = 10
 GATE = 18
 ID_PREFIX = "dc"
+
+
+def previous_drill_ids() -> frozenset[str]:
+    """Drills already shown in an earlier check version are not shown again."""
+    ids: set[str] = set()
+    for v in range(1, VERSION):
+        p = drillbank.bank_dir() / f"drillcheck_v{v}_key.json"
+        if p.exists():
+            ids.update(i["drill_id"] for i in json.loads(p.read_text())["items"])
+    return frozenset(ids)
 
 
 def key_path() -> Path:
@@ -40,20 +51,38 @@ def _order(drill: dict) -> str:
     return hashlib.sha256(f"drillcheck-v{VERSION}|{drill['id']}".encode()).hexdigest()
 
 
-def sample(drills: list[dict], per_type: int = PER_TYPE) -> list[dict]:
-    """`per_type` drills of each type, by hash order, never two from one game (and never an experimental drill)."""
+def sample(drills: list[dict], timing: dict[str, str] | None = None, exclude: frozenset[str] = frozenset(),
+           per_type: int = PER_TYPE) -> list[dict]:
+    """`per_type` drills of each type by hash order, never two from one game, never an experimental or excluded drill.
+
+    M2 drills need a timing class other than `unclear` and follow M2_QUOTA (right away 4, next move 4, within 3 moves 2); a class
+    with too few drills is topped up from the others. Without `timing` (tests of M1 only) M2 is sampled without classes.
+    """
     out: list[dict] = []
     used: set[str] = set()
-    for t in ("M1", "M2"):
-        taken = 0
-        for d in sorted((d for d in drills if d["type"] == t and not d["experimental"]), key=_order):
-            if taken >= per_type:
+
+    def pool(t):
+        return sorted((d for d in drills if d["type"] == t and not d["experimental"] and d["id"] not in exclude), key=_order)
+
+    def take(candidates, n):
+        got = 0
+        for d in candidates:
+            if got >= n:
                 break
             if d["game_id"] in used:
                 continue
             used.add(d["game_id"])
             out.append(d)
-            taken += 1
+            got += 1
+        return got
+
+    take(pool("M1"), per_type)
+    if timing is None:
+        take(pool("M2"), per_type)
+        return out
+    m2 = [d for d in pool("M2") if timing.get(d["id"], "unclear") != "unclear"]
+    got = sum(take([d for d in m2 if timing[d["id"]] == c], n) for c, n in M2_QUOTA.items())
+    take([d for d in m2 if timing[d["id"]] in ("right_away", "next_move")], per_type - got)
     return out
 
 
@@ -61,7 +90,7 @@ def questions(d: dict) -> list[str]:
     return ["A", "B"] if d["type"] == "M1" else ["A"]
 
 
-def render_card(it: dict, d: dict) -> str:
+def render_card(it: dict, d: dict, timing: str | None = None) -> str:
     """One position as a card: each question carries its own board and one plain sentence (A first, B only after a yes to A)."""
     e, alts = d["evidence"], d["alternatives"]
     board = chess.Board(e["fen"])
@@ -100,8 +129,7 @@ def render_card(it: dict, d: dict) -> str:
         green = chess.svg.Arrow(capture.from_square, capture.to_square, color=handcheck.GREEN)
         qs.append(("A", handcheck.board_svg(board, me, [red, green], fill),
                    f"You are <b>{who}</b>. You played <b>{played_words}</b> <i class=\"r\">(red)</i>.",
-                   f"Could you have taken their {piece} on {target} <i class=\"g\">(green)</i> and come out ahead?",
-                   handcheck.line_words(board, line, me)))
+                   m2_question(timing, piece, target), handcheck.line_words(board, line, me)))
     out = []
     for qid, svg, setup, ask, line_text in qs:
         more = (f'<details><summary>Show the moves</summary><p>{html.escape(line_text)}</p></details>' if line_text else "")
@@ -112,20 +140,38 @@ def render_card(it: dict, d: dict) -> str:
     return f'<section class="card" id="{it["id"]}" data-qs="{"".join(q[0] for q in qs)}" hidden>{"".join(out)}</section>'
 
 
+M2_WORDS = {
+    "right_away": "Could you win material right away? Take their {piece} on {sq} <i class=\"g\">(green)</i>. Even if they can take it back, "
+                  "you are then at least 3 points ahead.",
+    "next_move": "Could you win material on your next move? Take their {piece} on {sq} <i class=\"g\">(green)</i>. They can take it back, "
+                 "but then your next move wins something, and you end up at least 3 points ahead.",
+    "within_3_moves": "Could you win material within your next 3 moves? Take their {piece} on {sq} <i class=\"g\">(green)</i>. "
+                      "It takes up to 3 of your moves, and you end up at least 3 points ahead.",
+}
+POINTS_NOTE = "Points: pawn 1, knight or bishop 3, rook 5, queen 9."
+
+
+def m2_question(timing: str | None, piece: str, sq: str) -> str:
+    text = M2_WORDS.get(timing or "", M2_WORDS["right_away"]).format(piece=piece, sq=sq)
+    return f"{text} <span class=\"pts\">{POINTS_NOTE}</span>"
+
+
 def make(bank: Path | None = None) -> Path:
     bank = bank or drillbank.bank_path()
     drills = [json.loads(line) for line in bank.open()]
+    timing = drilltiming.read_timing()
     if key_path().exists():
         key = json.loads(key_path().read_text())
         by_id = {d["id"]: d for d in drills}
         chosen = [by_id[i["drill_id"]] for i in key["items"]]
     else:
-        chosen = sample(drills)
+        chosen = sample(drills, timing, previous_drill_ids())
         items = [{"id": f"{ID_PREFIX}-{n:02d}", "drill_id": d["id"], "type": d["type"], "game_id": d["game_id"],
-                  "avg_rating": d["avg_rating"], "questions": questions(d)} for n, d in enumerate(chosen, 1)]
+                  "avg_rating": d["avg_rating"], "questions": questions(d), "timing": timing.get(d["id"])}
+                 for n, d in enumerate(chosen, 1)]
         key_path().write_text(json.dumps({"version": VERSION, "gate": GATE, "items": items}, indent=1) + "\n")
     key = json.loads(key_path().read_text())
-    cards = "\n".join(render_card({"id": it["id"], "type": it["type"]}, d) for it, d in zip(key["items"], chosen, strict=True))
+    cards = "\n".join(render_card({"id": it["id"], "type": it["type"]}, d, it.get("timing")) for it, d in zip(key["items"], chosen, strict=True))
     page = PAGE.replace("__CARDS__", cards).replace("__TOTAL__", str(len(chosen))).replace("__KEY__", f"drillcheck_v{VERSION}")
     page_path().write_text(page)
     return page_path()
@@ -156,6 +202,7 @@ h1{font:700 26px/1.15 var(--display);margin:0;text-wrap:balance}
 .q{display:flex;flex-direction:column;gap:12px;min-width:0}
 figure{margin:0}figure svg{display:block;width:100%;height:auto;border-radius:6px}
 .setup{margin:0;color:var(--muted);font-size:16px}
+.pts{display:block;margin-top:6px;font:400 15px var(--body);color:var(--muted)}
 .ask{margin:0;font:600 21px/1.3 var(--display);text-wrap:balance}
 i.r{color:var(--red);font-style:normal;font-weight:600}i.o{color:var(--orange);font-style:normal;font-weight:600}i.g{color:var(--green);font-style:normal;font-weight:600}
 details{font-size:16px;color:var(--muted)}summary{cursor:pointer;padding:4px 0}details p{margin:4px 0 0}

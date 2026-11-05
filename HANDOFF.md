@@ -79,7 +79,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 - **Bug found by the first real run:** `missed_free` calls a real error `missed`, not `mistake`; fixed and tested (`DRILL_OUTCOME`).
 - **Not done / not verified:** no person has checked the drills (the owner answers the page, then `drillcheck score ANSWERS.txt`); the detectors were hand-checked only on the owner's games (about 1200 and under); nothing is served in Practice yet (needs a pool and a schema change); low-rated games are scarce; stage B and the forcing-lines motif are only planned.
 - **Check result (owner, same day): 16 of 20 real, gate 18 not met** (M1 9/10, M2 7/10). The M2 misses are captures that can be retaken at once (43% of M2 drills); see ADR 0017. The check page is now one position at a time (a private Artifact), `render_card` in `drillcheck.py`.
-- **Next:** split M2 drills into free vs wins-after-follow-up, new check sample (not these 20), then more games, a Practice pool, stage B.
+- **Timing classes built (owner asked for plain wording: right away / on your next move / within 3 moves):** `app/learner/drilltiming.py` (`classify` writes `data/drills/drillbank_v1.timing.json`), counts right away 38, next move 29, within 3 moves 2, unclear 6 of 75. `drillcheck` VERSION 2 uses class-specific questions and a fresh sample (page `data/drills/drillcheck_v2.html`, a second private Artifact); its key and answers are separate from version 1.
+- **Next:** owner answers check v2 (gate 18 of 20), record in ADR 0017; then more games, a Practice pool, stage B.
 
 ### 2026-11-02 (later) · MacBook · Claude Code: Maia-3 live on Render, thread fix worked (PRs 112, 113)
 - **Done:** deployed by hand. First timing: Maia moves about 10 s each. `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` (PR 113) brought them to 0.8 to 1.1 s (Stockfish 0.6 to 0.7 s). Numbers in ADR 0016. The connector can be given to friends.
