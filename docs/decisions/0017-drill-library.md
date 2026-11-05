@@ -25,6 +25,15 @@ The product so far trains the owner on the owner's own games. The owner wants a 
 - Detectors were scored on frozen Lichess sets and hand-checked on the owner's games only for M1 and M2; the 500 to 1800 band has not been checked above 1200.
 - No claim that drills improve rating. Success is reported as correct out of attempted, with the random-guess level, as in PRD v2.
 
+## Hand-check result, version 1 (2026-11-05): 16 of 20 real, gate 18 not met
+
+The owner answered `drillcheck_v1` (10 hanging-own-piece, 10 missed-free-piece, one drill per game, ratings 800 to 1700). **M1: 9 of 10 real; M2: 7 of 10 real.** Not real: dc-07 (M1, B "can't tell"), dc-12, dc-17 and dc-18 (M2, A "no").
+
+- All three M2 "no" answers are drills where the captured piece can be taken straight back (d5, f3 and one more). `missed_free` v3 counts material along the engine's best line, so a capture that is recaptured still counts when the engine line shows a follow-up win (dc-12: Nxd5 exd5 Rxe7 wins the bishop the knight was defending). That is a real win, but it is not a free piece, and the page asked "could you take it and come out ahead".
+- 32 of the 75 M2 drills in the 300-game bank (43%) allow an immediate recapture; 5 of the 10 sampled (dc-12, 15, 16, 17, 18). The owner said "yes" on 15 and 16, "no" on 12, 17 and 18, so the recapture alone does not decide it.
+- **Decision (to confirm with the owner):** do not retune on these 20. Split M2 drills into "free" (nobody can retake it, or retaking loses more) and "wins after a follow-up" (a separate, harder kind with its own question wording), build a new check sample, and keep M1 as it is. This is a drill-library rule, not a change to `missed_free` v3 or to the owner's PRD v2 rates.
+- Raw result: `data/drills/drillcheck_v1_result.json` (git-ignored). The v1 sample is used and not reused.
+
 ## Reversal
 
 Delete `data/drills/` and the `drillbank` module; nothing else depends on them. The `--low` / `--high` options of the sampler default to the old 600 to 1200.
