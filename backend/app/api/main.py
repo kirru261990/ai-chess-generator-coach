@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
-from app.api import blind_spots, coach, synced, tools
+from app.api import blind_spots, coach, drills, synced, tools
 from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
@@ -54,7 +54,13 @@ async def assessment_error_handler(_: Request, exc: coach.AssessmentError):
     return JSONResponse({"error": exc.code, "message": str(exc)}, coach.STATUS.get(exc.code, 400))
 
 
+@app.exception_handler(drills.CycleError)
+async def cycle_error_handler(_: Request, exc: drills.CycleError):
+    return JSONResponse({"error": exc.code, "message": str(exc)}, drills.STATUS.get(exc.code, 400))
+
+
 app.include_router(coach.router)
+app.include_router(drills.router)
 
 
 class StartGame(BaseModel):

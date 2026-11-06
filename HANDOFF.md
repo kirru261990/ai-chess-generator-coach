@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-06 · MacBook · Claude Code: drill cycles (branch `feat/drill-cycles`, worktree `../acc-cycles`)
+- **Why (owner):** repeat a fixed set of drills, each pass faster (Woodpecker style), instead of buying a paid puzzle book. **ADR 0018.**
+- **Done:** `app/learner/drillcycle.py` (frozen 50-drill set, cycles, ledger in `data/drills/cycles.sqlite3`, matched/answered with the random-guess share, server-side timing), `app/api/drills.py` (`/drills/cycles`), web tab "Drill cycles" (`DrillCycles.tsx`, `drillCycleState.ts`). Tests: `test_drillcycle.py` (14), `drillCycleState.test.ts`.
+- **Not done / not verified:** the drill bank is not on this Mac (`data/drills/` is absent), so nothing was run on real drills or in the browser, only on a scratch bank in tests; a second set cannot be started; not in MCP; "matched" inherits the 40-position drill check.
+- **Next:** build or copy the bank, run `drilltiming classify`, try a cycle in the browser, fix what the owner finds.
+
 ### 2026-11-05 · MacBook · Claude Code: drill library from public Lichess games, stage A (branch `feat/drill-library`, worktree `../acc-drills`)
 - **Why (owner):** a middlegame tactics trainer for anyone, built only from public data (Lichess CC0 + Stockfish), no account linking. Stage A = drill library, then stage B = "what happens if I move this piece" preview in Practice. **ADR 0017** has the definitions (middlegame = plies 12 to 60 and 3+ pieces per side besides king and pawns; ratings 500 to 1800; M3 off until it passes a real-game check; forcing lines proposed as a later motif).
 - **Done:** `evals/tools/lichess_stream_sample.py` takes `--low/--high` (default unchanged); new sample `data/lichess/rapid_500_1800_2026-09.pgn` (3000 games, 9 MB read; only 14 games have a player under 600). `app/learner/drillbank.py` (`build`, `summary`; shallow prefilter at depth 10 and 100 cp, then `hanging_own` v4 and `missed_free` v3 at the pinned depth 18; bank in git-ignored `data/drills/drillbank_v1.jsonl`, own engine cache, resumable). `app/learner/drillcheck.py` (`make`, `score`): 20-drill Yes / No / Can't tell page `data/drills/drillcheck_v1.html`, gate 18 of 20. Tests: `test_drillbank.py`, `test_drillcheck.py`.
