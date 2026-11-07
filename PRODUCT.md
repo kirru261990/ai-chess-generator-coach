@@ -8,7 +8,7 @@ web
 
 ## Users
 
-**Primary:** recreational chess players rated 300–1500 on Chess.com or Lichess. Design decisions serve this whole band from now on, not only the owner. They lose games to the same tactical misses, mostly hanging pieces and missed threats, because they do not check the board before moving. They play rapid games and want to stop repeating those mistakes.
+**Primary:** recreational chess players rated 300–1800 on Chess.com or Lichess. Design decisions serve this whole band from now on, not only the owner. They lose games to the same tactical misses, mostly hanging pieces and missed threats, because they do not check the board before moving. They play rapid games and want to stop repeating those mistakes.
 
 **Pilot reality:** today the only active user is the owner (Chess.com, rated about 570, 10-minute and 15+10 rapid). A few invited friends follow. Sign-in and per-user data do not exist yet, so every screen currently serves one person.
 

@@ -74,8 +74,8 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ### 2026-11-07 · cloud · Claude Code: product context written (branch `docs/product-context`)
 - **Why (owner):** finish the Impeccable setup.
-- **Done:** `/impeccable init` wrote `PRODUCT.md`. Owner answers: design for recreational players 300–1500 from now on (not only the owner); positioning is proof (verified coaching, real-game measurement) plus training on the player's own mistakes; surfaces in use are the laptop browser and Claude/ChatGPT chat. No code changed.
-- **Note:** `AGENTS.md` still says "players rated under ~1200"; the owner's new audience is 300–1500. Not changed here.
+- **Done:** `/impeccable init` wrote `PRODUCT.md`. Owner answers: design for recreational players 300–1800 from now on (not only the owner); positioning is proof (verified coaching, real-game measurement) plus training on the player's own mistakes; surfaces in use are the laptop browser and Claude/ChatGPT chat. No code changed.
+- **Done also:** `AGENTS.md` audience updated from "under ~1200" to 300–1800 (owner, 2026-11-07).
 
 ### 2026-11-07 · cloud · Claude Code: design system documented (branch `docs/design-system`)
 - **Why (owner):** use the Impeccable design skill for UI work.
