@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-07 · cloud · Claude Code: product context written (branch `docs/product-context`)
+- **Why (owner):** finish the Impeccable setup.
+- **Done:** `/impeccable init` wrote `PRODUCT.md`. Owner answers: design for recreational players 300–1500 from now on (not only the owner); positioning is proof (verified coaching, real-game measurement) plus training on the player's own mistakes; surfaces in use are the laptop browser and Claude/ChatGPT chat. No code changed.
+- **Note:** `AGENTS.md` still says "players rated under ~1200"; the owner's new audience is 300–1500. Not changed here.
+
 ### 2026-11-07 · cloud · Claude Code: design system documented (branch `docs/design-system`)
 - **Why (owner):** use the Impeccable design skill for UI work.
 - **Done:** `/impeccable document`: `DESIGN.md` (North Star "The Patient Coach"; owner chose warm and encouraging mood, soft and simple components, Action Green as the only accent, fixed verdict colours) and `.impeccable/design.json`. `AGENTS.md` points UI work at them. No UI code changed.
