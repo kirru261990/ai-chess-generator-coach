@@ -4,7 +4,7 @@ Read this file, then `HANDOFF.md`, before doing anything. The full product spec 
 
 ## Project in one paragraph
 
-An AI chess coach for players rated under ~1200. It **plays** games, **analyses** them (in-app + Chess.com/Lichess sync + PGN), **recognises patterns** (missed tactics measured as missed/available), and **coaches** with explanations that are verified against the engine and rule-based detectors. User zero is the builder (Chess.com, under 1000). Goals: personal chess improvement and a portfolio-grade AI system (agent + tools, evals, MCP, measured outcomes). No revenue features.
+An AI chess coach for recreational players rated 300–1800. It **plays** games, **analyses** them (in-app + Chess.com/Lichess sync + PGN), **recognises patterns** (missed tactics measured as missed/available), and **coaches** with explanations that are verified against the engine and rule-based detectors. User zero is the builder (Chess.com, under 1000). Goals: personal chess improvement and a portfolio-grade AI system (agent + tools, evals, MCP, measured outcomes). No revenue features.
 
 ## Non-negotiable rules
 
