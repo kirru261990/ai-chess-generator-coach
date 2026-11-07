@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-07 · cloud · Claude Code: Matt Pocock's agent skills set up (branch `chore/agent-skills`)
+- **Why (owner):** use `github.com/mattpocock/skills` for all coding on this repo.
+- **Done:** ran the `/setup-matt-pocock-skills` steps: `docs/agents/issue-tracker.md` (GitHub Issues), `docs/agents/triage-labels.md` (defaults), `docs/agents/domain.md` (single-context; ADRs stay in `docs/decisions/`), an `## Agent skills` section in `AGENTS.md`. Created the labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` on GitHub (`wontfix` already existed). No code changed; tests not run.
+- **Next (owner):** install the plugin on each Mac: `claude plugin install mattpocock-skills@claude-plugins-official`. Merge this PR.
+
 ### 2026-11-06 · MacBook · Claude Code: drill cycles (branch `feat/drill-cycles`, worktree `../acc-cycles`)
 - **Why (owner):** repeat a fixed set of drills, each pass faster (Woodpecker style), instead of buying a paid puzzle book. **ADR 0018.**
 - **Done:** `app/learner/drillcycle.py` (frozen 50-drill set, cycles, ledger in `data/drills/cycles.sqlite3`, matched/answered with the random-guess share, server-side timing), `app/api/drills.py` (`/drills/cycles`), web tab "Drill cycles" (`DrillCycles.tsx`, `drillCycleState.ts`). Tests: `test_drillcycle.py` (14), `drillCycleState.test.ts`.

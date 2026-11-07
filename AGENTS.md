@@ -121,6 +121,22 @@ spending limit in the Anthropic Console too: the local figures are estimates.
 - Default roles: one agent builds, the other reviews the PR by following `REVIEW.md`. A reviewer only comments and never pushes to the branch. Fill in the **Reviewed by** section of the PR description.
 - If you disagree with an earlier agent's design, write a short ADR in `docs/decisions/` instead of silently rewriting it.
 
+## Agent skills
+
+This repo uses Matt Pocock's engineering skills (`github.com/mattpocock/skills`; Claude Code plugin `mattpocock-skills`). Suggested flow per change: `/grill-with-docs` → `/to-spec` → `/to-tickets` → `/tdd` → `/code-review`. The rules in this file still apply (branches, `HANDOFF.md`, tests, licences).
+
+### Issue tracker
+
+Issues and specs live in this repo's GitHub Issues (`gh` CLI; GraphQL may be blocked in cloud sessions, so use `gh api` REST there). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` at the root (created when needed) and ADRs in `docs/decisions/`. See `docs/agents/domain.md`.
+
 ## Definition of done
 
 Tests pass · lint passes · `HANDOFF.md` updated · no secrets or data committed · any eval-affecting change has bumped its version.
