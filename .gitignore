@@ -46,3 +46,6 @@ Thumbs.db
 *.log
 evals/sets/missed_threat_v3/check_key*.json
 evals/sets/missed_threat_v4/check_key*.json
+
+# Impeccable per-developer settings
+.impeccable/config.local.json

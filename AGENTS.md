@@ -137,6 +137,10 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 
 Single-context: one `GLOSSARY.md` at the root (created when needed) and ADRs in `docs/decisions/`. See `docs/agents/domain.md`.
 
+### Design (Impeccable)
+
+UI work in `web/` uses the Impeccable skill (`/impeccable`). Read `DESIGN.md` (the visual system) before any UI change; `.impeccable/design.json` is its machine-readable sidecar. `PRODUCT.md` (product context) comes from `/impeccable init`.
+
 ## Definition of done
 
 Tests pass · lint passes · `HANDOFF.md` updated · no secrets or data committed · any eval-affecting change has bumped its version.

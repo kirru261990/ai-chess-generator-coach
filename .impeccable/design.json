@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-07T05:08:10+00:00",
+  "title": "Design System: AI Chess Coach",
+  "extensions": {
+    "colorMeta": {
+      "action-green": {
+        "role": "primary",
+        "displayName": "Action Green",
+        "canonical": "#3caa5a",
+        "tonalRamp": [
+          "#1b3221",
+          "#2a5636",
+          "#367d49",
+          "#3fa75b",
+          "#65c37f",
+          "#9ed1ac",
+          "#cde4d4",
+          "#eff5f1"
+        ]
+      },
+      "hint-gold": {
+        "role": "secondary",
+        "displayName": "Hint Gold",
+        "canonical": "#e0b030",
+        "tonalRamp": [
+          "#382e15",
+          "#624f1e",
+          "#907222",
+          "#c39723",
+          "#dcb54c",
+          "#e0ca90",
+          "#eae1c7",
+          "#f7f4ed"
+        ]
+      },
+      "hint-cream": {
+        "role": "secondary",
+        "displayName": "Hint Cream",
+        "canonical": "#fff3c4",
+        "tonalRamp": [
+          "#3e340f",
+          "#6e5b12",
+          "#a4850f",
+          "#dfb306",
+          "#f6ce32",
+          "#eed881",
+          "#f0e7c1",
+          "#f9f6ec"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#08060d",
+        "tonalRamp": [
+          "#231e2f",
+          "#382f51",
+          "#4d3e75",
+          "#624b9b",
+          "#8470b8",
+          "#afa4cc",
+          "#d5d0e1",
+          "#f1f0f5"
+        ]
+      },
+      "slate-text": {
+        "role": "neutral",
+        "displayName": "Slate Text",
+        "canonical": "#6b6375",
+        "tonalRamp": [
+          "#262428",
+          "#3f3c44",
+          "#59535f",
+          "#726a7c",
+          "#938c9c",
+          "#b7b3bc",
+          "#d9d7db",
+          "#f2f2f3"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#b8b8b8",
+          "#d9d9d9",
+          "#f2f2f2"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e5e4e7",
+        "tonalRamp": [
+          "#262528",
+          "#3f3d42",
+          "#58555e",
+          "#716c79",
+          "#928e9a",
+          "#b7b4bb",
+          "#d8d7da",
+          "#f2f2f3"
+        ]
+      },
+      "parchment": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "canonical": "#f4f3ec",
+        "tonalRamp": [
+          "#2d2b20",
+          "#4c4933",
+          "#6d6845",
+          "#908856",
+          "#aea77a",
+          "#c6c2a9",
+          "#dfddd2",
+          "#f4f4f1"
+        ]
+      },
+      "night": {
+        "role": "neutral",
+        "displayName": "Night",
+        "canonical": "#16171d",
+        "tonalRamp": [
+          "#232429",
+          "#393b46",
+          "#4f5263",
+          "#646882",
+          "#868aa1",
+          "#b0b2bf",
+          "#d6d6dc",
+          "#f1f2f3"
+        ]
+      },
+      "board-dark": {
+        "role": "neutral",
+        "displayName": "Board Dark",
+        "canonical": "#403d39",
+        "tonalRamp": [
+          "#282625",
+          "#42403d",
+          "#5e5a55",
+          "#79746c",
+          "#9a958e",
+          "#bbb8b4",
+          "#dad9d7",
+          "#f3f2f2"
+        ]
+      },
+      "verdict-best": {
+        "role": "verdict",
+        "displayName": "Best",
+        "canonical": "#3a9d5d",
+        "tonalRamp": [
+          "#1b3123",
+          "#2a553a",
+          "#377c4f",
+          "#41a564",
+          "#67c187",
+          "#9fd1b0",
+          "#cee4d6",
+          "#eff5f1"
+        ]
+      },
+      "verdict-good": {
+        "role": "verdict",
+        "displayName": "Good",
+        "canonical": "#7fae52",
+        "tonalRamp": [
+          "#262f1e",
+          "#3f502f",
+          "#59743e",
+          "#729a4b",
+          "#93b771",
+          "#b7cba4",
+          "#d9e1d0",
+          "#f2f5f0"
+        ]
+      },
+      "verdict-book": {
+        "role": "verdict",
+        "displayName": "Book",
+        "canonical": "#a1744f",
+        "tonalRamp": [
+          "#2e251e",
+          "#503e30",
+          "#735740",
+          "#986f4e",
+          "#b59173",
+          "#cab6a5",
+          "#e1d8d1",
+          "#f4f2f0"
+        ]
+      },
+      "verdict-slip": {
+        "role": "verdict",
+        "displayName": "Slip",
+        "canonical": "#d8b13a",
+        "tonalRamp": [
+          "#362e17",
+          "#5f4f21",
+          "#8b7327",
+          "#bb982a",
+          "#d5b553",
+          "#dcca93",
+          "#e8e1c9",
+          "#f7f4ee"
+        ]
+      },
+      "verdict-mistake": {
+        "role": "verdict",
+        "displayName": "Mistake",
+        "canonical": "#e58f2a",
+        "tonalRamp": [
+          "#392814",
+          "#64431c",
+          "#945e1f",
+          "#c87a1e",
+          "#e09a47",
+          "#e2bb8d",
+          "#ebdac6",
+          "#f7f3ed"
+        ]
+      },
+      "verdict-blunder": {
+        "role": "verdict",
+        "displayName": "Blunder",
+        "canonical": "#ca3431",
+        "tonalRamp": [
+          "#351818",
+          "#5c2524",
+          "#872e2c",
+          "#b53331",
+          "#cf5b58",
+          "#d99897",
+          "#e7cbca",
+          "#f6eeee"
+        ]
+      },
+      "threat-red": {
+        "role": "status",
+        "displayName": "Threat Red",
+        "canonical": "#d9534f",
+        "tonalRamp": [
+          "#351817",
+          "#5e2422",
+          "#892c29",
+          "#b9312d",
+          "#d35955",
+          "#db9795",
+          "#e8caca",
+          "#f6eeee"
+        ]
+      },
+      "error-red": {
+        "role": "status",
+        "displayName": "Error Red",
+        "canonical": "#c0392b",
+        "tonalRamp": [
+          "#351a17",
+          "#5d2822",
+          "#89332a",
+          "#b83b2e",
+          "#d26256",
+          "#da9c95",
+          "#e8cdca",
+          "#f6efee"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section heads."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and hint-card headlines."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text; feedback steps down to 0.9em."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Chips, legends, usage line, stepper."
+      },
+      "notation": {
+        "displayName": "Notation",
+        "purpose": "Move names (SAN) only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "badge-lift",
+        "value": "0 1px 3px rgba(0,0,0,0.5)",
+        "purpose": "The only shadow: lifts move badges above the pieces."
+      }
+    ],
+    "motion": [
+      {
+        "name": "eval-bar",
+        "value": "height 0.4s ease",
+        "purpose": "Evaluation bar moves to the new score."
+      },
+      {
+        "name": "confetti-fall",
+        "value": "2.6s ease-in, 3 runs",
+        "purpose": "Player's checkmate only; hidden with reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "860px",
+        "purpose": "Practice grid collapses to one column."
+      },
+      {
+        "name": "compact-type",
+        "value": "1024px",
+        "purpose": "Body 16px, display 36px, headline 20px."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per panel: Submit, Next, Start practice.",
+      "html": "<button class=\"ds-btn-primary\">Submit move</button>",
+      "css": ".ds-btn-primary{background:#3caa5a;color:#fff;border:0;border-radius:8px;padding:8px 14px;font:600 16px system-ui,'Segoe UI',Roboto,sans-serif;cursor:pointer;transition:filter .15s}.ds-btn-primary:hover{filter:brightness(.95)}.ds-btn-primary:focus-visible{outline:2px solid #3caa5a;outline-offset:2px}.ds-btn-primary:disabled{opacity:.5;cursor:default}"
+    },
+    {
+      "name": "Hint Toggle (on)",
+      "kind": "button",
+      "refersTo": "button-toggle-on",
+      "description": "A pressed help control: the 💡 Hint button or Why?.",
+      "html": "<button class=\"ds-btn-hint\">💡 Hint</button>",
+      "css": ".ds-btn-hint{background:#fff3c4;border:1px solid #e0b030;color:#403d39;border-radius:6px;padding:2px 8px;font:600 16px system-ui,sans-serif;cursor:pointer}.ds-btn-hint:focus-visible{outline:2px solid #e0b030;outline-offset:2px}"
+    },
+    {
+      "name": "Tabs",
+      "kind": "nav",
+      "description": "Top navigation; the active tab is bold with an Action Green underline.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-on\">Play</button><button class=\"ds-tab\">My mistakes</button><button class=\"ds-tab\">Review</button><button class=\"ds-tab\">Blind spots</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:8px;justify-content:center;padding:12px 16px 0;font:16px system-ui,sans-serif}.ds-tab{background:none;border:0;border-bottom:2px solid transparent;padding:4px 6px;color:#6b6375;cursor:pointer}.ds-tab:hover{color:#08060d}.ds-tab.ds-on{font-weight:700;color:#08060d;border-bottom-color:#3caa5a}.ds-tab:focus-visible{outline:2px solid #3caa5a;outline-offset:2px}"
+    },
+    {
+      "name": "Card with chip",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Blind-spot card: headline, confidence chip, rate with its denominator.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-top\"><span class=\"ds-headline\">Hanging pieces</span><span class=\"ds-chip ds-est\">established</span></div><p class=\"ds-what\">Missed 7 of 20 chances (35%).</p></div>",
+      "css": ".ds-card{border:1px solid #e5e4e7;border-radius:8px;padding:12px 14px;background:#fff;font:16px/1.45 system-ui,sans-serif;color:#6b6375;max-width:320px}.ds-card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.ds-headline{color:#08060d;font-weight:600}.ds-what{margin:6px 0 0;font-size:.9em}.ds-chip{font-size:.75em;padding:2px 8px;border-radius:10px;white-space:nowrap;background:#f4f3ec}.ds-chip.ds-est{background:#d6f0dc;color:#1c5a2a}"
+    },
+    {
+      "name": "Feedback card",
+      "kind": "custom",
+      "description": "Verdict feedback after a Practice move: a 6px left stripe in the verdict colour.",
+      "html": "<div class=\"ds-feedback ds-mistake\"><p><strong>? Mistake</strong></p><p class=\"ds-wrong\">Your knight on f3 can be taken for free.</p><p class=\"ds-right\">Best was Be2, guarding it.</p></div>",
+      "css": ".ds-feedback{text-align:left;border:1px solid #e5e4e7;border-left:6px solid #e58f2a;border-radius:8px;padding:8px 12px;font:15px/1.45 system-ui,sans-serif;color:#6b6375;max-width:340px}.ds-feedback p{margin:4px 0}.ds-wrong{color:#b03a2e}.ds-right{color:#2a7a40}"
+    },
+    {
+      "name": "Threat box",
+      "kind": "custom",
+      "description": "Watch out: what the opponent threatens next. Practice only.",
+      "html": "<div class=\"ds-threats\"><p><strong>Watch out:</strong> Black threatens Qxf2+.</p></div>",
+      "css": ".ds-threats{text-align:left;border:1px solid #d9534f;background:rgba(220,60,50,.08);border-radius:8px;padding:8px 12px;font:15px/1.45 system-ui,sans-serif;color:#08060d;max-width:340px}.ds-threats p{margin:4px 0}"
+    },
+    {
+      "name": "Move badges",
+      "kind": "custom",
+      "description": "Verdict badge drawn on the moved piece's square.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-mb\" style=\"background:#3a9d5d\">★</span><span class=\"ds-mb\" style=\"background:#7fae52\">👍</span><span class=\"ds-mb\" style=\"background:#a1744f\">📖</span><span class=\"ds-mb\" style=\"background:#d8b13a;color:#3a2e00\">?!</span><span class=\"ds-mb\" style=\"background:#e58f2a\">?</span><span class=\"ds-mb\" style=\"background:#ca3431\">??</span></div>",
+      "css": ".ds-badges{display:flex;gap:10px;padding:8px}.ds-mb{min-width:22px;height:22px;padding:0 4px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font:800 12px system-ui,sans-serif;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.5);border:1.5px solid #fff;box-sizing:border-box}"
+    },
+    {
+      "name": "Hint stepper",
+      "kind": "custom",
+      "description": "Three hint rungs: done, next, pending.",
+      "html": "<ol class=\"ds-stepper\"><li class=\"ds-done\"><span>1</span> Which piece</li><li class=\"ds-next\"><span>2</span> Which square</li><li><span>3</span> The move</li></ol>",
+      "css": ".ds-stepper{display:flex;gap:6px;list-style:none;padding:0;margin:0;font:13px system-ui,sans-serif;max-width:360px}.ds-stepper li{flex:1;text-align:center;border:1px solid #e5e4e7;border-radius:14px;padding:3px 4px;opacity:.6;color:#6b6375}.ds-stepper li span{font-weight:700}.ds-stepper li.ds-next{opacity:1;border-color:#e0b030}.ds-stepper li.ds-done{opacity:1;background:#fff3c4;border-color:#e0b030;color:#3a2e00}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Patient Coach",
+    "overview": "The coach sits beside the player, not above them. The board is the largest thing on every screen, and everything else waits beside it: the verdict, the threat warning, the hint ladder, the coach's explanation. Nothing shouts. When the player gets something wrong, the screen says so plainly, with the cost and the reason, and then offers the next step. When the player gets something right, the screen is warm about it: a green badge, a short \"right\" line, and on a real checkmate, confetti.\n\nThe surfaces are quiet so the colour can mean something. White paper, hairline borders and slate text carry the structure. Colour appears where it explains a chess fact: the verdict of a move, a piece in danger, a free piece missed, the next hint. The mood is warm and encouraging without becoming a game show. Celebration is earned and brief; it never replaces the explanation.\n\nDensity is medium. One task per screen, the board on the left, the things you act on in a column beside it, so the player never scrolls away from the position to read feedback.",
+    "keyCharacteristics": [
+      "The board leads; supporting panels sit beside it, not below it.",
+      "Flat paper surfaces with hairline borders; no shadow-based depth.",
+      "Colour is reserved for meaning: verdicts, danger, help and action.",
+      "One action accent: Action Green.",
+      "Warm, brief celebration for real success; honest, specific feedback for mistakes.",
+      "System fonts throughout; monospace only for move notation."
+    ],
+    "rules": [
+      {
+        "name": "The Fixed Verdict Rule",
+        "body": "The six verdict colours follow the chess convention players already know and never change. They mean a move verdict and nothing else: never reuse them for buttons, charts or decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Accent Rule",
+        "body": "Action Green is the only accent. Purple, blue or any new hue never becomes a second \"brand\" colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Means Help Rule",
+        "body": "Gold and cream mark the coach's help. If a screen shows gold, the player is being assisted.",
+        "section": "colors"
+      },
+      {
+        "name": "The Notation Rule",
+        "body": "Monospace is for chess moves only. Prose, numbers and labels stay in the system face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Board Beside Rule",
+        "body": "Anything the player must read to act on the current position (verdict, threats, hints, Why?) sits in the side column next to the board, never below the fold.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Cards and panels never get drop shadows. Use a hairline border or a tonal wash instead.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use Action Green (#3caa5a) as the only accent, including for the active tab underline.",
+      "**Do** keep the six verdict colours exactly as listed, and only for move verdicts.",
+      "**Do** keep help visuals (eval bar, move badges, red and green board marks, threat box, hint gold) in Practice only. Play and tests show none of them.",
+      "**Do** put feedback, threats and hints in the side column beside the board.",
+      "**Do** celebrate real success briefly (badge, a \"right\" line, confetti on a player's checkmate) and always pair it with the explanation.",
+      "**Do** respect reduced motion: confetti is hidden when the player asks for less motion."
+    ],
+    "donts": [
+      "**Don't** use the template purple (#aa3bff, and its dark-mode #c084fc). It is a Vite starter leftover in `web/src/index.css`; migrate the tab underline to Action Green.",
+      "**Don't** add drop shadows to cards or panels.",
+      "**Don't** use a verdict colour for anything other than a verdict.",
+      "**Don't** use gold or cream for anything except the coach's help.",
+      "**Don't** use monospace for anything except move notation."
+    ]
+  }
+}
