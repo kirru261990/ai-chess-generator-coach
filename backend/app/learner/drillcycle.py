@@ -154,6 +154,12 @@ def _set_drills(row: sqlite3.Row) -> dict[str, dict]:
     return {d["id"]: d for d in json.loads(row["drills"])}
 
 
+def _lock(conn: sqlite3.Connection) -> None:
+    """Start a write transaction before the existence check, so two requests cannot both decide something is missing."""
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+
+
 def ensure_set(conn: sqlite3.Connection) -> sqlite3.Row:
     row = current_set(conn)
     if row is not None:
@@ -161,9 +167,15 @@ def ensure_set(conn: sqlite3.Connection) -> sqlite3.Row:
     drills = build_set(read_bank(), drilltiming.read_timing())
     if len(drills) < MIN_SET_SIZE:
         raise CycleError("drill_bank_too_small", f"Only {len(drills)} drills are usable; a cycle needs at least {MIN_SET_SIZE}.")
-    with conn:
-        conn.execute("INSERT INTO cycle_set (created_at, bank_version, cycle_version, drills) VALUES (?, ?, ?, ?)",
-                     (_now(), drillbank.BANK_VERSION, VERSION, json.dumps([_snapshot(d) for d in drills])))
+    _lock(conn)
+    try:
+        if current_set(conn) is None:  # another request may have made it while the bank was read
+            conn.execute("INSERT INTO cycle_set (created_at, bank_version, cycle_version, drills) VALUES (?, ?, ?, ?)",
+                         (_now(), drillbank.BANK_VERSION, VERSION, json.dumps([_snapshot(d) for d in drills])))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
     return current_set(conn)
 
 
@@ -180,14 +192,19 @@ def _order(set_row: sqlite3.Row, number: int) -> list[str]:
 def open_cycle(conn: sqlite3.Connection) -> sqlite3.Row:
     """The cycle in progress, or the next one (a finished cycle is never reopened)."""
     s = ensure_set(conn)
-    open_row = conn.execute("SELECT * FROM cycle WHERE set_id = ? AND finished_at IS NULL ORDER BY number DESC LIMIT 1", (s["id"],)).fetchone()
-    if open_row is not None:
-        return open_row
-    last = conn.execute("SELECT MAX(number) FROM cycle WHERE set_id = ?", (s["id"],)).fetchone()[0] or 0
-    with conn:
-        conn.execute("INSERT INTO cycle (set_id, number, order_json, started_at) VALUES (?, ?, ?, ?)",
-                     (s["id"], last + 1, json.dumps(_order(s, last + 1)), _now()))
-    return conn.execute("SELECT * FROM cycle WHERE set_id = ? AND number = ?", (s["id"], last + 1)).fetchone()
+    _lock(conn)
+    try:
+        row = conn.execute("SELECT * FROM cycle WHERE set_id = ? AND finished_at IS NULL ORDER BY number DESC LIMIT 1", (s["id"],)).fetchone()
+        if row is None:
+            last = conn.execute("SELECT MAX(number) FROM cycle WHERE set_id = ?", (s["id"],)).fetchone()[0] or 0
+            conn.execute("INSERT INTO cycle (set_id, number, order_json, started_at) VALUES (?, ?, ?, ?)",
+                         (s["id"], last + 1, json.dumps(_order(s, last + 1)), _now()))
+            row = conn.execute("SELECT * FROM cycle WHERE set_id = ? AND number = ?", (s["id"], last + 1)).fetchone()
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    return row
 
 
 def _next_drill(conn: sqlite3.Connection, cyc: sqlite3.Row) -> tuple[int, str] | None:
@@ -255,9 +272,12 @@ def answer(conn: sqlite3.Connection, drill_id: str, move_uci: str) -> dict:
     shown = datetime.fromisoformat(row["shown_at"])
     elapsed = min(ELAPSED_CAP_MS, max(0, int((datetime.now(UTC) - shown).total_seconds() * 1000)))
     matched = move_uci in d["accepted"]
-    with conn:
-        conn.execute("UPDATE attempt SET answered_at = ?, move_uci = ?, matched = ?, elapsed_ms = ? WHERE cycle_id = ? AND drill_id = ?",
-                     (_now(), move_uci, int(matched), elapsed, cyc["id"], drill_id))
+    with conn:  # only the first answer is accepted: the guard and the row count settle two tabs answering at once
+        taken = conn.execute("UPDATE attempt SET answered_at = ?, move_uci = ?, matched = ?, elapsed_ms = ?"
+                             " WHERE cycle_id = ? AND drill_id = ? AND answered_at IS NULL",
+                             (_now(), move_uci, int(matched), elapsed, cyc["id"], drill_id)).rowcount
+    if taken == 0:
+        raise CycleError("already_answered", "That position was already answered in this cycle.")
     return feedback(d, board, move, matched, elapsed)
 
 

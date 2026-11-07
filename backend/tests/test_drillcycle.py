@@ -180,3 +180,67 @@ def test_http_without_a_bank_is_a_plain_409(tmp_path, monkeypatch):
     monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
     r = client.get("/drills/cycles/current")
     assert r.status_code == 409 and r.json()["error"] == "no_drill_bank"
+
+
+class StaleAttempt:
+    """A connection whose read of the attempt row returns what it read before another tab answered (the lost-update race)."""
+
+    def __init__(self, conn, row):
+        self.conn, self.row = conn, row
+
+    def execute(self, sql, *args):
+        if sql.startswith("SELECT * FROM attempt"):
+            return type("R", (), {"fetchone": lambda _s: self.row})()
+        return self.conn.execute(sql, *args)
+
+    def __enter__(self):
+        return self.conn.__enter__()
+
+    def __exit__(self, *a):
+        return self.conn.__exit__(*a)
+
+    def __getattr__(self, name):
+        return getattr(self.conn, name)
+
+
+def test_a_second_tab_that_read_the_row_early_cannot_overwrite_the_first_answer(bank, conn):
+    cur = C.current(conn)
+    d = C._set_drills(C.current_set(conn))[cur["drill_id"]]
+    good = d["accepted"][0]
+    bad = next(m for m in cur["legal_moves"] if m not in d["accepted"])
+    other = C.connect()
+    stale = StaleAttempt(other, other.execute("SELECT * FROM attempt WHERE drill_id = ?", (cur["drill_id"],)).fetchone())
+    assert C.answer(conn, cur["drill_id"], good)["matched"]
+    with pytest.raises(C.CycleError) as e:
+        C.answer(stale, cur["drill_id"], bad)
+    assert e.value.code == "already_answered"
+    assert other.execute("SELECT move_uci, matched FROM attempt").fetchone()[:] == (good, 1)
+    other.close()
+
+
+@pytest.mark.parametrize("round_", range(15))
+def test_simultaneous_first_requests_make_one_set_and_one_cycle(bank, round_):
+    import threading
+
+    results, errors = [], []
+    start = threading.Barrier(8)
+
+    def go():
+        c = C.connect()
+        try:
+            start.wait()
+            results.append(C.current(c)["drill_id"])
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=go) for _ in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert not errors
+    assert len(set(results)) == 1
+    c = C.connect()
+    assert c.execute("SELECT COUNT(*) FROM cycle_set").fetchone()[0] == 1
+    assert c.execute("SELECT COUNT(*) FROM cycle").fetchone()[0] == 1
+    c.close()
