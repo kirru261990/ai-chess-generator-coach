@@ -72,6 +72,11 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-07 · cloud · Claude Code: design system documented (branch `docs/design-system`)
+- **Why (owner):** use the Impeccable design skill for UI work.
+- **Done:** `/impeccable document`: `DESIGN.md` (North Star "The Patient Coach"; owner chose warm and encouraging mood, soft and simple components, Action Green as the only accent, fixed verdict colours) and `.impeccable/design.json`. `AGENTS.md` points UI work at them. No UI code changed.
+- **Not done:** the template purple (`--accent` #aa3bff in `web/src/index.css`) still underlines the active tab; `DESIGN.md` says to move it to Action Green. `PRODUCT.md` (`/impeccable init`) not written yet.
+
 ### 2026-11-07 · cloud · Claude Code: Matt Pocock's agent skills set up (branch `chore/agent-skills`)
 - **Why (owner):** use `github.com/mattpocock/skills` for all coding on this repo.
 - **Done:** ran the `/setup-matt-pocock-skills` steps: `docs/agents/issue-tracker.md` (GitHub Issues), `docs/agents/triage-labels.md` (defaults), `docs/agents/domain.md` (single-context; ADRs stay in `docs/decisions/`), an `## Agent skills` section in `AGENTS.md`. Created the labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` on GitHub (`wontfix` already existed). No code changed; tests not run.
