@@ -27,7 +27,7 @@ REFUSAL_PREFIX = "I could not do that: "
 MAX_GAMES = 20  # chat games kept in memory; starting one more drops the oldest
 
 # The only keys a Play game's data may have. Everything that helps the player lives under `practice`, which Play never has.
-PLAY_KEYS = ("id", "fen", "moves", "revision", "turn", "user_color", "mode", "engine_level", "opponent", "opponent_elo", "outcome", "legal_moves")
+PLAY_KEYS = ("id", "fen", "moves", "revision", "turn", "user_color", "mode", "engine_level", "opponent", "opponent_elo", "opponent_setup", "outcome", "legal_moves")
 PRACTICE_KEYS = ("assisted", "hints_used", "can_take_back", "show_threats", "threats", "feedback", "hint")
 
 _UCI = re.compile(r"^[a-h][1-8][a-h][1-8][qrbn]?$")

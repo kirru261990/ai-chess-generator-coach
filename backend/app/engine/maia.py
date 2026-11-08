@@ -16,6 +16,8 @@ import os
 import shlex
 import shutil
 import threading
+import uuid
+from pathlib import Path
 from typing import Self
 
 import chess
@@ -24,15 +26,57 @@ import chess.engine
 from app.engine.stockfish import EngineError
 
 DEFAULT_MODEL = "maia3-5m"
-# Bounds we accept, not bounds the model supports: the Maia-3 docs do not state its rating range. Narrow these
-# once the lowest band has been checked against players under 1000 (spec A2, ADR 0012).
-MIN_ELO, MAX_ELO = 400, 2800
+# The range we accept is the range we have checked, not a range the model documents (it documents none). The band check of
+# 2026-11-08 (evals/tools/maia_band_check.py, ADR 0012) played settings from 500 to 2000: a lower setting plays measurably
+# weaker down to 500, and nothing outside 500..2000 was tried.
+MIN_ELO, MAX_ELO = 500, 2000
+# The Hugging Face snapshot each model alias was checked against (ADR 0012, band check). A game played on any other snapshot is
+# recorded as not pinned, never refused: the model is not ours to freeze, but the result of a game must say what played it.
+MODEL_REPOS = {"maia3-5m": "UofTCSSLab/Maia3-5M"}
+PINNED_CHECKPOINTS = {"maia3-5m": "b6559de2398d7140b985f28fd2c19fb5e47ddabe"}
 DEFAULT_TEMPERATURE = 1.0  # sample from the model's move distribution; 0 would always play its top move
 START_TIMEOUT_S = 120  # the first start may download weights
 
 
+def checkpoint(model: str) -> str | None:
+    """The Hugging Face snapshot hash of `model`'s weights as cached on this computer, or None if it cannot be found.
+
+    `MAIA3_CHECKPOINT` overrides it (a deployment that knows its snapshot). Otherwise: the cache's `refs/main`, or the only
+    snapshot there. Never starts Maia-3 and never downloads anything."""
+    forced = os.environ.get("MAIA3_CHECKPOINT", "").strip()
+    if forced:
+        return forced
+    repo = MODEL_REPOS.get(model)
+    if repo is None:
+        return None
+    home = Path(os.environ.get("HF_HUB_CACHE") or Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub")
+    folder = home / ("models--" + repo.replace("/", "--"))
+    ref = folder / "refs" / "main"
+    if ref.is_file():
+        return ref.read_text().strip() or None
+    snaps = [p.name for p in (folder / "snapshots").glob("*") if p.is_dir()] if (folder / "snapshots").is_dir() else []
+    return snaps[0] if len(snaps) == 1 else None
+
+
+def setup_for(cfg: dict) -> dict:
+    """What to record about a Maia-3 process started with `cfg`: model, device, temperature, the checkpoint found on disk and
+    whether it is the one that was checked. Never the command line."""
+    found = checkpoint(cfg["model"])
+    return {
+        "model": cfg["model"],
+        "device": cfg["device"],
+        "temperature": cfg["temperature"],
+        "checkpoint": found,
+        # Where the hash came from: this computer's Hugging Face cache (the current snapshot, not a report from the process), or an
+        # override someone set (an assertion). Neither is read from the running process.
+        "checkpoint_source": "override" if os.environ.get("MAIA3_CHECKPOINT", "").strip() else ("hf_cache" if found else None),
+        "checkpoint_pinned": found is not None and found == PINNED_CHECKPOINTS.get(cfg["model"]),
+    }
+
+
 def settings() -> dict:
-    """The model setup in force, recorded with every Maia game (AGENTS.md rule 6)."""
+    """The model setup the environment asks for now (AGENTS.md rule 6). A running process keeps the setup it started with:
+    read that from `MaiaOpponent.setup`, never from here."""
     return {
         "cmd": os.environ.get("MAIA3_CMD", "").strip(),  # blank = not configured
         "model": os.environ.get("MAIA3_MODEL", DEFAULT_MODEL),
@@ -74,6 +118,8 @@ class MaiaOpponent:
 
     def __init__(self, cfg: dict | None = None):
         self.cfg = cfg or settings()
+        # What this process was started with, read once the weights are loaded. Games record this, not the environment as it is later.
+        self.setup: dict | None = None
         self._engine: chess.engine.SimpleEngine | None = None
         self._lock = threading.Lock()
 
@@ -82,6 +128,8 @@ class MaiaOpponent:
             self._engine = chess.engine.SimpleEngine.popen_uci(command(self.cfg), timeout=START_TIMEOUT_S)
         except (OSError, chess.engine.EngineError, TimeoutError) as e:
             raise EngineError("maia_unavailable", f"could not start Maia-3: {e}") from e
+        # `process` tells one start of Maia-3 from another, so a game can notice that a restart changed who was playing.
+        self.setup = {**setup_for(self.cfg), "process": uuid.uuid4().hex[:8]}
         return self
 
     def __exit__(self, *exc) -> None:

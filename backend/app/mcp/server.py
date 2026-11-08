@@ -160,7 +160,7 @@ def build_server(conn_factory: ConnFactory = connect, opener=open_evidence, publ
 
     @apps.tool(annotations=WRITE, **ui)
     def game_new(color: str = "white", level: int = 3, mode: str = "play", opponent: str = "stockfish", elo: int | None = None) -> CallToolResult:
-        """Start a game, show the board. color: white/black. level: 1-10 (Stockfish). opponent: stockfish or maia3 (human-like, plays at the given elo, 400-2800; the web app starts at 1600). mode: play (no help) or practice (assisted: hints, undo, threats)."""
+        """Start a game, show the board. color: white/black. level: 1-10 (Stockfish). opponent: stockfish or maia3 (human-like, plays at the given elo, 500-2000; the web app starts at 1600). mode: play (no help) or practice (assisted: hints, undo, threats)."""
         return game_board(G.game_new(color, level, mode, opponent, elo))
 
     @apps.tool(annotations=WRITE, **ui)

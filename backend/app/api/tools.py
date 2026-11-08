@@ -13,6 +13,7 @@ from app.core.game import (
     Mode,
     make_move,
     new_game,
+    note_opponent_setup,
     resign,
     set_mode,
     take_back,
@@ -58,6 +59,7 @@ def _game_view(game: Game) -> dict:
         "engine_level": game.engine_level,
         "opponent": "maia3" if game.opponent_elo is not None else "stockfish",
         "opponent_elo": game.opponent_elo,
+        "opponent_setup": game.opponent_setup,
         "outcome": game.outcome(),
         # Legal moves for the user, so the client can highlight targets. The server still
         # validates every move; this list is a convenience, never the authority.
@@ -93,8 +95,11 @@ def engine_reply(game_id: str) -> dict:
         if not _engine_to_move(game):
             return _game_view(game)
         revision, board, level, elo = game.revision, game.board(), game.engine_level, game.opponent_elo
-    uci = maia.get_maia().play(board, elo) if elo is not None else get_engine().play(board, level)
+    opponent = maia.get_maia() if elo is not None else None
+    uci = opponent.play(board, elo) if opponent is not None else get_engine().play(board, level)
     make_move(game, uci, revision)  # validates and applies atomically under the lock
+    if opponent is not None:
+        note_opponent_setup(game, opponent.setup)  # only once the move was accepted: a rejected late move records nothing
     return game_view(game)
 
 

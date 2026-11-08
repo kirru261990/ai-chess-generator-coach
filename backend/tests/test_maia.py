@@ -67,10 +67,109 @@ def test_a_maia_move_is_legal_and_gets_the_elo_model_and_history(fake_maia):
     assert "--use-uci-history" in seen["argv"] and "--no-use-amp" in seen["argv"]
 
 
-@pytest.mark.parametrize("elo", [399, 2801, 1100.5, "1100", None, True])
+@pytest.mark.parametrize("elo", [499, 2001, 1100.5, "1100", None, True])
 def test_a_bad_elo_is_refused(elo):
     with pytest.raises(ValueError):
         maia.check_elo(elo)
+
+
+@pytest.mark.parametrize("elo", [500, 900, 2000])
+def test_the_checked_range_is_accepted(elo):
+    assert maia.check_elo(elo) == elo
+
+
+def test_the_checkpoint_comes_from_the_hugging_face_cache(tmp_path, monkeypatch):
+    hub = tmp_path / "hub"
+    folder = hub / "models--UofTCSSLab--Maia3-5M"
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub))
+    monkeypatch.delenv("MAIA3_CHECKPOINT", raising=False)
+    assert maia.checkpoint("maia3-5m") is None  # nothing cached yet
+    (folder / "snapshots" / "aaa").mkdir(parents=True)
+    assert maia.checkpoint("maia3-5m") == "aaa"  # the only snapshot
+    (folder / "snapshots" / "bbb").mkdir()
+    assert maia.checkpoint("maia3-5m") is None  # two snapshots and no ref: we do not guess
+    (folder / "refs").mkdir()
+    (folder / "refs" / "main").write_text("bbb\n")
+    assert maia.checkpoint("maia3-5m") == "bbb"
+    assert maia.checkpoint("maia3-unknown") is None  # an alias we do not know
+
+
+def test_a_checkpoint_is_pinned_only_when_it_is_the_one_that_was_checked(monkeypatch):
+    monkeypatch.setenv("MAIA3_MODEL", "maia3-5m")
+    monkeypatch.setenv("MAIA3_CHECKPOINT", maia.PINNED_CHECKPOINTS["maia3-5m"])
+    assert maia.setup_for(maia.settings())["checkpoint_pinned"] is True
+    monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
+    assert maia.setup_for(maia.settings())["checkpoint_pinned"] is False
+    assert maia.setup_for(maia.settings())["checkpoint"] == "some-other-snapshot"
+
+
+def test_a_maia_game_records_what_played_it_and_never_the_command_line(fake_maia, monkeypatch):
+    monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
+    view = tools.start_game("black", "play", opponent="maia3", elo=900)  # Maia opens, so the process has played
+    setup = view["opponent_setup"]
+    assert {k: setup[k] for k in ("model", "device", "temperature", "checkpoint", "checkpoint_source", "checkpoint_pinned")} == {
+        "model": "maia3-5m", "device": "cpu", "temperature": 1.0,
+        "checkpoint": "some-other-snapshot", "checkpoint_source": "override", "checkpoint_pinned": False}
+    assert setup["process"] and "cmd" not in setup
+    assert tools.game_view(tools.create_game())["opponent_setup"] is None  # a Stockfish game records none
+    waiting = tools.start_game("white", "play", opponent="maia3", elo=900)  # White moves first: Maia has not played yet
+    assert waiting["opponent_setup"] is None
+
+
+def test_a_late_move_that_is_rejected_records_no_setup(fake_maia, monkeypatch):
+    game = tools.create_game("black", "play", opponent="maia3", elo=900)  # Maia is to move, and has not moved
+    def conflict(*_a, **_k):
+        raise GameError("revision_conflict", "the position changed while Maia-3 was thinking")
+    monkeypatch.setattr(tools, "make_move", conflict)
+    with pytest.raises(GameError):
+        tools.engine_reply(game.id)
+    assert game.opponent_setup is None and game.moves == []  # Maia never moved in this game
+
+
+def test_a_restart_of_maia_during_a_game_is_marked_not_hidden(fake_maia):
+    view = tools.start_game("black", "play", opponent="maia3", elo=900)
+    first = view["opponent_setup"]
+    assert "setup_changed" not in first
+    maia.close_maia()  # the next move comes from a new Maia-3 process
+    reply = tools.apply_move(view["id"], view["legal_moves"][0], view["revision"])
+    second = reply["opponent_setup"]
+    assert second["process"] == first["process"] and second["setup_changed"] is True  # the first record is kept, and flagged
+
+
+def test_the_pgn_names_the_setup_that_played_a_maia_game(fake_maia, monkeypatch):
+    monkeypatch.setenv("MAIA3_CHECKPOINT", maia.PINNED_CHECKPOINTS["maia3-5m"])
+    view = tools.start_game("black", "play", opponent="maia3", elo=900)
+    pgn = tools.export_pgn(view["id"])
+    assert '[OpponentSetup "maia3-5m; cpu; temperature 1.0; checkpoint ' + maia.PINNED_CHECKPOINTS["maia3-5m"] in pgn
+    assert "the checked snapshot" in pgn
+    assert "OpponentSetup" not in tools.export_pgn(tools.start_game("white", "play")["id"])  # a Stockfish game has none
+
+
+def test_a_chat_game_against_maia_carries_the_setup_once_maia_has_played(fake_maia):
+    from app.mcp import game_tools
+
+    data, _text = game_tools.game_new("black", 3, "play", "maia3", 900)
+    assert data["game"]["opponent_setup"]["model"] == "maia3-5m"
+
+
+def test_a_game_records_the_setup_of_the_process_that_plays_it_not_the_cache_as_it_is_later(fake_maia, tmp_path, monkeypatch):
+    hub = tmp_path / "hub"
+    refs = hub / "models--UofTCSSLab--Maia3-5M" / "refs"
+    refs.mkdir(parents=True)
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub))
+    monkeypatch.delenv("MAIA3_CHECKPOINT", raising=False)
+    monkeypatch.setenv("MAIA3_TEMPERATURE", "1.0")
+    (refs / "main").write_text("old-snapshot\n")
+    first = tools.start_game("black", "play", opponent="maia3", elo=900)
+    # the cache moves on to the checked snapshot and the temperature setting changes, but the same process is still running
+    (refs / "main").write_text(maia.PINNED_CHECKPOINTS["maia3-5m"] + "\n")
+    monkeypatch.setenv("MAIA3_TEMPERATURE", "0.25")
+    second = tools.start_game("black", "play", opponent="maia3", elo=900)
+    for view in (first, second):
+        assert view["opponent_setup"]["checkpoint"] == "old-snapshot"
+        assert view["opponent_setup"]["checkpoint_source"] == "hf_cache"
+        assert view["opponent_setup"]["checkpoint_pinned"] is False
+        assert view["opponent_setup"]["temperature"] == 1.0
 
 
 def test_a_missing_maia_command_is_a_clear_engine_error(monkeypatch):
