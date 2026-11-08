@@ -57,23 +57,28 @@ def checkpoint(model: str) -> str | None:
     return snaps[0] if len(snaps) == 1 else None
 
 
-def settings() -> dict:
-    """The model setup in force, recorded with every Maia game (AGENTS.md rule 6)."""
-    model = os.environ.get("MAIA3_MODEL", DEFAULT_MODEL)
-    found = checkpoint(model)
+def setup_for(cfg: dict) -> dict:
+    """What to record about a Maia-3 process started with `cfg`: model, device, temperature, the checkpoint found on disk and
+    whether it is the one that was checked. Never the command line."""
+    found = checkpoint(cfg["model"])
     return {
-        "cmd": os.environ.get("MAIA3_CMD", "").strip(),  # blank = not configured
-        "model": model,
-        "device": os.environ.get("MAIA3_DEVICE", "cpu"),
-        "temperature": float(os.environ.get("MAIA3_TEMPERATURE", DEFAULT_TEMPERATURE)),
+        "model": cfg["model"],
+        "device": cfg["device"],
+        "temperature": cfg["temperature"],
         "checkpoint": found,
-        "checkpoint_pinned": found is not None and found == PINNED_CHECKPOINTS.get(model),
+        "checkpoint_pinned": found is not None and found == PINNED_CHECKPOINTS.get(cfg["model"]),
     }
 
 
-def setup_record() -> dict:
-    """What to store on a game against Maia-3: everything in `settings()` except the command line."""
-    return {k: v for k, v in settings().items() if k != "cmd"}
+def settings() -> dict:
+    """The model setup the environment asks for now (AGENTS.md rule 6). A running process keeps the setup it started with:
+    read that from `MaiaOpponent.setup`, never from here."""
+    return {
+        "cmd": os.environ.get("MAIA3_CMD", "").strip(),  # blank = not configured
+        "model": os.environ.get("MAIA3_MODEL", DEFAULT_MODEL),
+        "device": os.environ.get("MAIA3_DEVICE", "cpu"),
+        "temperature": float(os.environ.get("MAIA3_TEMPERATURE", DEFAULT_TEMPERATURE)),
+    }
 
 
 def command(cfg: dict | None = None) -> list[str]:
@@ -109,6 +114,8 @@ class MaiaOpponent:
 
     def __init__(self, cfg: dict | None = None):
         self.cfg = cfg or settings()
+        # What this process was started with, read once the weights are loaded. Games record this, not the environment as it is later.
+        self.setup: dict | None = None
         self._engine: chess.engine.SimpleEngine | None = None
         self._lock = threading.Lock()
 
@@ -117,6 +124,7 @@ class MaiaOpponent:
             self._engine = chess.engine.SimpleEngine.popen_uci(command(self.cfg), timeout=START_TIMEOUT_S)
         except (OSError, chess.engine.EngineError, TimeoutError) as e:
             raise EngineError("maia_unavailable", f"could not start Maia-3: {e}") from e
+        self.setup = setup_for(self.cfg)
         return self
 
     def __exit__(self, *exc) -> None:

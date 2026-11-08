@@ -97,18 +97,39 @@ def test_the_checkpoint_comes_from_the_hugging_face_cache(tmp_path, monkeypatch)
 def test_a_checkpoint_is_pinned_only_when_it_is_the_one_that_was_checked(monkeypatch):
     monkeypatch.setenv("MAIA3_MODEL", "maia3-5m")
     monkeypatch.setenv("MAIA3_CHECKPOINT", maia.PINNED_CHECKPOINTS["maia3-5m"])
-    assert maia.settings()["checkpoint_pinned"] is True
+    assert maia.setup_for(maia.settings())["checkpoint_pinned"] is True
     monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
-    assert maia.settings()["checkpoint_pinned"] is False
-    assert maia.settings()["checkpoint"] == "some-other-snapshot"
+    assert maia.setup_for(maia.settings())["checkpoint_pinned"] is False
+    assert maia.setup_for(maia.settings())["checkpoint"] == "some-other-snapshot"
 
 
 def test_a_maia_game_records_what_played_it_and_never_the_command_line(fake_maia, monkeypatch):
     monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
-    view = tools.start_game("white", "play", opponent="maia3", elo=900)
+    view = tools.start_game("black", "play", opponent="maia3", elo=900)  # Maia opens, so the process has played
     assert view["opponent_setup"] == {"model": "maia3-5m", "device": "cpu", "temperature": 1.0,
                                       "checkpoint": "some-other-snapshot", "checkpoint_pinned": False}
     assert tools.game_view(tools.create_game())["opponent_setup"] is None  # a Stockfish game records none
+    waiting = tools.start_game("white", "play", opponent="maia3", elo=900)  # White moves first: Maia has not played yet
+    assert waiting["opponent_setup"] is None
+
+
+def test_a_game_records_the_setup_of_the_process_that_plays_it_not_the_cache_as_it_is_later(fake_maia, tmp_path, monkeypatch):
+    hub = tmp_path / "hub"
+    refs = hub / "models--UofTCSSLab--Maia3-5M" / "refs"
+    refs.mkdir(parents=True)
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub))
+    monkeypatch.delenv("MAIA3_CHECKPOINT", raising=False)
+    monkeypatch.setenv("MAIA3_TEMPERATURE", "1.0")
+    (refs / "main").write_text("old-snapshot\n")
+    first = tools.start_game("black", "play", opponent="maia3", elo=900)
+    # the cache moves on to the checked snapshot and the temperature setting changes, but the same process is still running
+    (refs / "main").write_text(maia.PINNED_CHECKPOINTS["maia3-5m"] + "\n")
+    monkeypatch.setenv("MAIA3_TEMPERATURE", "0.25")
+    second = tools.start_game("black", "play", opponent="maia3", elo=900)
+    for view in (first, second):
+        assert view["opponent_setup"]["checkpoint"] == "old-snapshot"
+        assert view["opponent_setup"]["checkpoint_pinned"] is False
+        assert view["opponent_setup"]["temperature"] == 1.0
 
 
 def test_a_missing_maia_command_is_a_clear_engine_error(monkeypatch):

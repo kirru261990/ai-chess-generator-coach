@@ -5,11 +5,18 @@ Positions come from real Lichess rapid games in which both players are rated 900
 sampled move (as in a game) and a top move (temperature 0). Stockfish at depth 10 scores the sampled move for the side to move.
 The script imports only the Maia adapter, no detectors.
 
+Each board is rebuilt from the game's start by replaying every earlier move, so Maia-3 gets the same move history it gets in a live
+game (`--use-uci-history`, ADR 0012 decision 4). Scores are kept on one scale where a mate is always worth more than any
+centipawn score: centipawns are clamped to +/-900 and a mate is +/-1000, so giving up a forced mate for a large lead counts as a
+small loss, never as zero, and moving from a large lead into a mate is never an error.
+
 It measures one thing: whether a lower setting plays weaker. It does not show that Maia-3 plays like a player of that rating, and
 it makes no Elo claim. The positions come from players rated 900 or lower, so the top of the range is not tested well.
 
 Run from backend/ (needs Stockfish, Maia-3 and the sample):
-  MAIA3_CMD=maia3-uci PYTHONPATH=. uv run python ../evals/tools/maia_band_check.py ../evals/reports/maia_band_check.json 300
+  MAIA3_CMD=maia3-uci PYTHONPATH=. uv run python ../evals/tools/maia_band_check.py ../evals/reports/maia_band_check.json 300 [SAMPLE.pgn]
+The sample defaults to data/lichess/rapid_500_1800_2026-09.pgn under the repo; pass a path when running from a git worktree, where the
+git-ignored data/ folder is not present.
 """
 
 from __future__ import annotations
@@ -35,10 +42,23 @@ PLY_RANGE = (12, 50)
 SEED = 7
 
 
-def positions(n: int) -> list[tuple[str, str, int]]:
-    """(FEN before the move, the real move in UCI, the real player's rating) from games with both players rated MAX_RATING or lower."""
+CP_CLAMP, MATE = 900, 1000
+
+
+def to_score(score: chess.engine.Score) -> int:
+    """One scale for a Stockfish score seen from one side: centipawns clamped to +/-CP_CLAMP, a mate is +/-MATE, so a mate always
+    outranks any lead."""
+    mate = score.mate()
+    if mate is not None:
+        return MATE if mate > 0 else -MATE
+    return max(-CP_CLAMP, min(CP_CLAMP, score.score()))
+
+
+def positions(n: int, sample: Path | None = None) -> list[tuple[str, list[str], str, int]]:
+    """(start FEN, the moves before this position in UCI, the real next move in UCI, the real player's rating) from games with both
+    players rated MAX_RATING or lower."""
     found = []
-    with SAMPLE.open() as f:
+    with (sample or SAMPLE).open() as f:
         while (g := chess.pgn.read_game(f)) is not None:
             try:
                 w, b = int(g.headers["WhiteElo"]), int(g.headers["BlackElo"])
@@ -47,29 +67,33 @@ def positions(n: int) -> list[tuple[str, str, int]]:
             if max(w, b) > MAX_RATING:
                 continue
             board = g.board()
+            start, played = board.fen(), []
             for ply, node in enumerate(g.mainline()):
                 if PLY_RANGE[0] <= ply <= PLY_RANGE[1] and not board.is_game_over():
-                    found.append((board.fen(), node.move.uci(), w if board.turn else b))
+                    found.append((start, list(played), node.move.uci(), w if board.turn else b))
                 board.push(node.move)
+                played.append(node.move.uci())
     random.Random(SEED).shuffle(found)
     return found[:n]
 
 
-def main(out: str, n: int) -> None:
+def main(out: str, n: int, sample: Path | None = None) -> None:
     sf = chess.engine.SimpleEngine.popen_uci(os.environ.get("STOCKFISH_PATH", "stockfish"))
 
     def score(board: chess.Board, color: chess.Color) -> int:
-        return sf.analyse(board, chess.engine.Limit(depth=10))["score"].pov(color).score(mate_score=1000)
+        return to_score(sf.analyse(board, chess.engine.Limit(depth=10))["score"].pov(color))
 
     base = maia.settings()
     sampled, top = dict(base, temperature=1.0), dict(base, temperature=0.0)
     res = {e: {"loss": [], "big": 0, "agree": 0} for e in ELOS}
     own = 0
-    pos = positions(n)
+    pos = positions(n, sample)
     started = time.time()
     with maia.MaiaOpponent(sampled) as m1, maia.MaiaOpponent(top) as m0:
-        for i, (fen, real, rating) in enumerate(pos):
-            board = chess.Board(fen)
+        for i, (start, history, real, rating) in enumerate(pos):
+            board = chess.Board(start)
+            for uci in history:
+                board.push_uci(uci)  # the full move stack goes to Maia-3, as in a live game
             color = board.turn
             before = score(board, color)
             for e in ELOS:
@@ -87,12 +111,13 @@ def main(out: str, n: int) -> None:
                        "share_losing_200cp_or_more": round(r["big"] / len(r["loss"]), 3),
                        "top1_match_with_real_move": round(r["agree"] / len(r["loss"]), 3)} for e, r in res.items()}
     report["conditioned_on_player_own_rating_top1_match"] = round(own / len(pos), 3)
-    report["setup"] = maia.setup_record()
-    report["sample"] = {"file": SAMPLE.name, "max_rating_of_either_player": MAX_RATING, "plies": list(PLY_RANGE), "seed": SEED,
+    # What was actually run: the sampled process (temperature 1.0) and the top-move process (temperature 0), as each captured it.
+    report["setup"] = {"sampled": m1.setup, "top_move": m0.setup}
+    report["sample"] = {"file": (sample or SAMPLE).name, "max_rating_of_either_player": MAX_RATING, "plies": list(PLY_RANGE), "seed": SEED,
                         "stockfish_depth": 10}
     Path(out).write_text(json.dumps(report, indent=1) + "\n")
     print(json.dumps(report, indent=1))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], int(sys.argv[2]))
+    main(sys.argv[1], int(sys.argv[2]), Path(sys.argv[3]) if len(sys.argv) > 3 else None)

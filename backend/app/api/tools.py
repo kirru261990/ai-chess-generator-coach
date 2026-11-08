@@ -94,7 +94,13 @@ def engine_reply(game_id: str) -> dict:
         if not _engine_to_move(game):
             return _game_view(game)
         revision, board, level, elo = game.revision, game.board(), game.engine_level, game.opponent_elo
-    uci = maia.get_maia().play(board, elo) if elo is not None else get_engine().play(board, level)
+    if elo is not None:
+        opponent = maia.get_maia()
+        uci = opponent.play(board, elo)
+        if game.opponent_setup is None:
+            game.opponent_setup = opponent.setup  # what the process that plays this game was started with, not today's environment
+    else:
+        uci = get_engine().play(board, level)
     make_move(game, uci, revision)  # validates and applies atomically under the lock
     return game_view(game)
 
@@ -126,7 +132,6 @@ def create_game(
         Mode(mode),
         engine_level=level if opponent == "stockfish" else None,
         opponent_elo=elo if opponent == "maia3" else None,
-        opponent_setup=maia.setup_record() if opponent == "maia3" else None,
     )
     GAMES[game.id] = game
     return game
