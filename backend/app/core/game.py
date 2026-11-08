@@ -101,7 +101,6 @@ def new_game(
     start_fen: str = chess.STARTING_FEN,
     engine_level: int | None = None,
     opponent_elo: int | None = None,
-    opponent_setup: dict | None = None,
 ) -> Game:
     try:
         chess.Board(start_fen)
@@ -110,7 +109,17 @@ def new_game(
     # Positions start assisted if the game begins in Practice mode.
     return Game(id=uuid.uuid4().hex, user_color=user_color, mode=mode, start_fen=start_fen,
                 assisted=mode is Mode.PRACTICE, engine_level=engine_level,
-                opponent_elo=opponent_elo, opponent_setup=opponent_setup)
+                opponent_elo=opponent_elo)
+
+
+def note_opponent_setup(game: Game, setup: dict) -> None:
+    """Record what the Maia-3 process that has just played a move in this game was started with. The first process to play sets it;
+    a later move by a different process (a restart) keeps that record and marks it `setup_changed`."""
+    with game.lock:
+        if game.opponent_setup is None:
+            game.opponent_setup = dict(setup)
+        elif game.opponent_setup.get("process") != setup.get("process"):
+            game.opponent_setup = {**game.opponent_setup, "setup_changed": True}
 
 
 def set_mode(game: Game, mode: Mode) -> None:
@@ -189,4 +198,15 @@ def to_pgn(game: Game, white: str = "White", black: str = "Black") -> str:
         "Assisted": str(game.assisted).lower(),
         "Mode": game.mode.value,
     })
+    if game.opponent_setup:
+        pgn_game.headers["OpponentSetup"] = describe_setup(game.opponent_setup)
     return str(pgn_game)
+
+
+def describe_setup(setup: dict) -> str:
+    """One line for a PGN header: model, device, temperature and checkpoint, and whether it is the checked one."""
+    checkpoint = setup.get("checkpoint") or "unknown"
+    status = "the checked snapshot" if setup.get("checkpoint_pinned") else "not the checked snapshot"
+    changed = "; the process restarted during the game" if setup.get("setup_changed") else ""
+    return (f"{setup.get('model')}; {setup.get('device')}; temperature {setup.get('temperature')}; "
+            f"checkpoint {checkpoint} ({setup.get('checkpoint_source') or 'not found'}; {status}){changed}")

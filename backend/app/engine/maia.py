@@ -16,6 +16,7 @@ import os
 import shlex
 import shutil
 import threading
+import uuid
 from pathlib import Path
 from typing import Self
 
@@ -66,6 +67,9 @@ def setup_for(cfg: dict) -> dict:
         "device": cfg["device"],
         "temperature": cfg["temperature"],
         "checkpoint": found,
+        # Where the hash came from: this computer's Hugging Face cache (the current snapshot, not a report from the process), or an
+        # override someone set (an assertion). Neither is read from the running process.
+        "checkpoint_source": "override" if os.environ.get("MAIA3_CHECKPOINT", "").strip() else ("hf_cache" if found else None),
         "checkpoint_pinned": found is not None and found == PINNED_CHECKPOINTS.get(cfg["model"]),
     }
 
@@ -124,7 +128,8 @@ class MaiaOpponent:
             self._engine = chess.engine.SimpleEngine.popen_uci(command(self.cfg), timeout=START_TIMEOUT_S)
         except (OSError, chess.engine.EngineError, TimeoutError) as e:
             raise EngineError("maia_unavailable", f"could not start Maia-3: {e}") from e
-        self.setup = setup_for(self.cfg)
+        # `process` tells one start of Maia-3 from another, so a game can notice that a restart changed who was playing.
+        self.setup = {**setup_for(self.cfg), "process": uuid.uuid4().hex[:8]}
         return self
 
     def __exit__(self, *exc) -> None:

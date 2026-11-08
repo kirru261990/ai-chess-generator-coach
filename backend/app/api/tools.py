@@ -13,6 +13,7 @@ from app.core.game import (
     Mode,
     make_move,
     new_game,
+    note_opponent_setup,
     resign,
     set_mode,
     take_back,
@@ -94,14 +95,11 @@ def engine_reply(game_id: str) -> dict:
         if not _engine_to_move(game):
             return _game_view(game)
         revision, board, level, elo = game.revision, game.board(), game.engine_level, game.opponent_elo
-    if elo is not None:
-        opponent = maia.get_maia()
-        uci = opponent.play(board, elo)
-        if game.opponent_setup is None:
-            game.opponent_setup = opponent.setup  # what the process that plays this game was started with, not today's environment
-    else:
-        uci = get_engine().play(board, level)
+    opponent = maia.get_maia() if elo is not None else None
+    uci = opponent.play(board, elo) if opponent is not None else get_engine().play(board, level)
     make_move(game, uci, revision)  # validates and applies atomically under the lock
+    if opponent is not None:
+        note_opponent_setup(game, opponent.setup)  # only once the move was accepted: a rejected late move records nothing
     return game_view(game)
 
 

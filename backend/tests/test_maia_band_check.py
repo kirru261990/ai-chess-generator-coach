@@ -66,10 +66,21 @@ def test_every_position_keeps_the_moves_that_came_before_it(tmp_path, monkeypatc
     monkeypatch.setattr(tool, "SAMPLE", synthetic_pgn(tmp_path))
     found = tool.positions(1000)
     assert found
-    for start, history, real, rating in found:
-        board = chess.Board(start)
-        for uci in history:
+    for pos in found:
+        board = chess.Board(pos.start_fen)
+        for uci in pos.history:
             board.push_uci(uci)
-        assert len(board.move_stack) == len(history) >= tool.PLY_RANGE[0]  # the model sees the game, not just the position
-        assert chess.Move.from_uci(real) in board.legal_moves
-        assert rating in (700, 650)
+        assert len(board.move_stack) == len(pos.history) >= tool.PLY_RANGE[0]  # the model sees the game, not just the position
+        assert chess.Move.from_uci(pos.real_move) in board.legal_moves
+        assert pos.rating in (700, 650)
+
+
+def test_a_bootstrap_interval_brackets_the_mean_and_a_paired_one_sees_a_clear_shift():
+    import random
+
+    rng = random.Random(1)
+    values = [1.0] * 30 + [0.0] * 70
+    low, high = tool.interval(tool.bootstrap(rng, values))
+    assert low < 0.30 < high
+    shifted = [v + 1 for v in values]  # every position is exactly 1 higher: a paired difference of 1, with no spread
+    assert tool.interval(tool.bootstrap(rng, shifted, values)) == [1.0, 1.0]
