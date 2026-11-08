@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-09 (build) · MacBook · Claude Code: first-slip hand-check (branch `feat/slip-handcheck`)
+
+- **Own-games build done:** 627 games, 0 errors, 382 first-slip drills (61% of games; the depth-10 estimate was 87%, the gap is depth-18 confirmation plus the `unclear` rules, not split out yet). Median first slip at move 8; 197 drills have one accepted answer; median loss 363 cp.
+- **Hand-check built:** `app/learner/slipcheck.py` (`make` / `score`, gate 27 of 30, 30 own drills one per game, sample frozen in `data/drills/slipcheck_v1_key.json`). Page published as a private artifact for the owner to answer; 4 tests, full suite 1217 passed.
+- **Next:** owner answers the page, then `uv run python -m app.learner.slipcheck score ANSWERS.txt`. If the gate passes: Lichess build for fresh drills, then the web screen (Impeccable first).
+
 ### 2026-11-08 (build) · MacBook · Claude Code: first-slip drill backend (branch `feat/first-slip-drill`)
 - **Done (ADR 0020, test-first):** `app/learner/slipfinder.py` (first slip per game; depth-10 nominates, depth-18 MultiPV 3 confirms; accepted answers within 50 cp; `unclear` when a line is 50 to 100 cp worse), `slipround.py` (round of 5 own + 5 fresh, one per game, easiest first, no repeats, own ledger), `slipbank.py` (builder CLI for own and Lichess games), routes `/drills/rounds/*`, `tests/test_slipfinder.py`, `tests/test_slipround.py`. Full suite 1202 passed, ruff clean.
 - **Smoke run on real engine:** 4 of the owner's games gave 2 first-slip drills (one of them at move 10 loses 407 cp, accepted answer Kf8). One worker hit "database is locked" creating the cache at the same time; fixed by creating it before the workers start.
