@@ -41,17 +41,17 @@ Do not set `MAIA3_CMD`: nothing changes, Stockfish stays the default and the onl
 **Method:** `evals/tools/maia_band_check.py`, report `evals/reports/maia_band_check_2026-11-08.json`. 300 positions (plies 12 to 50) from real
 Lichess rapid games where both players are rated 900 or lower (the September 2026 sample, seed 7). For each setting from 500 to 2000,
 Maia-3 (maia3-5m, CPU, temperature 1.0) played one sampled move per position, scored by Stockfish at depth 10. Each board is rebuilt by replaying every earlier
-move, so Maia-3 gets the same history as in a live game; scores are kept so that a mate always outranks any centipawn lead (centipawns clamped to 900, a mate is 1000).
-A first version of the check used the position alone and python-chess's mate scoring; both were corrected after review (PR 120) and the table below is the corrected run.
+move, so Maia-3 gets the same history as in a live game; scores are kept so that a mate always outranks any centipawn lead (centipawns clamped to 900, a mate is 1000, and a mate just delivered counts as a win).
+A first version of the check used the position alone and python-chess's mate scoring, and a second still scored a delivered mate as a loss; all three were corrected after review (PR 120) and the table below is the corrected run.
 
 | Setting | Moves losing 200 cp or more | Mean loss (cp) | Top move equals the real move |
 |---|---|---|---|
-| 500 | 32.7% | 217 | 50.0% |
-| 700 | 21.7% | 162 | 51.7% |
-| 900 | 20.7% | 161 | 51.0% |
-| 1200 | 12.7% | 102 | 48.0% |
-| 1600 | 12.7% | 105 | 48.7% |
-| 2000 | 10.7% | 97 | 47.3% |
+| 500 | 31.7% | 197 | 50.0% |
+| 700 | 20.3% | 136 | 51.7% |
+| 900 | 19.7% | 141 | 51.0% |
+| 1200 | 12.0% | 89 | 48.0% |
+| 1600 | 11.3% | 79 | 48.7% |
+| 2000 | 9.7% | 77 | 47.3% |
 
 Conditioned on each real player's own rating (nearest 100), the top move equals the real move in 51.3%.
 
@@ -60,7 +60,7 @@ for every setting. Roughly, a difference of about 4 points in the share is withi
 **What it does not show:**
 - That Maia-3 plays like a player of that rating. How often its top move equals a real player's move is about the same (47 to 52%) at every setting, including the
   player's own rating (51.3%). The 3 to 4 point gap between the low and high settings is within the noise of 300 positions. The setting is a strength dial, not a rating.
-- Anything about 1200 to 2000. In these positions those settings look alike (11 to 13%), which may be the test, not the model: the positions come from games
+- Anything about 1200 to 2000. In these positions those settings look alike (10 to 12%), which may be the test, not the model: the positions come from games
   between players rated 900 or lower, so only gross errors show at depth 10.
 - Anything below 500 or above 2000. They were not tried.
 

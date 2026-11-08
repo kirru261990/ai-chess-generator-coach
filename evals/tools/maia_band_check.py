@@ -48,9 +48,10 @@ CP_CLAMP, MATE = 900, 1000
 def to_score(score: chess.engine.Score) -> int:
     """One scale for a Stockfish score seen from one side: centipawns clamped to +/-CP_CLAMP, a mate is +/-MATE, so a mate always
     outranks any lead."""
-    mate = score.mate()
-    if mate is not None:
-        return MATE if mate > 0 else -MATE
+    if score.is_mate():
+        # The sign comes from the score, not from `mate()`: a mate just delivered (MateGiven) and a side that is checkmated (Mate(0))
+        # both report 0 moves, but one is a win and the other a loss.
+        return MATE if score.score(mate_score=MATE) > 0 else -MATE
     return max(-CP_CLAMP, min(CP_CLAMP, score.score()))
 
 

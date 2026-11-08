@@ -30,6 +30,18 @@ def test_moving_from_a_big_lead_into_a_mate_is_never_an_error():
     assert loss(chess.engine.Cp(1500), chess.engine.Mate(1)) == 0
 
 
+def test_a_mate_just_delivered_is_a_win_and_being_checkmated_is_a_loss():
+    assert tool.to_score(chess.engine.MateGiven) == tool.MATE
+    assert tool.to_score(chess.engine.Mate(0)) == -tool.MATE
+    assert tool.to_score(chess.engine.Mate(1)) == tool.MATE
+    assert tool.to_score(chess.engine.Mate(-1)) == -tool.MATE
+
+
+def test_delivering_the_mate_that_was_available_is_no_error():
+    assert loss(chess.engine.Mate(1), chess.engine.MateGiven) == 0  # Qg7# from 7k/5Q2/5K2/8/8/8/8/8 w
+    assert loss(chess.engine.Cp(1500), chess.engine.MateGiven) == 0
+
+
 def test_ordinary_scores_pass_through_below_the_clamp():
     assert tool.to_score(chess.engine.Cp(35)) == 35
     assert tool.to_score(chess.engine.Cp(-250)) == -250

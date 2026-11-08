@@ -1,38 +1,38 @@
 {
  "500": {
   "positions": 300,
-  "mean_cp_loss": 217.1,
-  "share_losing_200cp_or_more": 0.327,
+  "mean_cp_loss": 197.1,
+  "share_losing_200cp_or_more": 0.317,
   "top1_match_with_real_move": 0.5
  },
  "700": {
   "positions": 300,
-  "mean_cp_loss": 162.3,
-  "share_losing_200cp_or_more": 0.217,
+  "mean_cp_loss": 135.7,
+  "share_losing_200cp_or_more": 0.203,
   "top1_match_with_real_move": 0.517
  },
  "900": {
   "positions": 300,
-  "mean_cp_loss": 161.4,
-  "share_losing_200cp_or_more": 0.207,
+  "mean_cp_loss": 141.4,
+  "share_losing_200cp_or_more": 0.197,
   "top1_match_with_real_move": 0.51
  },
  "1200": {
   "positions": 300,
-  "mean_cp_loss": 101.9,
-  "share_losing_200cp_or_more": 0.127,
+  "mean_cp_loss": 88.6,
+  "share_losing_200cp_or_more": 0.12,
   "top1_match_with_real_move": 0.48
  },
  "1600": {
   "positions": 300,
-  "mean_cp_loss": 105.4,
-  "share_losing_200cp_or_more": 0.127,
+  "mean_cp_loss": 78.7,
+  "share_losing_200cp_or_more": 0.113,
   "top1_match_with_real_move": 0.487
  },
  "2000": {
   "positions": 300,
-  "mean_cp_loss": 96.6,
-  "share_losing_200cp_or_more": 0.107,
+  "mean_cp_loss": 76.6,
+  "share_losing_200cp_or_more": 0.097,
   "top1_match_with_real_move": 0.473
  },
  "conditioned_on_player_own_rating_top1_match": 0.513,
