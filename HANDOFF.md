@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-08 (build) · MacBook · Claude Code: first-slip drill backend (branch `feat/first-slip-drill`)
+- **Done (ADR 0020, test-first):** `app/learner/slipfinder.py` (first slip per game; depth-10 nominates, depth-18 MultiPV 3 confirms; accepted answers within 50 cp; `unclear` when a line is 50 to 100 cp worse), `slipround.py` (round of 5 own + 5 fresh, one per game, easiest first, no repeats, own ledger), `slipbank.py` (builder CLI for own and Lichess games), routes `/drills/rounds/*`, `tests/test_slipfinder.py`, `tests/test_slipround.py`. Full suite 1202 passed, ruff clean.
+- **Smoke run on real engine:** 4 of the owner's games gave 2 first-slip drills (one of them at move 10 loses 407 cp, accepted answer Kf8). One worker hit "database is locked" creating the cache at the same time; fixed by creating it before the workers start.
+- **Not done:** no web screen (needs the Design step: Impeccable), no spaced review (py-fsrs not added), the full build over the owner's 627 games and the Lichess games sample (hours of engine time) has not been run, the 30-position hand-check has not been made, MCP exposure, no change to the study plan beyond ADR 0020.
+- **Next:** run `slipbank build --source own`, then `--source lichess --pgn data/lichess/rapid_500_1800_2026-09.pgn`, make the hand-check page (27 of 30), then the Design step for the screen.
+
 ### 2026-11-08 (later) · MacBook · Claude Code: pre-trend result recorded (branch `docs/pretrend-results`, docs only)
 - **Done:** rank 1 of `docs/build-plan-v1.md`. The detectors (`hanging_own@4+rules1`, `missed_free@3+rules1`, Stockfish 19 depth 18) ran over all 627 synced games on a copy of the database (547 new games, about 3.9 hours, no failures). Rates per 50-game block are in `docs/personal-study-v1.md` section 3a.
 - **Finding:** M1 at 10|0 fell from 7.0% to about 2.9% (last three full blocks) before any training; M2 is flat and noisy (about 17%). Decision rule amendment proposed in section 3: compare with the pooled last three full pre-start blocks, not the depth-10 baseline.
