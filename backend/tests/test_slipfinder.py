@@ -146,3 +146,16 @@ def test_a_drill_already_in_the_file_is_not_written_again_and_the_resume_key_inc
 
 def slip_at_ply_8_record():
     return SF.find_first_slip(PGN, FakeAnalyser(deep=slip_at_ply_8()))["slip"]
+
+
+def test_a_first_slip_whose_played_move_is_also_an_accepted_answer_is_unclear():
+    # the before/after searches disagree: O-O is within 50 cp of the best before the move, yet the position after it is -300
+    lines = [("d1e2", 0), ("e1g1", -30), ("b1c3", -200)]
+    r = SF.find_first_slip(PGN, FakeAnalyser(deep={fen_before(8): lines, fen_before(9): [("f8c5", -300)]}))
+    assert r == {"status": "unclear", "ply": 8}
+
+
+def test_the_same_position_found_by_a_new_finder_version_is_a_different_drill():
+    s1 = slip_at_ply_8_record()
+    s2 = {**s1, "versions": {**s1["versions"], "slip_finder": "2"}}
+    assert SF.to_drill(s1, "g", 900, "own")["id"] != SF.to_drill(s2, "g", 900, "own")["id"]

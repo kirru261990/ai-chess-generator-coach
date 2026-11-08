@@ -20,10 +20,15 @@ def _easiest_first(d: dict):
     return (d["avg_rating"] is None, d["avg_rating"] or 0, d["id"])
 
 
+def position_key(d: dict) -> str:
+    """The same position and move across finder versions (drill ids differ by version)."""
+    return f"{d['fen']}|{d['played']}"
+
+
 def build_round(drills: list[dict], exclude: set[str] | frozenset[str] = frozenset()) -> list[dict]:
     """Five own and five fresh drills, one per game, easiest (lowest average rating) first within each source. A short source is
-    topped up from the other; drills in `exclude` (used in earlier rounds) are skipped. Fewer than ten usable drills is an error."""
-    pool = sorted((d for d in drills if d["type"] == "S1" and d["accepted"] and d["id"] not in exclude), key=_easiest_first)
+    topped up from the other; drills in `exclude` (drill ids or position keys used in earlier rounds) are skipped. Fewer than ten usable drills is an error."""
+    pool = sorted((d for d in drills if d["type"] == "S1" and d["accepted"] and d["id"] not in exclude and position_key(d) not in exclude), key=_easiest_first)
     games: set[str] = set()
     picked: dict[str, list[dict]] = {"own": [], "lichess": []}
     quota = {"own": ROUND_OWN, "lichess": ROUND_FRESH}
@@ -60,7 +65,7 @@ from pathlib import Path
 
 import chess
 
-from app.learner import drillbank
+from app.learner import drillbank, slipfinder
 from app.learner.drillcycle import ELAPSED_CAP_MS
 
 VERSION = "1"
@@ -111,7 +116,10 @@ def read_slips() -> list[dict]:
     p = slips_path()
     if not p.exists():
         raise RoundError("no_slip_drills", "No first-slip drills have been built on this computer yet, so there is nothing to practise.")
-    return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+    drills = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+    # only drills from the current finder and record layout are served; older ones stay in the file as history
+    return [d for d in drills if d.get("versions", {}).get("slip_finder") == slipfinder.VERSION
+            and d["versions"].get("bank") == slipfinder.BANK_VERSION]
 
 
 def _snapshot(d: dict) -> dict:
@@ -126,13 +134,14 @@ def _open_round(conn: sqlite3.Connection, create: bool = True) -> sqlite3.Row:
         return row
     if not create:
         raise RoundError("not_current_position", "No round is open, so there is no position to answer.")
-    used = {d["id"] for r in conn.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"])}
-    chosen = build_round(read_slips(), exclude=used)
+    slips = read_slips()  # a file read; the choice below is made under the lock, so a round another request just finished is seen
     conn.commit()
     conn.execute("BEGIN IMMEDIATE")  # two requests must not both start a round
     try:
         row = conn.execute("SELECT * FROM slip_round WHERE finished_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
         if row is None:
+            used = {k for r in conn.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"]) for k in (d["id"], position_key(d))}
+            chosen = build_round(slips, exclude=used)
             conn.execute("INSERT INTO slip_round (created_at, round_version, drills) VALUES (?, ?, ?)",
                          (_now(), VERSION, json.dumps([_snapshot(d) for d in chosen])))
             row = conn.execute("SELECT * FROM slip_round WHERE finished_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()

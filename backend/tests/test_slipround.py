@@ -174,3 +174,45 @@ def test_http_overview_lists_finished_rounds(slips):
         client.post("/drills/rounds/current/answer", json={"drill_id": client.get("/drills/rounds/current").json()["drill_id"], "move": "d2d4"})
     assert client.get("/drills/rounds/current").json()["done"] is True
     assert client.get("/drills/rounds").json()[0]["summary"]["matched"] == 10
+
+
+def test_drills_from_an_older_finder_version_are_not_served(slips):
+    old = SF.to_drill({**slip(played="oldmove"), "versions": {"slip_finder": "0", "engine_config": "ec-x"}}, "gold", 700, "own")
+    with SR.slips_path().open("a") as f:
+        f.write(json.dumps(old) + "\n")
+    assert old["id"] not in {d["id"] for d in SR.read_slips()}
+
+
+def test_a_position_used_in_an_earlier_round_is_not_offered_again_even_under_a_new_drill_id(slips, conn):
+    first = [SR.current(conn)["drill_id"]]
+    SR.answer(conn, first[0], "d2d4")
+    for _ in range(9):
+        SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    SR.current(conn)  # finishes round 1
+    used_played = {d["played"] for d in json.loads(conn.execute("SELECT drills FROM slip_round").fetchone()["drills"])}
+    again = SF.to_drill({**slip(played=min(used_played)), "versions": {"slip_finder": SF.VERSION, "engine_config": "ec-new"}}, "gnew", 1, "own")
+    again["avg_rating"] = 1  # the easiest drill in the pool, so it would be picked first if it were not excluded
+    with SR.slips_path().open("a") as f:
+        f.write(json.dumps({**again, "id": "freshid"}) + "\n")
+    shown = SR.current(conn)
+    assert shown["drill_id"] != "freshid"
+
+
+def test_two_requests_cannot_start_two_rounds_with_the_same_drills(slips, monkeypatch):
+    c_a, c_b = SR.connect(), SR.connect()
+    real, state = SR.read_slips, {"ran": False}
+
+    def interleave():
+        out = real()
+        if not state["ran"]:  # request B runs a whole round between A's selection and A's lock
+            state["ran"] = True
+            for _ in range(10):
+                SR.answer(c_b, SR.current(c_b)["drill_id"], "d2d4")
+            SR.current(c_b)
+        return out
+
+    monkeypatch.setattr(SR, "read_slips", interleave)
+    SR.current(c_a)
+    ids = [d["id"] for r in c_a.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"])]
+    assert len(ids) == len(set(ids)) == 20
+    c_a.close(), c_b.close()

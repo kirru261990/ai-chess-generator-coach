@@ -74,7 +74,9 @@ def find_first_slip(pgn: str, analyser, color: chess.Color | None = None) -> dic
                 deep = _loss(board, move, analyser, None)
                 if deep and abs(deep[0]) < DECIDED_CP and deep[1] >= SLIP_LOSS_CP:
                     accepted, unclear = _answers(board, deep[2])
-                    if unclear:  # a later slip would not be the first one, so the game stops here
+                    # The before and after searches are independent: if the played move is also an accepted answer they disagree,
+                    # so the position is not clear (rule 5). A later slip would not be the first one, so the game stops here.
+                    if unclear or move.uci() in {a["uci"] for a in accepted}:
                         return {"status": "unclear", "ply": ply}
                     return {"status": "slip", "slip": {
                         "ply": ply, "fen": board.fen(), "side": "white" if board.turn else "black",
@@ -88,7 +90,8 @@ def to_drill(slip: dict, game_id: str, avg_rating: int | None, source: str) -> d
     """A bank record for one slip. `source` is "own" (the player's game) or "lichess" (a fresh drill from a public game)."""
     fen, played = slip["fen"], slip["played"]
     return {
-        "id": hashlib.sha256(f"{fen}|{played}|S1".encode()).hexdigest()[:16], "type": "S1", "source": source,
+        # the finder version is part of the id, so a rescan with a new version makes new records instead of being discarded
+        "id": hashlib.sha256(f"{fen}|{played}|S1|{slip['versions']['slip_finder']}".encode()).hexdigest()[:16], "type": "S1", "source": source,
         "fen": fen, "ply": slip["ply"], "side": slip["side"], "played": played, "played_san": slip["played_san"],
         "game_id": game_id, "avg_rating": avg_rating, "accepted": [a["uci"] for a in slip["accepted"]],
         "evidence": {"loss_cp": slip["loss_cp"], "accepted": slip["accepted"]}, "versions": {**slip["versions"], "bank": BANK_VERSION},
