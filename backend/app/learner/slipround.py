@@ -119,11 +119,13 @@ def _snapshot(d: dict) -> dict:
     return {**{k: d.get(k) for k in keep}, "loss_cp": d["evidence"]["loss_cp"]}
 
 
-def _open_round(conn: sqlite3.Connection) -> sqlite3.Row:
-    """The round in progress, or a new one built from drills no earlier round used."""
+def _open_round(conn: sqlite3.Connection, create: bool = True) -> sqlite3.Row:
+    """The round in progress, or (only when `create`) a new one built from drills no earlier round used."""
     row = conn.execute("SELECT * FROM slip_round WHERE finished_at IS NULL ORDER BY id DESC LIMIT 1").fetchone()
     if row is not None:
         return row
+    if not create:
+        raise RoundError("not_current_position", "No round is open, so there is no position to answer.")
     used = {d["id"] for r in conn.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"])}
     chosen = build_round(read_slips(), exclude=used)
     conn.commit()
@@ -169,7 +171,7 @@ def current(conn: sqlite3.Connection) -> dict:
 
 
 def answer(conn: sqlite3.Connection, drill_id: str, move_uci: str) -> dict:
-    rnd = _open_round(conn)
+    rnd = _open_round(conn, create=False)  # answering never starts a round
     row = conn.execute("SELECT * FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], drill_id)).fetchone()
     if row is None:
         raise RoundError("not_current_position", "That position is not the one on screen.")
@@ -206,3 +208,9 @@ def summary(conn: sqlite3.Connection, rnd: sqlite3.Row) -> dict:
     return {"answered": len(rows), "total": len(_drills(rnd)), "matched": sum(r["matched"] for r in rows),
             "total_ms": sum(times), "median_ms": int(statistics.median(times)) if times else None,
             "versions": {"round": rnd["round_version"]}}
+
+
+def overview(conn: sqlite3.Connection) -> list[dict]:
+    """Every round so far with its summary, so a finished round can be read again after the next one has started."""
+    return [{"round": i, "finished": r["finished_at"] is not None, "summary": summary(conn, r)}
+            for i, r in enumerate(conn.execute("SELECT * FROM slip_round ORDER BY id"), 1)]

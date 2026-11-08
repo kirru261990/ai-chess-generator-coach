@@ -37,6 +37,9 @@ def scan_pgn(pgn: str, analyser, source: str, color: chess.Color | None = None, 
     return slipfinder.to_drill(found["slip"], game_id or info["game_id"], info["avg_rating"], source)
 
 
+MAX_RATING = 900  # fresh drills come from games where both players are rated this or lower (ADR 0020 decision 3)
+
+
 def cache_path() -> Path:
     return drillbank.bank_dir() / "slip_cache.sqlite3"
 
@@ -53,10 +56,31 @@ def own_games():
         yield g["source_id"].rsplit("/", 1)[-1], g["pgn"], chess.WHITE if g["user_color"] == "white" else chess.BLACK
 
 
-def public_games(path: Path):
+def public_games(path: Path, max_rating: int = MAX_RATING):
+    """Yield (game id, pgn, None) for games where both players are rated `max_rating` or lower (ADR 0020 decision 3)."""
     with path.open(encoding="utf-8", errors="replace") as f:
         while (g := chess.pgn.read_game(f)) is not None:
-            yield drillbank.game_info(g)["game_id"], str(g), None
+            try:
+                ratings = (int(g.headers["WhiteElo"]), int(g.headers["BlackElo"]))
+            except (KeyError, ValueError):
+                continue  # an unrated or unreadable header is not known to be at the player's level
+            if max(ratings) <= max_rating:
+                yield drillbank.game_info(g)["game_id"], str(g), None
+
+
+def marker_key(source: str, gid: str) -> str:
+    """Resume key: a new finder version re-scans every game (rule 6)."""
+    return f"{source}:{gid}:v{slipfinder.VERSION}"
+
+
+def append_drill(path: Path, drill: dict, known: set[str]) -> bool:
+    """Write a drill unless its id is already in the file (a crash between the drill and its marker must not duplicate it)."""
+    if drill["id"] in known:
+        return False
+    with path.open("a") as f:
+        f.write(json.dumps(drill, default=str) + "\n")
+    known.add(drill["id"])
+    return True
 
 
 _worker: dict = {}
@@ -77,29 +101,29 @@ def _process(task: tuple) -> dict:
         return {"game": gid, "drill": None, "error": str(e)}
 
 
-def build(source: str, pgn: Path | None, limit: int | None, workers: int) -> dict:
+def build(source: str, pgn: Path | None, limit: int | None, workers: int, max_rating: int = MAX_RATING) -> dict:
     drillbank.bank_dir().mkdir(parents=True, exist_ok=True)
     out, marker = slipround.slips_path(), done_path()
     seen = set(marker.read_text().split()) if marker.exists() else set()
-    games = own_games() if source == "own" else public_games(pgn)
+    known = {json.loads(line)["id"] for line in out.read_text().splitlines() if line.strip()} if out.exists() else set()
+    games = own_games() if source == "own" else public_games(pgn, max_rating)
     tasks = []
     for gid, text, color in games:
-        key = f"{source}:{gid}"
+        key = marker_key(source, gid)
         if gid and key not in seen:
             tasks.append((gid, text, color, source))
         if limit and len(tasks) >= limit:
             break
     added = errors = 0
     connect(str(cache_path())).close()  # create the cache once, so the workers do not race to make it
-    with mp.get_context("spawn").Pool(workers, _init_worker, (str(cache_path()),)) as pool, out.open("a") as f, marker.open("a") as m:
+    with mp.get_context("spawn").Pool(workers, _init_worker, (str(cache_path()),)) as pool, marker.open("a") as m:
         for i, r in enumerate(pool.imap_unordered(_process, tasks), 1):
             errors += bool(r["error"])
-            if r["drill"]:
-                f.write(json.dumps(r["drill"], default=str) + "\n")
+            if r["drill"] and append_drill(out, r["drill"], known):
                 added += 1
             if not r["error"]:
-                m.write(f"{source}:{r['game']}\n")
-            f.flush(), m.flush()
+                m.write(marker_key(source, r["game"]) + "\n")
+            m.flush()
             if i % 10 == 0:
                 print(f"{i}/{len(tasks)} games, {added} drills", file=sys.stderr, flush=True)
     return {"games": len(tasks), "errors": errors, "drills_added": added}
@@ -120,12 +144,13 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--pgn", type=Path)
     b.add_argument("--limit", type=int)
     b.add_argument("--workers", type=int, default=4)
+    b.add_argument("--max-rating", type=int, default=MAX_RATING)
     sub.add_parser("summary")
     a = ap.parse_args(argv)
     if a.cmd == "build":
         if a.source == "lichess" and not a.pgn:
             ap.error("--pgn is required for --source lichess")
-        print(json.dumps(build(a.source, a.pgn, a.limit, a.workers), indent=1))
+        print(json.dumps(build(a.source, a.pgn, a.limit, a.workers, a.max_rating), indent=1))
     else:
         print(json.dumps(summary(), indent=1))
     return 0

@@ -33,6 +33,11 @@ class AnswerIn(BaseModel):
     move: str
 
 
+@router.get("")
+def overview(conn: Conn):
+    return S.overview(conn)
+
+
 @router.get("/current")
 def current(conn: Conn):
     return S.current(conn)

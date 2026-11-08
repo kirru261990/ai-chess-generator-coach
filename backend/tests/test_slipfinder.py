@@ -115,3 +115,34 @@ def test_scan_pgn_makes_a_drill_with_the_game_id_the_rating_and_the_source():
     own = slipbank.scan_pgn(PGN, FakeAnalyser(deep=slip_at_ply_8()), source="own", color=chess.WHITE, game_id="184848259776")
     assert own["game_id"] == "184848259776"
     assert slipbank.scan_pgn(PGN, FakeAnalyser(), source="own") is None
+
+
+def test_the_drill_record_carries_the_bank_version_and_kind():
+    d = SF.to_drill(SF.find_first_slip(PGN, FakeAnalyser(deep=slip_at_ply_8()))["slip"], "g", 900, "own")
+    assert d["versions"]["bank"] == SF.BANK_VERSION and d["type"] == "S1"
+
+
+def test_public_games_keep_only_games_where_both_players_are_rated_at_or_below_the_limit(tmp_path):
+    from app.learner import slipbank
+
+    low = PGN.replace("1100", "850").replace("AbCd1234", "LowLow11")
+    high = PGN.replace('"900"', '"1500"').replace("AbCd1234", "HighHigh")
+    f = tmp_path / "p.pgn"
+    f.write_text(low + "\n" + high)
+    assert [gid for gid, _, _ in slipbank.public_games(f, max_rating=900)] == ["LowLow11"]
+
+
+def test_a_drill_already_in_the_file_is_not_written_again_and_the_resume_key_includes_the_finder_version(tmp_path):
+    from app.learner import slipbank
+
+    d = SF.to_drill(slip_at_ply_8_record(), "g", 900, "own")
+    out = tmp_path / "s.jsonl"
+    known = set()
+    assert slipbank.append_drill(out, d, known) is True
+    assert slipbank.append_drill(out, d, known) is False
+    assert len(out.read_text().splitlines()) == 1
+    assert SF.VERSION in slipbank.marker_key("own", "g1") and "own" in slipbank.marker_key("own", "g1")
+
+
+def slip_at_ply_8_record():
+    return SF.find_first_slip(PGN, FakeAnalyser(deep=slip_at_ply_8()))["slip"]

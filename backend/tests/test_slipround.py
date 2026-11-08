@@ -156,3 +156,21 @@ def test_without_a_slip_file_it_is_a_plain_409(tmp_path, monkeypatch):
     monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
     r = client.get("/drills/rounds/current")
     assert r.status_code == 409 and r.json()["error"] == "no_slip_drills"
+
+
+def test_a_finished_round_can_still_be_read_and_an_answer_after_the_last_drill_starts_no_round(slips, conn):
+    for _ in range(10):
+        SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert SR.current(conn)["done"] is True  # the round is finished and summarised once
+    with pytest.raises(SR.RoundError) as e:
+        SR.answer(conn, "anything", "d2d4")  # no round is open, and answering must not open one
+    assert e.value.code == "not_current_position"
+    rounds = SR.overview(conn)
+    assert len(rounds) == 1 and rounds[0]["finished"] is True and rounds[0]["summary"]["matched"] == 10
+
+
+def test_http_overview_lists_finished_rounds(slips):
+    for _ in range(10):
+        client.post("/drills/rounds/current/answer", json={"drill_id": client.get("/drills/rounds/current").json()["drill_id"], "move": "d2d4"})
+    assert client.get("/drills/rounds/current").json()["done"] is True
+    assert client.get("/drills/rounds").json()[0]["summary"]["matched"] == 10

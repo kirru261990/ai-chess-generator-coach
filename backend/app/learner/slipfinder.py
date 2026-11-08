@@ -16,6 +16,7 @@ import chess.pgn
 from app.detectors import prd_rules as R
 
 VERSION = "1"
+BANK_VERSION = "1"  # the layout of a first-slip drill record
 MIN_PLY = 8  # White's 5th move: the product evaluates from move 5 (ADR 0019 amendment)
 SLIP_LOSS_CP = 150
 DECIDED_CP = 600
@@ -58,7 +59,8 @@ def _answers(board: chess.Board, analysis) -> tuple[list[dict], bool]:
 def find_first_slip(pgn: str, analyser, color: chess.Color | None = None) -> dict:
     """The first slip in one game. `color` limits it to one player's moves (None: either player, for public games).
 
-    Returns {"status": "slip", "slip": {...}} or {"status": "no_slip"}. Raises ValueError when the PGN cannot be read.
+    Returns {"status": "slip", "slip": {...}}, {"status": "no_slip"}, or {"status": "unclear", "ply": n} when the first slip is
+    found but it is not clear which answers count (the game then yields no drill). Raises ValueError when the PGN cannot be read.
     """
     game = chess.pgn.read_game(io.StringIO(pgn))
     if game is None or game.errors:
@@ -89,5 +91,5 @@ def to_drill(slip: dict, game_id: str, avg_rating: int | None, source: str) -> d
         "id": hashlib.sha256(f"{fen}|{played}|S1".encode()).hexdigest()[:16], "type": "S1", "source": source,
         "fen": fen, "ply": slip["ply"], "side": slip["side"], "played": played, "played_san": slip["played_san"],
         "game_id": game_id, "avg_rating": avg_rating, "accepted": [a["uci"] for a in slip["accepted"]],
-        "evidence": {"loss_cp": slip["loss_cp"], "accepted": slip["accepted"]}, "versions": slip["versions"],
+        "evidence": {"loss_cp": slip["loss_cp"], "accepted": slip["accepted"]}, "versions": {**slip["versions"], "bank": BANK_VERSION},
     }
