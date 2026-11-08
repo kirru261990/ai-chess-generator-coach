@@ -26,3 +26,18 @@ The owner looked at a paid 300-puzzle book series that trains tactics by repeati
 ## Reversal
 
 Delete `drillcycle.py`, `api/drills.py`, `DrillCycles.tsx` and `data/drills/cycles.sqlite3`; nothing else depends on them.
+
+## First cycle by the owner (2026-11-08)
+
+Set 1 (50 drills, 25 hung-own-piece and 25 missed-free-piece, bank version 1). The owner finished cycle 1, easiest first.
+
+| | Matched | Median time per drill |
+|---|---|---|
+| All | 30 of 50 (a random legal move would match about 8%) | 25 s; total 28.0 minutes |
+| Hung own piece (M1) | 14 of 25 | 34 s |
+| Missed free piece (M2) | 16 of 25 | 16 s |
+
+Time per drill fell through the set (median 38 s in the first ten, 15 s in the last ten) while the share matched stayed between 50% and 70% in every ten. With 50 drills,
+a few matches either way is noise, and the speed-up inside one pass can be familiarity or guessing faster, which the matches alone cannot separate. This is the
+baseline for cycle 2: the question then is whether matches hold while the time falls. "Not matched" means not one of the engine-checked moves, not that the move was wrong (decision 4).
+

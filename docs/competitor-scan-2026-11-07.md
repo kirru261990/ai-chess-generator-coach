@@ -1,5 +1,7 @@
 # Competitor scan, 2026-11-07 (time-boxed, web search only)
 
+Extended by `docs/competitive-analysis-2026-11-08.md` (six-step process, hypothesis verdicts).
+
 Question (ADR 0019 H1): does anything already show a player where they lose games, and train them from their own games? Method: five web searches, summaries read, no product trialled. Vendor pages and forum posts are unverified; features and prices may have changed.
 
 | Tool | What it does (as found) | Source |

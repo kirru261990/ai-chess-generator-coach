@@ -38,7 +38,7 @@ Detectors on the 76 games lost from an ahead position (turning point = the first
 | H1 | Almost nobody focuses on the middlegame and tactics | **Refuted for conversion and for tactics from your own games** (Aimchess has a conversion replay; several tools build puzzles from your mistakes; conversion courses are common). See `docs/competitor-scan-2026-11-07.md`. The unexplored angle is measured proof of improvement, which the scan did not find |
 | H2 | Conversion is a big leak | Weak for the owner: 28% of losses; 45% are lost from a bad position |
 | H3 | Players want a report of their own games | Untested; the validation test |
-| H4 | Squandered advantages are tactical errors the detectors can see | Partly supported: where there is a verdict it is mostly a hung piece, but about a third of cases get one |
+| H4 | Squandered advantages are tactical errors the detectors can see | Partly supported by our data: where there is a verdict it is mostly a hung piece, but about a third of cases get one. **Contested elsewhere** (`docs/competitive-analysis-2026-11-08.md`): player threads and a coach's newsletter disagree about whether tactics are the cause |
 | H5 | Strangers return without an account | Untested; the validation test |
 
 **Proposed, not yet decided by the owner:**
