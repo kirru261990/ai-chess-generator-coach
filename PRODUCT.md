@@ -14,6 +14,10 @@ web
 
 **Job:** "Show me the mistakes I keep making in my real games, train me on them, and prove whether I stopped."
 
+## Direction update (2026-11-07, ADR 0019)
+
+The product now focuses on the **middlegame (move 5 onwards, in this product's sense; amended 2026-11-08, was move 11)**: turning a good opening into a won game, for players rated 500 to 1600. The headline outcome is **conversion rate**, with mistake rates as the diagnosis. The first step is a validation test (username, conversion report, drills, play, website plus chat), not the full product. Where this section differs from the text below, this section wins. See `docs/product-spec-v1.md` and `GLOSSARY.md`.
+
 ## Product Purpose
 
 The coach plays, analyses the player's games, finds the mistakes they repeat, trains them on those mistakes, and measures whether the mistakes fall in later real games.
