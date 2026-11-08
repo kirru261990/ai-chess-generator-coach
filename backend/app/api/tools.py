@@ -58,6 +58,7 @@ def _game_view(game: Game) -> dict:
         "engine_level": game.engine_level,
         "opponent": "maia3" if game.opponent_elo is not None else "stockfish",
         "opponent_elo": game.opponent_elo,
+        "opponent_setup": game.opponent_setup,
         "outcome": game.outcome(),
         # Legal moves for the user, so the client can highlight targets. The server still
         # validates every move; this list is a convenience, never the authority.
@@ -125,6 +126,7 @@ def create_game(
         Mode(mode),
         engine_level=level if opponent == "stockfish" else None,
         opponent_elo=elo if opponent == "maia3" else None,
+        opponent_setup=maia.setup_record() if opponent == "maia3" else None,
     )
     GAMES[game.id] = game
     return game

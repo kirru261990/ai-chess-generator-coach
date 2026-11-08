@@ -36,6 +36,7 @@ class Game:
     resigned_by: chess.Color | None = None
     engine_level: int | None = None  # Stockfish strength; None = not a Stockfish opponent
     opponent_elo: int | None = None  # Maia-3 conditioning Elo; set instead of engine_level for a Maia-3 opponent
+    opponent_setup: dict | None = None  # Maia-3 model, device, temperature and checkpoint the game was played with (rule 6)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     # Counts every state change (move, resignation, takeback). It only ever goes up, so a
     # stale client revision can never match a position that was reached after an undo.
@@ -100,6 +101,7 @@ def new_game(
     start_fen: str = chess.STARTING_FEN,
     engine_level: int | None = None,
     opponent_elo: int | None = None,
+    opponent_setup: dict | None = None,
 ) -> Game:
     try:
         chess.Board(start_fen)
@@ -108,7 +110,7 @@ def new_game(
     # Positions start assisted if the game begins in Practice mode.
     return Game(id=uuid.uuid4().hex, user_color=user_color, mode=mode, start_fen=start_fen,
                 assisted=mode is Mode.PRACTICE, engine_level=engine_level,
-                opponent_elo=opponent_elo)
+                opponent_elo=opponent_elo, opponent_setup=opponent_setup)
 
 
 def set_mode(game: Game, mode: Mode) -> None:

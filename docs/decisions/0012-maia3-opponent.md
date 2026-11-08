@@ -20,16 +20,51 @@ The Maia-2 README now points new projects to Maia-3 (CSSLab/maia3). The owner as
 2. **Never swap the opponent silently.** A Maia-3 game when Maia-3 is not installed fails with `opponent_unavailable`; the client
    offers Stockfish. The PGN and the game view name the opponent, so a game is never mislabelled.
 3. **Strength is a label, not an Elo claim.** The `elo` is what the model is conditioned on. Shown as "Maia-3 (maia3-5m) at 900".
-   Accepted range 400 to 2800 is a guard, not the model's documented range; narrow it after the under-1000 check.
+   The accepted range is 500 to 2000 since the band check of 2026-11-08 (below); it was 400 to 2800 as a guard.
 4. **The full move list is sent** (`--use-uci-history`), because Maia-3 uses history. Default `Temperature` 1.0 (sample the model's
    human move distribution; 0 would repeat its top move). Both are env settings and are recorded in `maia.settings()`.
 5. **Versioning (rule 6):** model alias, device and temperature come from `maia.settings()`. Seen on the first real run (2026-10-27): maia3 package commit `1e13597c`,
-   `Maia3-5M` Hugging Face snapshot `b6559de2398d7140b985f28fd2c19fb5e47ddabe`, torch 2.14.1, CPU. Not yet recorded by the code per game.
+   `Maia3-5M` Hugging Face snapshot `b6559de2398d7140b985f28fd2c19fb5e47ddabe`, torch 2.14.1, CPU. Recorded per game since 2026-11-08 (see below).
 6. **Practice and Play rules are unchanged** (ADR 0005). The opponent is not assistance. A Practice game against Maia is still assisted.
 7. **Web and chat (second slice):** `GET /opponents` says whether Maia-3 is installed; the web app shows an Opponent choice and a Rating list (600 to 2000) only then. MCP `game_new` takes `opponent` and `elo`.
 8. **Scope of the first slice:** `POST /games` takes `opponent` ("stockfish" default, or "maia3") and `elo`. Not done: web selector,
-   MCP `game_new` option, the under-1000 band check, checkpoint pinning.
+   MCP `game_new` option, the under-1000 band check, checkpoint pinning (both done 2026-11-08, see below).
 
 ## How to reverse
 Do not set `MAIA3_CMD`: nothing changes, Stockfish stays the default and the only opponent. To remove it, delete `app/engine/maia.py`,
 `opponent_elo` in `Game`, and the branches in `tools.py`.
+
+
+## Band check and checkpoint (2026-11-08)
+
+**Question (spec A2):** does the Elo setting change how Maia-3 plays, down to players under 1000?
+**Method:** `evals/tools/maia_band_check.py`, report `evals/reports/maia_band_check_2026-11-08.json`. 300 positions (plies 12 to 50) from real
+Lichess rapid games where both players are rated 900 or lower (the September 2026 sample, seed 7). For each setting from 500 to 2000,
+Maia-3 (maia3-5m, CPU, temperature 1.0) played one sampled move per position, scored by Stockfish at depth 10.
+
+| Setting | Moves losing 200 cp or more | Mean loss (cp) | Top move equals the real move |
+|---|---|---|---|
+| 500 | 39.7% | 250 | 46.7% |
+| 700 | 27.3% | 161 | 48.7% |
+| 900 | 26.0% | 161 | 49.0% |
+| 1200 | 14.0% | 96 | 48.7% |
+| 1600 | 14.0% | 92 | 46.7% |
+| 2000 | 13.0% | 91 | 45.7% |
+
+Conditioned on each real player's own rating (nearest 100), the top move equals the real move in 47.7%.
+
+**What it shows:** a lower setting plays measurably weaker, down to 500. Mistakes fall in three steps (500; 700 to 900; 1200 to 2000), with the same positions
+for every setting. Roughly, a difference of about 4 points in the share is within noise at 300 positions; the steps are larger than that.
+**What it does not show:**
+- That Maia-3 plays like a player of that rating. How often its top move equals a real player's move is about the same (46 to 49%) at every setting, including the
+  player's own rating. The setting is a strength dial, not a rating.
+- Anything about 1200 to 2000. In these positions those settings look alike (13 to 14%), which may be the test, not the model: the positions come from games
+  between players rated 900 or lower, so only gross errors show at depth 10.
+- Anything below 500 or above 2000. They were not tried.
+
+**Decisions:**
+1. The accepted range is **500 to 2000** (`maia.MIN_ELO`, `MAX_ELO`). The label stays "Maia-3 (maia3-5m) at 900", never an Elo claim.
+2. **The checkpoint is recorded on every Maia game.** `maia.settings()` and `maia.setup_record()` give model, device, temperature, the Hugging Face snapshot
+   hash read from the local cache (`MAIA3_CHECKPOINT` overrides it) and whether it equals the snapshot the check ran on. The game view carries it as
+   `opponent_setup`. A game on another snapshot is recorded as not pinned, never refused.
+3. The owner played a first real game against it on 2026-11-08 (Play mode, the owner as White, Maia-3 at 1600, 84 plies, the owner resigned, no help used, checkpoint pinned; PGN in the git-ignored `data/maia/`). The owner said the 1600 setting felt right against their play (a subjective report from one game; their Chess.com rapid rating is about 690, so the setting is a dial, not a rating on that scale). One game says only that it plays end to end. Still open: the weights licence (not stated).

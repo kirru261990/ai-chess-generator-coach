@@ -1,0 +1,56 @@
+{
+ "500": {
+  "positions": 300,
+  "mean_cp_loss": 250.3,
+  "share_losing_200cp_or_more": 0.397,
+  "top1_match_with_real_move": 0.467
+ },
+ "700": {
+  "positions": 300,
+  "mean_cp_loss": 160.8,
+  "share_losing_200cp_or_more": 0.273,
+  "top1_match_with_real_move": 0.487
+ },
+ "900": {
+  "positions": 300,
+  "mean_cp_loss": 161.2,
+  "share_losing_200cp_or_more": 0.26,
+  "top1_match_with_real_move": 0.49
+ },
+ "1200": {
+  "positions": 300,
+  "mean_cp_loss": 96.0,
+  "share_losing_200cp_or_more": 0.14,
+  "top1_match_with_real_move": 0.487
+ },
+ "1600": {
+  "positions": 300,
+  "mean_cp_loss": 91.7,
+  "share_losing_200cp_or_more": 0.14,
+  "top1_match_with_real_move": 0.467
+ },
+ "2000": {
+  "positions": 300,
+  "mean_cp_loss": 90.5,
+  "share_losing_200cp_or_more": 0.13,
+  "top1_match_with_real_move": 0.457
+ },
+ "conditioned_on_player_own_rating_top1_match": 0.477,
+ "setup": {
+  "model": "maia3-5m",
+  "device": "cpu",
+  "temperature": 1.0,
+  "checkpoint": "b6559de2398d7140b985f28fd2c19fb5e47ddabe",
+  "checkpoint_pinned": true
+ },
+ "sample": {
+  "file": "rapid_500_1800_2026-09.pgn",
+  "max_rating_of_either_player": 900,
+  "plies": [
+   12,
+   50
+  ],
+  "seed": 7,
+  "stockfish_depth": 10
+ }
+}

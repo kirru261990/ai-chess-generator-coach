@@ -67,10 +67,48 @@ def test_a_maia_move_is_legal_and_gets_the_elo_model_and_history(fake_maia):
     assert "--use-uci-history" in seen["argv"] and "--no-use-amp" in seen["argv"]
 
 
-@pytest.mark.parametrize("elo", [399, 2801, 1100.5, "1100", None, True])
+@pytest.mark.parametrize("elo", [499, 2001, 1100.5, "1100", None, True])
 def test_a_bad_elo_is_refused(elo):
     with pytest.raises(ValueError):
         maia.check_elo(elo)
+
+
+@pytest.mark.parametrize("elo", [500, 900, 2000])
+def test_the_checked_range_is_accepted(elo):
+    assert maia.check_elo(elo) == elo
+
+
+def test_the_checkpoint_comes_from_the_hugging_face_cache(tmp_path, monkeypatch):
+    hub = tmp_path / "hub"
+    folder = hub / "models--UofTCSSLab--Maia3-5M"
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub))
+    monkeypatch.delenv("MAIA3_CHECKPOINT", raising=False)
+    assert maia.checkpoint("maia3-5m") is None  # nothing cached yet
+    (folder / "snapshots" / "aaa").mkdir(parents=True)
+    assert maia.checkpoint("maia3-5m") == "aaa"  # the only snapshot
+    (folder / "snapshots" / "bbb").mkdir()
+    assert maia.checkpoint("maia3-5m") is None  # two snapshots and no ref: we do not guess
+    (folder / "refs").mkdir()
+    (folder / "refs" / "main").write_text("bbb\n")
+    assert maia.checkpoint("maia3-5m") == "bbb"
+    assert maia.checkpoint("maia3-unknown") is None  # an alias we do not know
+
+
+def test_a_checkpoint_is_pinned_only_when_it_is_the_one_that_was_checked(monkeypatch):
+    monkeypatch.setenv("MAIA3_MODEL", "maia3-5m")
+    monkeypatch.setenv("MAIA3_CHECKPOINT", maia.PINNED_CHECKPOINTS["maia3-5m"])
+    assert maia.settings()["checkpoint_pinned"] is True
+    monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
+    assert maia.settings()["checkpoint_pinned"] is False
+    assert maia.settings()["checkpoint"] == "some-other-snapshot"
+
+
+def test_a_maia_game_records_what_played_it_and_never_the_command_line(fake_maia, monkeypatch):
+    monkeypatch.setenv("MAIA3_CHECKPOINT", "some-other-snapshot")
+    view = tools.start_game("white", "play", opponent="maia3", elo=900)
+    assert view["opponent_setup"] == {"model": "maia3-5m", "device": "cpu", "temperature": 1.0,
+                                      "checkpoint": "some-other-snapshot", "checkpoint_pinned": False}
+    assert tools.game_view(tools.create_game())["opponent_setup"] is None  # a Stockfish game records none
 
 
 def test_a_missing_maia_command_is_a_clear_engine_error(monkeypatch):

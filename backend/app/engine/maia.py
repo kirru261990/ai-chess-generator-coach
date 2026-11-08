@@ -16,6 +16,7 @@ import os
 import shlex
 import shutil
 import threading
+from pathlib import Path
 from typing import Self
 
 import chess
@@ -24,21 +25,55 @@ import chess.engine
 from app.engine.stockfish import EngineError
 
 DEFAULT_MODEL = "maia3-5m"
-# Bounds we accept, not bounds the model supports: the Maia-3 docs do not state its rating range. Narrow these
-# once the lowest band has been checked against players under 1000 (spec A2, ADR 0012).
-MIN_ELO, MAX_ELO = 400, 2800
+# The range we accept is the range we have checked, not a range the model documents (it documents none). The band check of
+# 2026-11-08 (evals/tools/maia_band_check.py, ADR 0012) played settings from 500 to 2000: a lower setting plays measurably
+# weaker down to 500, and nothing outside 500..2000 was tried.
+MIN_ELO, MAX_ELO = 500, 2000
+# The Hugging Face snapshot each model alias was checked against (ADR 0012, band check). A game played on any other snapshot is
+# recorded as not pinned, never refused: the model is not ours to freeze, but the result of a game must say what played it.
+MODEL_REPOS = {"maia3-5m": "UofTCSSLab/Maia3-5M"}
+PINNED_CHECKPOINTS = {"maia3-5m": "b6559de2398d7140b985f28fd2c19fb5e47ddabe"}
 DEFAULT_TEMPERATURE = 1.0  # sample from the model's move distribution; 0 would always play its top move
 START_TIMEOUT_S = 120  # the first start may download weights
 
 
+def checkpoint(model: str) -> str | None:
+    """The Hugging Face snapshot hash of `model`'s weights as cached on this computer, or None if it cannot be found.
+
+    `MAIA3_CHECKPOINT` overrides it (a deployment that knows its snapshot). Otherwise: the cache's `refs/main`, or the only
+    snapshot there. Never starts Maia-3 and never downloads anything."""
+    forced = os.environ.get("MAIA3_CHECKPOINT", "").strip()
+    if forced:
+        return forced
+    repo = MODEL_REPOS.get(model)
+    if repo is None:
+        return None
+    home = Path(os.environ.get("HF_HUB_CACHE") or Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub")
+    folder = home / ("models--" + repo.replace("/", "--"))
+    ref = folder / "refs" / "main"
+    if ref.is_file():
+        return ref.read_text().strip() or None
+    snaps = [p.name for p in (folder / "snapshots").glob("*") if p.is_dir()] if (folder / "snapshots").is_dir() else []
+    return snaps[0] if len(snaps) == 1 else None
+
+
 def settings() -> dict:
     """The model setup in force, recorded with every Maia game (AGENTS.md rule 6)."""
+    model = os.environ.get("MAIA3_MODEL", DEFAULT_MODEL)
+    found = checkpoint(model)
     return {
         "cmd": os.environ.get("MAIA3_CMD", "").strip(),  # blank = not configured
-        "model": os.environ.get("MAIA3_MODEL", DEFAULT_MODEL),
+        "model": model,
         "device": os.environ.get("MAIA3_DEVICE", "cpu"),
         "temperature": float(os.environ.get("MAIA3_TEMPERATURE", DEFAULT_TEMPERATURE)),
+        "checkpoint": found,
+        "checkpoint_pinned": found is not None and found == PINNED_CHECKPOINTS.get(model),
     }
+
+
+def setup_record() -> dict:
+    """What to store on a game against Maia-3: everything in `settings()` except the command line."""
+    return {k: v for k, v in settings().items() if k != "cmd"}
 
 
 def command(cfg: dict | None = None) -> list[str]:
