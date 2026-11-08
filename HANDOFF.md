@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-08 (later) · MacBook · Claude Code: pre-trend result recorded (branch `docs/pretrend-results`, docs only)
+- **Done:** rank 1 of `docs/build-plan-v1.md`. The detectors (`hanging_own@4+rules1`, `missed_free@3+rules1`, Stockfish 19 depth 18) ran over all 627 synced games on a copy of the database (547 new games, about 3.9 hours, no failures). Rates per 50-game block are in `docs/personal-study-v1.md` section 3a.
+- **Finding:** M1 at 10|0 fell from 7.0% to about 2.9% (last three full blocks) before any training; M2 is flat and noisy (about 17%). Decision rule amendment proposed in section 3: compare with the pooled last three full pre-start blocks, not the depth-10 baseline.
+- **Owner decisions this session:** depth 18 stays the evidence depth (depth 12 declined).
+- **Not done:** the owner has not approved the amendment; the run script and the database copy are scratch files outside the repo; the real `data/coach.sqlite3` still lacks these rows (a backup copy exists); the unpushed commit `e84563e` (build-loop doc) is on this branch too.
+- **Next:** first-slip drill (rank 2, large: starts with a First Principles challenge, then grilling, ADR, tests).
+
 ### 2026-11-08 · MacBook · Claude Code: middlegame focus, evidence check and personal study plan, docs only (branch `main`)
 - **Why (owner):** refocus on the middlegame for players rated 500 to 1600 and prove to myself that training works before giving it to others. **ADR 0019** (with its 2026-11-08 amendment).
 - **Done:** `GLOSSARY.md` (new: opening is moves 1 to 4, checkpoint position after Black's 5th move, zones ahead / level / behind at ±0.5), `docs/decisions/0019-middlegame-conversion-pivot.md` (evidence on the owner's 618 Chess.com games, hypotheses H1 to H5), `docs/product-spec-v1.md` (validation spec, keep / park / cut audit), `docs/competitor-scan-2026-11-07.md` (H1 refuted for conversion), `docs/personal-study-v1.md` (pre-registered plan, start date not set), direction note in `PRODUCT.md`. Synced Chess.com (627 games) and ran the shallow engine pass on the 47 new games. No code changed; tests not run.
