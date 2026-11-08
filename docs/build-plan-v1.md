@@ -32,7 +32,7 @@ Ranked by what each unblocks for the study, then by effort. Effort is my estimat
 
 | Rank | Item | Part | Effort | Why this place |
 |---|---|---|---|---|
-| 1 | Pre-trend over all synced games | Progress | S | No code: run the evidence pass (about an hour). The study's decision rule needs the old slope first |
+| 1 | ~~Pre-trend over all synced games~~ **Done 2026-11-08** | Progress | S | Result in `docs/personal-study-v1.md` section 3a: M1 at 10\|0 already fell from 7.0% to about 2.3%, so the decision rule now compares against the last pre-start blocks |
 | 2 | First-slip drill, with the slip finder it needs | Practice | L | The one new training in the study. The finder (first big mistake per game, and the zone after move 5) is shared with ranks 3 and 5 |
 | 3 | Loss map in the app | Analyze | M | Reuses the finder; shows where games are lost |
 | 4 | Opening name for each slip | Analyze | S | Lichess CC0 file (66 KB); makes each first-slip drill say which opening it came from. Needs the owner's OK to download |
