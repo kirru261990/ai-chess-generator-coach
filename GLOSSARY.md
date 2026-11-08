@@ -69,9 +69,17 @@ A drill built from a public Lichess game.
 A drill built from a position that a Maia model played out from a real opening exit position, with Stockfish verifying the answer. Always labelled generated.
 _Avoid_: "synthetic", "engine drill"
 
+**Slip**:
+A move of the player at move 5 or later that loses at least 150 cp for the player in a position that was not already decided, confirmed at the evidence engine config. A label for a move, not a claim about the player's skill.
+_Avoid_: "blunder" (a different, stricter size), "mistake" (the detectors' word for hung and missed pieces)
+
 **First-slip drill**:
-A drill from the position just before the player's first big mistake in a game, asking for the engine-verified better move.
+A drill from the position just before the player's first slip in a game, asking for the engine-verified better move. It is either an own drill (the player's game) or a fresh drill (the same slip finder run over public games at the player's level).
 _Avoid_: "mistake drill" (that covers any mistake, not the first)
+
+**Round**:
+Ten first-slip drills, five own and five fresh, about 15 minutes.
+_Avoid_: "session" (reserved for the five-position Replay My Mistakes session)
 
 **Forcing line**:
 A sequence of the player's checks, captures and threats that wins material or forces replies, within three of the player's moves.
