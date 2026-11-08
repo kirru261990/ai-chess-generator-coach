@@ -69,6 +69,18 @@ A drill built from a public Lichess game.
 A drill built from a position that a Maia model played out from a real opening exit position, with Stockfish verifying the answer. Always labelled generated.
 _Avoid_: "synthetic", "engine drill"
 
+**First-slip drill**:
+A drill from the position just before the player's first big mistake in a game, asking for the engine-verified better move.
+_Avoid_: "mistake drill" (that covers any mistake, not the first)
+
+**Forcing line**:
+A sequence of the player's checks, captures and threats that wins material or forces replies, within three of the player's moves.
+_Avoid_: "combination", "tactic" (too broad)
+
+**Calculation drill**:
+A drill from a position where the player had a forcing line and missed it; the player names candidate moves and writes the line before seeing the engine's.
+_Avoid_: "puzzle"
+
 **Drill set**:
 A frozen list of drills. Rebuilding the drill bank does not change a set.
 

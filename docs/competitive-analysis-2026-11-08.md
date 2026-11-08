@@ -1,137 +1,132 @@
 # Competitive Analysis: tools that show chess players where they lose and train them
 
-As-of 2026-11-08 · Owner: Karthik Raman · Redone after reading the sibling skills (the first version of this file, committed nowhere, did not use them).
-Method: the six-step process in [competitive-analysis-process](https://github.com/deanpeters/Product-Manager-Skills/tree/cfcb697f14b8891d8b3ec43c16c3547df3e70e13/skills/competitive-analysis-process) and the skills it calls (landscape scan, research snapshot, voice-of-customer miner, positioning statement, intel watch, collection disciplines, autonomous investigation), all at commit `cfcb697`.
-Builds on `docs/competitor-scan-2026-11-07.md`. Hypotheses come from ADR 0019, `docs/product-spec-v1.md` and `docs/personal-study-v1.md`.
+As-of 2026-11-08 · Owner: Karthik Raman · Second full pass, on the competitor set agreed in `docs/competitor-set-2026-11-08.md` (the first pass covered only Chess.com and Aimchess).
+Method: the six-step process in [competitive-analysis-process](https://github.com/deanpeters/Product-Manager-Skills/tree/cfcb697f14b8891d8b3ec43c16c3547df3e70e13/skills/competitive-analysis-process) and the skills it calls, at commit `cfcb697`. Hypotheses from ADR 0019, `docs/product-spec-v1.md`, `docs/personal-study-v1.md`.
 
-**Labels:** **[F]** fact with a source and date, **[I]** inference (evidence plus a leap you can judge), **[A]** assumption. Things not found go in the gaps list, not under a label. Public information only; no product was trialled.
+**Labels:** **[F]** fact read on a page, with source; **[V]** vendor claim (a fact about what the vendor says, not proof it works); **[I]** inference; **[A]** assumption. Things not found go in the gaps list. Public pages only; no product was trialled; most vendor pages carry no date.
 
 ## Step 0: Scope
 
-- **Decision:** what the owner builds and what the owner claims, for personal use first. Specifically: which parts of the plan already exist elsewhere (use), and which do not (build).
-- **Hypotheses tested:** H1 nobody does conversion or tactics from your own games; H2 conversion is a big leak; H3 players want a report of their own games; H4 squandered advantages are tactical; "measured proof of improvement is an open angle"; "early collapse (first slips by move 5 to 6) is unserved".
-- **Question budget:** 0 asked (the request carried the context).
-- **Steps run:** 1, 2, 3, 5, 6, 7. **Step 4 skipped:** revenue and channels do not change a personal-first decision. **Battle card skipped:** no sales team. **Positioning statement:** run as a flagged hypothesis only (its own rules say not to use it for internal tools or before the problem is validated).
-- **Do-not-invent list:** product features, prices, ratings, user counts, study results, competitor roadmaps, quotes. Everything below is from a page that was read, or is marked as a gap.
+- **Decision:** what the owner builds and claims, personal-first. Which of the five jobs already exist elsewhere (use), and which do not (build).
+- **Jobs:** J1 diagnose where I lose; J2 train from my own games; J3 verified explanation; J4 prove it (fixed baseline, later result); J5 reach people inside Claude and ChatGPT as well as a website. Core for the personal study: J1, J2, J4.
+- **Set analysed (agreed):** Chess.com, Aimchess, Chessigma, Noctie, Decode Chess, the "Stockfish plus language model" coaches (Chessiro as the lead, with Chessy, Chessful, ChessLine, Notation, ChessCoach), the mistake-to-puzzle cluster, chess MCP servers (J5 only), and Chessreps and Chessable as adjacent notes.
+- **Steps run:** 1, 2, 3, 5, 6, 7. **Skipped:** Step 4 (revenue and channels do not change a personal-first decision) and the battle card (no sales team). The positioning statement is a flagged hypothesis only.
+- **Do-not-invent list:** features, prices, ratings, user counts, study results, roadmaps, quotes. Everything below comes from a page that was read or is in the gaps list.
 
-## Step 1: Landscape (market, in the buyer's words: "learn from my own games so I lose fewer of them")
+## Step 1: Landscape
 
-**How buyers experience the market.** Not by vendor category. A player either uses what sits in the site where they play, pays a separate app, turns mistakes into puzzles, buys a course, or does nothing.
+**How buyers experience the market:** by what they do after a game. They paste it into a free engine, open the platform's own review, pay a coach app, turn mistakes into puzzles, drill openings, buy a course, or ask a forum.
 
-| Group | Players (max 12; strongest signal) | Evidence |
+| Group | Players | Closest to |
 |---|---|---|
-| Platform tools | Chess.com Insights, Game Review, Play Coach (Premium); Lichess "Learn from your mistakes" | [Chess.com Insights article, 27 Jan 2026](https://support.chess.com/en/articles/8708925-what-is-insights-on-chess-com); [Chess.com membership](https://www.chess.com/membership) |
-| Standalone analytics + training | Aimchess | [aimchess.com](https://aimchess.com) |
-| Mistakes to puzzles | Learn From Your Blunders, Chessie, ChessForge | [Product Hunt](https://www.producthunt.com/products/learn-from-your-blunders), [Chessie](https://www.producthunt.com/p/chessie/chessie-2), [ChessForge](https://www.producthunt.com/p/chessforge) |
-| Courses and coaches | Paid conversion courses, coach newsletters | [Chess Chatter](https://chesschatter.substack.com/p/convert-winning-positions) |
-| **Non-consumption** | Free engine review with no training; posting a lost game on a forum for human feedback; a coach; just playing more | [Lichess thread](https://lichess.org/forum/game-analysis/problem-with-conversions) |
+| Platform tools | Chess.com Insights and Game Review; Lichess | J1, part of J2 and J4 |
+| Standalone analytics + training | Aimchess; **Chessigma** | J1, J2 |
+| Stockfish plus language-model coaches | Chessiro, Chessy, Chessful, ChessLine, Notation, ChessCoach, Noctie, Decode Chess | J3, some J1 and J2 |
+| Mistakes to puzzles | Learn From Your Blunders, Chessie, ChessForge | J2 |
+| Openings and courses | Chessreps, Chessable, conversion courses | adjacent |
+| Chess inside AI chat | Chess-com MCP, Chess Coach Agent, others | J5 |
+| **Non-consumption** | Free engine review, forum feedback, a human coach, playing more | all |
 
-- **[F]** Aimchess was acquired by Play Magnus Group in 2021, and Chess.com acquired Play Magnus Group in December 2022 ([Play Magnus Group](https://playmagnusgroup.com/chess-training-and-analytics-startup-aimchess-joins-play-magnus-group), [Chess.com](https://www.chess.com/news/view/chesscom-acquires-pmg)). The App Store lists the developer as "Chess.com, LLC".
-- **[I]** The biggest player owns the platform, the analytics, the course marketplace and the standalone app. Anything built on Chess.com game data depends on it.
-- **Dynamics [F, weak]:** several small entrants launched in 2025 and 2026 (relative dates on Product Hunt); the pricing reference point is low ("$2/month or $15/year", a maker comment for Learn From Your Blunders).
+- **[F]** Chess.com owns the platform, Insights, Aimchess and Chessable's parent: Aimchess was bought by Play Magnus Group in 2021 and Chess.com bought Play Magnus Group in December 2022 ([Play Magnus Group](https://playmagnusgroup.com/chess-training-and-analytics-startup-aimchess-joins-play-magnus-group), [Chess.com](https://www.chess.com/news/view/chesscom-acquires-pmg)).
+- **[F]** Price points seen: $2.99 to $14 a month, with one-off or lifetime options common (Notation £6.99 once; Chessful $29.99 lifetime; Chessy $79.99 lifetime; Chessigma $490 lifetime). **[I]** Price pressure is high; a paid product here would be hard to sustain, which matches the project's "no revenue now" stance.
 
-**Whitespace, with the dead-zone test** (every claim gets an honest counter-reading):
+**Whitespace with the dead-zone test:**
 
-| Whitespace claim | Counter-reading ("or is it a dead zone?") | Verdict |
+| Claim | Counter-reading ("or is it a dead zone?") | Verdict |
 |---|---|---|
-| Measured proof that training changed *my* results, with a fixed baseline | Chess.com Insights already has "Past Performance" (last N days against the previous N) and accuracy over time [F]; no verbatim in this research asks for proof; players may use rating as the scoreboard [I] | **Narrow, possibly a dead zone commercially.** Valid for the owner's own purpose |
-| Results by engine evaluation at a fixed early move (ahead / level / behind) | Closest are Chess.com "accuracy by move number" and Aimchess "Advantage capitalization", neither stated to bucket results by evaluation [F, vendor wording]. Demand for the *conversion* part is visible (Step 3) | **Partly open** |
-| Start a drill one or two turns *before* the first mistake | One user asked for it on Lichess (Step 3); Lichess's feature starts at the mistake [F] | **Open, thin demand evidence** |
-
-**So what.**
-1. Conversion and "puzzles from your mistakes" are crowded; compete on neither.
-2. Chess.com can ship any of this; build only what its incentives make unlikely (honest null results, fixed baselines).
-3. Two deep-dive players: Chess.com Insights, Aimchess. The mistake-to-puzzle group is represented by Learn From Your Blunders.
+| Measured proof that training changed my results, fixed baseline, honest nulls | Every vendor claims an effect (see Step 2) and users appear to accept claims; no verbatim read asks for proof; Chess.com Insights has "Past Performance" | **Possibly a dead zone commercially; valid for the owner's purpose** |
+| Explanations checked against the engine, with published accuracy | Notation, Chessiro and Decode Chess already claim engine grounding; users praise getting the "why" (Step 3) but none asked for verified accuracy | **Weak differentiator**; keep it as an engineering rule |
+| Results by evaluation at a fixed early move (ahead / level / behind) | Chessigma and Aimchess describe conversion or "advantage capitalization" analytics; none stated to bucket results by an early evaluation | **Partly open** |
+| Start a drill from before the first slip | One Lichess user asked for it; no product found doing it, but Chessigma's blunder training is "positions where you were about to hang something" | **Open, thin demand** |
 
 ## Step 2: Product-level comparison
 
-Vendor claims below are facts about what the vendor *says*, not proof it works.
+**Closest competitor: Chessigma [V unless noted].** Its pages describe a five-area "Chess DNA" report (blunders, tactics, the clock, converting winning positions, openings), a daily plan "built every morning from your recent games" using up to 12 months of games, blunder training cut from your own games, a "Conversion Trainer" in the navigation, an AI "Supercoach" with chat (announced as open in an 8 Jul 2025 blog post), import from Chess.com, Lichess and PGN, and a public API with MCP documentation (own 12 Oct note). Prices as shown: $14 a month, $97 a year, $490 lifetime. Observations that lower confidence: the Endgame Trainer and Courses are marked "Soon" [F]; the headline "Our players gain +112 Elo in their first month" sits beside named examples of +191 to +232, with no method; the engine is described as Stockfish 16 in one article and 17 in its title; Trustpilot shows 3 reviews (3.6 average). Whether the coach's prose comes from a language model is not stated.
 
-| | Chess.com (Insights, Game Review) | Aimchess | Learn From Your Blunders (as one of 3 similar) |
-|---|---|---|---|
-| Positioning | "Reveals patterns and statistics like your wins and losses, accuracy, common mistakes" | "Unique analytics with personalized lessons (created from your games!)" | "Chess puzzles based on your blunders" |
-| Relevant capability | Insights: game phases, openings, moves, **tactics found vs missed (forks, pins, mates, hanging pieces)**, "Past Performance", "Similar Players" | Six aspects incl. **Advantage capitalization**, about 13 trainers incl. Blunder Preventer, Advantage Capitalization Trainer, Opening Improver | Analyses "openings, missed tactics, repetitive blunders, lost advantages" |
-| Strength (likely) | Data and distribution; one place for games, review and lessons | Longest focus on personalised training; peer comparison "to others with the same rating" | Low price; focused on the mistake-to-puzzle loop |
-| Weakness (likely) | Insights is Diamond-only [F]; complaint about usability for learning (Step 3) | App Store history shows no release since 06/28/2024 [F, snapshot date unknown]; effect claim without a linked study | 1 review (5.0); pricing from a maker comment; vendor site not read |
-| Price (as found) | Not on the pages read; Insights needs Diamond | Web: free (one 40-game report a month), $7.99 a month, $57.99 a year; App Store: $9.99 a month, $71.99 a year (store pricing differs; reason not stated) | "$2/month or $15/year" (maker comment) |
-| Key sources | Insights article, membership page | aimchess.com, App Store page | Product Hunt |
-| **Evidence quality** | **Medium** (vendor support page, dated) | **Medium-low** (vendor page, copyright 2021, no dates) | **Low** (launch page, 1 review) |
+**Comparison of those with the largest overlap** (what each *states*; "not stated" is not "absent"):
 
-**Capability checks against our plan** (what each *states*; "not stated" is not "absent"):
+| | Chess.com Insights | Aimchess | Chessigma | Chessiro | Notation | Chessy | Noctie | Decode Chess |
+|---|---|---|---|---|---|---|---|---|
+| Own-game diagnosis across games | Yes (phases, tactics, openings) | Yes (6 aspects incl. Advantage capitalization) | Yes (Chess DNA, 5 areas) | Claimed ("tracks the mistakes you repeat across games") | Claimed ("spots the patterns in how you play") | Yes (insights, weekly report) | Per game only | Per game; a testimonial mentions all games |
+| Training from own mistakes | Separate tools | Yes (13 trainers) | Yes (blunder training, daily plan) | Yes (Replay Mistakes, Smart Shuffle) | Sparring partner, no drill generator | Yes (puzzles from your games) | Yes (decks from mistakes) | Not stated |
+| Engine check on the "why" | n/a | not stated | "Stockfish supplies the ground truth" (own roundup) | "Every explanation starts from Stockfish 19"; self-reported 75 to 80% right | **"The LLM… never evaluates… That's why it doesn't hallucinate"** (no test cited) | Not stated | Grades "judged like a human, not an engine" | "Backed by a strong chess engine"; "every suggested concept is verified" |
+| Price (as shown) | Diamond | Free (one 40-game report a month), $7.99 a month, $57.99 a year (App Store $9.99 / $71.99) | $14 a month, $97 a year, $490 once | Free (limited), ₹449 / ₹699 a month | £6.99 once (£2.99 launch) | $7.99 a month, $49.99 a year, $79.99 once | €14 a month, €96 a year, no free tier | Free (1 game a day), $8.25 a month, $84 a year |
+| Recency signal | Article 27 Jan 2026 | App Store last release 06/28/2024 | Reviews to Jul 2026; blog to Aug 2026 | Blog 19 Jul 2026 | Page undated | Releases 4 Oct, 6 Oct, 22 Oct, 27 Oct, latest "15h ago" | Product Hunt 2024; © 2021-2026 | Footer 2022 |
+| **Evidence quality** | Medium | Medium-low | Medium-low | Low (vendor ranks itself) | Low | Medium (store history) | Low | Low |
 
-| Check | Chess.com | Aimchess | Mistake-to-puzzle group | Lichess |
-|---|---|---|---|---|
-| Own mistake rate over time vs an earlier period | **Partly yes** ("Past Performance", "accuracy over time", "Move quality over time") | Peer baseline, not own baseline; "My statistics page" (Premium) | Not stated | Not read (403) |
-| Training effect measured | Headline "Increase Your Rating 2.7X Faster With Premium!", no method on the page | Claims "31% faster" with a footnote to a "12 week randomized field experiment" at UBC; **no link or outcome measure; I could not find the paper** | Not stated | Not read |
-| Results split by evaluation at a fixed early move | No (closest: accuracy by move number) | Not stated | Not stated | Not read |
+**Three more on the app-store side [V and F]:** Chessful (Stockfish on device, 10 mistake types, from $2.99 a month; latest 2.1.1 "1d ago"); ChessLine (opening deviations, 4.4 from 8 ratings; latest 1.2.2, 8 Oct); ChessCoach (Chrome extension reading the last 20 games, $9.99 a month; its page said the store launch was due June 2026, unconfirmed). Mistake-to-puzzle cluster (Learn From Your Blunders $2 a month per a maker comment; Chessie; ChessForge free plan): vendor pages, 0 to 1 reviews.
 
-**Parity warning.** "Turns your mistakes into puzzles" and "finds your repeated patterns" appear on every tool in the group. The vendor claims "31% faster" (fetched page) and a "40% faster than peers" figure (seen in one search summary of the homepage) conflict; only the fetched wording is used here.
+**Capability checks against our plan** (all three are "not stated" for almost everyone):
 
-**[I] Build versus use:** Chess.com Insights already counts missed hanging pieces and shows change over time, so measuring M1 and M2 is partly available to a Diamond member. What it cannot offer is a fixed, pre-registered, versioned measure: the platform can change its definitions without notice, whereas ours are pinned (AGENTS rule 6) and hand-checked.
+| Check | Result |
+|---|---|
+| Own mistake rate over time against an earlier period | Chess.com Insights partly yes ("Past Performance", accuracy and move quality over time). Chessigma "improvement trends" in image alt text, no baseline described. Everyone else not stated |
+| Measured training effect | **No method anywhere.** Claims: Chess.com "2.7X faster"; Aimchess "31% faster" with an unlinked UBC footnote; Chessigma "+112 Elo in the first month"; Chessiro "of 108 players we measured, 83% are rated higher than when they joined"; ChessCoach "+180 in 8 weeks*" marked illustrative |
+| Results by evaluation at a fixed early move | Not stated by any |
+
+**Adjacent:** Chessreps trains openings with spaced repetition, courses checked against Lichess game data, $34.99 a year, own games not shown [F]; Chessable sells courses with spaced repetition, own games not shown, pricing not on the page read [F].
+
+**J5, chess inside AI chat [F]:** Chess-com MCP runs in ChatGPT and Claude with interactive board views but only fetches a player's last game and the daily puzzle; no engine; Glama marks it "Inactive". "Chess Coach Agent" is a course-assignment repo, one finished Lichess game at a time, needs local Stockfish and Obsidian, 0 stars, Glama "Stale". Two others (Lichess MCP, ChessAgine MCP) returned 403. **[I]** No product found offers cross-game diagnosis or training inside ChatGPT or Claude; Chessigma's MCP documentation route is the only commercial signal.
+
+**Parity warning:** "turns your mistakes into puzzles" and "finds your repeated patterns" are on almost every product.
+
+**[I] Build versus use:** for J1 and J2, assume Chessigma, Aimchess, Chessy and Chess.com already do most of it. Test that by using them on the owner's account before building more.
 
 ## Step 3: Voice of the customer
 
-All quotes are verbatim, copied from the page text read on 2026-11-08. Source types and their skew are stated. This is discovery evidence, not a statistical method; every theme is a hypothesis to validate in interviews.
+Verbatim quotes, copied from the page text on 2026-11-08, with source type and bias. Hypotheses, not verdicts; frequency is stated honestly; Reddit was not reached directly.
 
-**Theme A: "Tell me why the move was wrong."** Frequency: recurring on one site (two threads, both Chess.com beginners section), old (2019 to 2021).
-- "the descriptive text doesn't help me know WHY the suggested move is better" ([oneleftfoot, Chess.com forum, 13 Nov 2020](https://www.chess.com/forum/view/for-beginners/learning-why-a-move-is-a-mistake-blunder))
-- "Is there anyway to find out why moves are rated the way they are?" ([pluviosilla, Chess.com forum, 5 Oct 2019](https://chess.com/forum/view/for-beginners/analysis-tells-me-a-move-is-excellent-good-inaccurate-or-a-blunder-but-why))
-- Who says it: self-selected beginners who asked a question. Reading **[I]**: the need is an explanation, not another label. Counterpoint in the same thread: "Most times I make a mistake or blunder, I can usually understand why when I look at the analysis."
+**Theme A: "Tell me why."** Recurring (four threads and listings, two sites, 2019 to 2026).
+- "the descriptive text doesn't help me know WHY the suggested move is better" ([Chess.com forum, 13 Nov 2020](https://www.chess.com/forum/view/for-beginners/learning-why-a-move-is-a-mistake-blunder))
+- "Is there anyway to find out why moves are rated the way they are?" ([Chess.com forum, 5 Oct 2019](https://chess.com/forum/view/for-beginners/analysis-tells-me-a-move-is-excellent-good-inaccurate-or-a-blunder-but-why))
+- "this is the first one that actually shows why I’m losing instead of just throwing stats at me." ([App Store review of Chessy, 16 Apr, year not printed](https://apps.apple.com/us/app/-/id6761496636))
+- Bias: forum askers self-select; app-store reviewers skew to extremes. Reading **[I]**: demand for the *why* persists, and Chessy's review shows it is being met by at least one new product.
 
-**Theme B: "Let me train on my mistakes across all games, from before the mistake."** Frequency: recurring on one site (two Lichess feature-request threads, undated).
-- "I suggest setting up a way to go through your mistakes across ALL games for which the computer analysis has been run." ([eaglesdc, Lichess forum](https://lichess.org/forum/lichess-feedback/create-learn-from-your-mistakes-across-all-games))
-- "instead of doing this on mistake turn, i wish you could start from one or two turns before" ([hal9k, Lichess forum](https://lichess.org/forum/lichess-feedback/love-learn-from-your-mistakes-can-it-be-implemented-to-use-all-my-games))
-- Who says it: fans of the feature asking for more, not complaints. Reading **[I]**: supports the "before my first slip" drill kind and a cross-game review, as a request, not as proof people would pay.
+**Theme B: "Across all games, from before the mistake."** Two Lichess feature-request threads (fans asking for more).
+- "I suggest setting up a way to go through your mistakes across ALL games for which the computer analysis has been run." ([Lichess forum](https://lichess.org/forum/lichess-feedback/create-learn-from-your-mistakes-across-all-games))
+- "instead of doing this on mistake turn, i wish you could start from one or two turns before" ([Lichess forum](https://lichess.org/forum/lichess-feedback/love-learn-from-your-mistakes-can-it-be-implemented-to-use-all-my-games))
 
-**Theme C: "I get winning positions and lose them."** Frequency: recurring across two sites; a search for the topic returned more than ten further thread titles that were not read, so the count of threads is not a frequency.
-- "I often lose games that I had a winning position in" ([tinaseiskaffee, Lichess forum](https://lichess.org/forum/game-analysis/problem-with-conversions))
-- "I often get into clearly winning positions, but somehow still manage to lose or draw the game." ([youthap, Chess.com forum, Apr 2026](https://www.chess.com/forum/view/general/why-do-i-keep-losing-winning-positions))
-- Who says it: players who chose to post. **The cause is contested across the three sources read:**
-  - Lichess thread: a hanging rook ("33 Qb4? was your decisive mistake as your queen leaves Rd1 unprotected", tpr) and a rushed move after spending time.
-  - Chess.com thread: "It's not always time trouble, and it's not always obvious blunders either." (youthap)
-  - A coach's newsletter (commercial, sells a conversion course): "The harsh truth is that solving more tactics won't fix this problem." ([Dalton Perrine, Substack, 13 Jan 2026](https://chesschatter.substack.com/p/convert-winning-positions))
-- Reading **[I]**: the need is real and widely reported; whether it is tactical is disputed.
+**Theme C: "I get winning positions and lose them."** Recurring on two sites; the cause is contested.
+- "I often lose games that I had a winning position in" ([Lichess forum](https://lichess.org/forum/game-analysis/problem-with-conversions))
+- "It’s not always time trouble, and it’s not always obvious blunders either." ([Chess.com forum, Apr 2026](https://www.chess.com/forum/view/general/why-do-i-keep-losing-winning-positions))
+- "The harsh truth is that solving more tactics won't fix this problem." ([Chess Chatter, 13 Jan 2026](https://chesschatter.substack.com/p/convert-winning-positions); a coach who sells a course)
+- A Lichess commenter blames a hanging rook ("33 Qb4? was your decisive mistake as your queen leaves Rd1 unprotected").
 
-**Theme D: "Insights are hard to turn into learning."** Frequency: isolated but vivid to recurring (two Chess.com threads, paying members).
-- "it's just useless graphs I have to scroll through looking for something of value." ([KevinTheSnipe, Chess.com forum, 7 May 2024](https://www.chess.com/forum/view/site-feedback/better-insights))
-- "but I'd ideally like to use them to learn." ([VelouriousFog, Chess.com forum, 20 Dec 2023](https://chess.com/forum/view/general/how-to-use-insights-to-improve))
-- Who says it: paying customers asking for more value; skews negative.
+**Theme D: "Analytics don't help me learn" and "this app is not worth it."** Isolated to recurring, paying or app-store users.
+- "it's just useless graphs I have to scroll through looking for something of value." ([Chess.com forum, 7 May 2024](https://www.chess.com/forum/view/site-feedback/better-insights))
+- "You’re better off doing a lichess study than downloading this app." ([App Store review of ChessLine, 9 Sep, year not printed](https://apps.apple.com/app/id6748459144))
+- "It's so greedy: filled with ads and sometimes force you to watch one when you do a game review" ([Trustpilot, Chessigma, 1 star, 12 Mar 2026](https://www.trustpilot.com/reviews/69b2208860f96946d2c9cdba))
 
-**Competitor weak points (evidence quality in brackets):** Chess.com Insights, usability for learning [low: two threads]. Aimchess, stale-looking app and page [low: one store snapshot and a 2021 footer]. Aimchess and Chess.com, effect claims without a method [medium: the pages show the claim, the missing method is an absence]. Mistake-to-puzzle tools, quality unknown [no reviews to judge].
-
-**Switching triggers.** None found. The threads show price complaints ("I pay the equivalent of about $15 a month", a favourable Aimchess blogger, 2023) but not a reason to leave one tool for another. **This is a gap.**
-
-**Bias notes.** Forum posters self-select and over-represent confusion; feature-request threads come from fans; paid-feature feedback comes from paying members and complains about value; the Aimchess forum post is the developer's own; the Product Hunt page has no reviews; the Substack source is commercial. Reddit could not be read directly. Chess.com threads are mostly 2019 to 2021.
-
-**So what.** Three opportunity hypotheses, phrased as problems: (1) players cannot tell *why* they keep losing positions they were winning; (2) players want to retrain from the moment before the first mistake, across games; (3) players with paid analytics cannot turn them into practice. Validate in 5 interviews before building anything for others (the skill's own handoff).
+**Competitor weak points:** Chessigma, unexplained headline claim and "Soon" items [medium]; Aimchess, stale-looking app and unlinked study [low]; Chess.com Insights, usability for learning [low]; several coaches, accuracy self-reported with no method [medium]; mistake-to-puzzle tools, unreviewed [no evidence].
+**Switching triggers:** none found, beyond price complaints and ads. **Gap.**
+**So what.** Opportunity hypotheses: (1) players cannot tell why they keep losing won positions, and experts disagree on the cause; (2) players want to train from before the mistake, across games; (3) paid analytics don't turn into practice. Validate with five interviews before building anything for others. The sample here is small: three Trustpilot reviews for Chessigma, 19 and 8 App Store ratings for Chessy and ChessLine.
 
 ## Step 5: Perception and positioning
 
-- **Promise-delivery gap [I]:** Chess.com's headline is "Increase Your Rating 2.7X Faster With Premium!" and Aimchess's is "31% faster", neither with a method on the page; users in the threads ask for the *why* and say the graphs don't help them learn.
-- **Positioning statement (hypothesis only, not for sharing).** The skill says not to write one for internal tools or before the problem is validated, and the owner is the only user, so this is a note to self:
-  - *For* recreational players who keep losing games they felt they should have won, *who need* to know whether training actually changes their own results, *a measurement-first training log* *that records a fixed baseline in advance and reports when nothing changed.* *Unlike* Chess.com Insights and Aimchess, *which* show trends and claim faster improvement without a method on the page.
-  - Stress test: recognisable? **Unknown** (no one else asked). Defensible need? **Partly** (Theme D, but no one asked for proof). Believable differentiation? Yes, it is a stance (pre-registration, honest nulls), hard for a vendor selling improvement claims to adopt **[I]**. Guides decisions? Yes: no feature that cannot be measured. Not socialised.
+- **Promise-delivery gap [I]:** every product promises faster improvement; none shows a method. Players ask for the *why* and for practice that fits their own games.
+- **Positioning statement (hypothesis for the owner's own use, not for sharing; the skill advises against one before the problem is validated):** *For* recreational players who keep losing games they felt they should have won, *who need* to know whether training changes their own results, *a measurement-first training log* *that fixes its baseline in advance and reports when nothing changed.* *Unlike* Chessigma, Aimchess, Chessiro and Chess.com, *which* claim faster improvement without a method on the page.
+- **Stress test:** recognisable? Unknown. Defensible need? Partly (nobody read asked for proof). Believable and falsifiable? Yes. Hard to copy in six months? Probably, since vendors selling improvement claims have little incentive to publish nulls **[I]**.
 
 ## Step 6: Strategic direction (collection plan and fusion)
 
-**Variables.** TARGET: Chess.com (including Aimchess) and the new mistake-to-puzzle entrants. MARKET: online chess instruction software (industry code not looked up). GEOGRAPHY: global. BUYER: recreational players rated 500 to 1600. CAPABILITY: personalised post-game analysis, training and measurement. DECISION: what the owner builds and claims. **Disciplines run (2 to 3, as the playbook requires):** OSINT (news, blogs, support pages), SIGINT (app-store history, pricing and product pages), HUMINT (hiring; failed, see gaps).
+**Variables.** TARGET: the Stockfish-plus-language-model coach segment, plus Chess.com. MARKET: online chess instruction software (industry code not looked up). GEOGRAPHY: global. BUYER: recreational players 500 to 1600. CAPABILITY: personalised analysis, training and measurement. DECISION: what the owner builds and claims. **Disciplines (2 to 3):** OSINT (launch pages, blogs, support articles, Trustpilot), SIGINT (app-store version history, pricing and product pages), HUMINT (Chess.com jobs page; did not render).
 
 | Discipline | Signal | Label | Source and date |
 |---|---|---|---|
-| OSINT | Insights article describes "Past Performance", tactics found vs missed (hanging pieces) | Fact | [Chess.com support, 27 Jan 2026](https://support.chess.com/en/articles/8708925-what-is-insights-on-chess-com) |
-| OSINT | Chess.com news pages 1 and 2 (16 Oct to 7 Nov 2026) have no post about Insights, Game Review, coach or training | Fact (absence, two pages only) | [Chess.com news](https://www.chess.com/news) |
-| OSINT | Lichess blog 2026: no dedicated insights or learning feature post; mobile update 24 Mar 2026 mentions "learn from mistakes" in image alt text | Fact, weak | [Lichess blog](https://lichess.org/blog) |
-| SIGINT | Aimchess App Store: latest version 1.3.1, 06/28/2024; snapshot date not shown | Fact, weak | [App Store](https://apps.apple.com/us/app/aimchess-learn-chess-online/id1524941307) |
-| SIGINT | Aimchess site footer "Copyright © 2021"; blog page returned no posts | Fact, weak | [aimchess.com](https://aimchess.com) |
-| SIGINT | Membership page lists Unlimited Game Review, Play Coach, Unlimited Puzzles; no prices in the text read | Fact | [Chess.com membership](https://www.chess.com/membership) |
-| OSINT | Three mistake-to-puzzle tools launched on Product Hunt (2025 and 2026 by relative dates) | Fact, weak | Product Hunt pages above |
-| HUMINT | Chess.com jobs page did not render roles | Gap | [Chess.com jobs](https://www.chess.com/jobs) |
+| SIGINT | Chessy: five releases 4 Oct to 27 Oct, latest "15h ago"; Chessful 2.1.1 "1d ago"; ChessLine 1.2.2 on 8 Oct | Fact | App Store pages |
+| OSINT | At least six Stockfish-plus-language-model coach apps are listed in 2026 roundups; Chessiro's roundup updated 19 Jul 2026 | Fact (vendor-written) | [Chessiro](https://chessiro.com/blog/best-chess-analysis-tools) |
+| OSINT | Chessigma coach blog 8 Jul 2025; newest dated Chessigma page 15 Aug 2026; Trustpilot reviews to 19 Jul 2026 | Fact | Chessigma, Trustpilot |
+| OSINT | Chess.com news pages 1 and 2 (16 Oct to 7 Nov 2026) have no analysis or training product post; Insights article dated 27 Jan 2026 | Fact (absence on two pages) | Chess.com |
+| SIGINT | Aimchess App Store: last release 06/28/2024; site footer 2021 | Fact, weak | App Store, aimchess.com |
+| OSINT | Glama marks Chess-com MCP "Inactive" and Chess Coach Agent "Stale" | Fact | Glama |
+| HUMINT | Chess.com jobs page did not render | Gap | |
 
-**Stacking rule applied (one channel = watch, two = working hypothesis, three or more = actionable, conflict = dig):**
-- *Chess.com extends in-platform analytics:* one clear channel (support article) plus a negative on news = **watch**.
-- *Aimchess is winding down:* two weak signals from the same vendor surface (store history, site footer) = **watch, not a working hypothesis**; not corroborated by hiring or news. An announcement would be treated as intent only; none was found.
-- *More entrants:* weak, relative dates = **watch**.
-- **Verdict: monitor. No action trigger.** The earlier "Chess.com Play Coach and celebrity coaches" signal is undated in what I read and is practice for beginners, not analysis; not used.
+**Stacking rule (1 watch, 2 working hypothesis, 3 or more actionable, conflict = dig):**
+- *The personalised AI-coach segment is crowded and fast-moving:* three channels (store release cadence, 2026 launch and roundup pages, review dates) = **actionable**. The action is to **not enter as a commercial coach**, and keep the project measurement-first and personal.
+- *Chess.com extends in-platform analytics:* one clear channel plus a negative on news = **watch**.
+- *Aimchess winding down:* two weak signals from one vendor surface = **watch**.
+- *Chess inside AI chat is an open lane for analysis:* store and registry signals show only hobbyist, inactive projects = **working hypothesis**, not corroborated by hiring or funding.
+- **Verdict:** threat to a commercial coach: **high**. Threat to the personal study: **low**. Review quarterly.
 
 ## Step 7: Outputs
 
@@ -139,38 +134,39 @@ All quotes are verbatim, copied from the page text read on 2026-11-08. Source ty
 |---|---|---|---|
 | Comparison matrix | Yes (Step 2) | Owner | 2 |
 | Positioning counter-move | Hypothesis only (Step 5) | Owner | 3, 5 |
-| Threat assessment | Yes (Step 6: monitor) | Owner | 6 |
+| Threat assessment | Yes (Step 6) | Owner | 6 |
 | Battle card | Skipped | n/a | n/a |
 
 **Hypothesis verdicts**
 
-| # | Hypothesis | Verdict now | Change from the first pass |
-|---|---|---|---|
-| H1 | Nobody does conversion or tactics from your own games | **Refuted** (Aimchess has an Advantage Capitalization trainer and analytics aspect; Chess.com Insights counts missed hanging pieces) | Stronger |
-| H2 | Conversion is a big leak | Widely reported by players (Theme C); our data: 25% of losses start ahead | Unchanged |
-| H3 | Players want a report of their own games | **Partly supported**: demand for *why*, *across games*, *from before the mistake*, *conversion*; no evidence yet for a new tool or willingness to pay | Narrower |
-| H4 | Squandered advantages are tactical | **Contested**: sources split between hanging pieces, not-obvious blunders, and technique | **Downgraded** from "weakly supported" |
-| Open angle | Measured proof of improvement | **Narrowed**: Chess.com has over-time views; an Aimchess effect claim has no link; a fixed pre-registered baseline was not found; possibly a commercial dead zone, valid for the owner | Narrowed |
-| Early collapse | Start from before the first slip | **Thin demand evidence** (one request); not found as a product | Slightly stronger |
+| # | Hypothesis | Verdict now |
+|---|---|---|
+| H1 | Nobody does conversion or tactics from your own games | **Refuted.** Chessigma, Aimchess, Chess.com, Chessy and others do |
+| H2 | Conversion is a big leak | Widely reported by players; our data: 25% of losses start ahead at the checkpoint |
+| H3 | Players want a report of their own games | **Partly supported**; the demand is for the *why*, cross-game training and conversion; products already meet it; willingness to pay for a new tool is not shown |
+| H4 | Squandered advantages are tactical | **Contested** between hanging pieces, subtler errors and technique |
+| J3 | Verified explanations are a differentiator | **Weak**: Notation, Chessiro and Decode Chess claim it; none cites a test. Our own evaluation (E2 v2, 110 of 110 on a frozen set, with caveats) is a point in our favour that no player has asked for |
+| J4 | Measured proof of improvement is open | **Narrowed**: everyone claims, nobody shows a method; possibly a dead zone commercially; valid for the owner |
+| J5 | Chess inside ChatGPT and Claude | **Open but hobbyist**: no product found offers cross-game diagnosis or training there |
+| Early collapse | Start from before the first slip | **Thin demand**; no product found doing exactly this |
 
-**Build versus use (decision).** Use first: try the Chess.com Diamond trial for Insights and one free Aimchess report on the owner's account, and compare with our loss map. Build only what stays unserved and cheap: the pre-registered, versioned measurement, and the "before my first slip" drill after a hand-check. Do not rebuild the mistake-to-puzzle loop or the conversion replay.
+**Build versus use (decision).** Use first: try Chessigma's free analysis, one Aimchess report, Chessy's free tier and the Chess.com Diamond trial on the owner's own account, and compare each with our loss map. Build only what stays unserved and cheap: the pre-registered, versioned measurement (J4) and the "before my first slip" drill after a hand-check. Do not rebuild the mistake-to-puzzle loop, the conversion trainer or a commercial coach.
 
-**Maintenance cadence (baseline for the intel watch).** This document is the baseline snapshot. Re-run only the delta quarterly and before any decision to share the product. Materiality bar: report a change only if it would change what the owner builds or claims. Watchlist: Chess.com Insights or Game Review changes; any tool that reports mistake rates against a fixed baseline; Aimchess store and web activity; the Aimchess study behind "31% faster". Not installed as a schedule.
+**Maintenance cadence (baseline for the intel watch).** This document is the baseline. Re-run only the delta quarterly and before any decision to share the product. Materiality bar: a change that would alter what the owner builds or claims. Watchlist: Chessigma (coach status, "Soon" items, conversion trainer, MCP); Chessy and Chessful release notes; Chess.com Insights; any product that reports mistake rates against a fixed baseline; the Aimchess study. Not installed as a schedule.
 
 ## Gaps list
 
-- Lichess Insights and Learn-from-your-mistakes pages returned 403; only forum threads and secondary sources were read for Lichess.
-- Chess.com membership prices and free-tier limits were not on the page text; Chess.com job roles did not render; Chess.com news page 3 and older were not read.
-- The Aimchess UBC study could not be found; the vendor's effect claim is unverified.
-- Google Play listing for Aimchess not checked; the App Store snapshot has no fetch date.
-- Chessie, ChessForge and Learn From Your Blunders vendor sites were not read; their pricing and quality are unverified.
-- Reddit was not reached directly; more than ten "losing winning positions" threads appeared in search results but were not read.
-- No data on switching triggers, willingness to pay, or conversion of any competitor.
-- The Theme A quotes are from 2019 and 2020 and may not reflect current products; the Lichess quotes in Theme B and the Lichess conversion thread are undated.
+- Lichess Insights and Learn-from-your-mistakes pages (403); the Lichess MCP and ChessAgine MCP pages (403); Chessable's about and Pro pages did not render; Chess.com membership prices, job roles and news beyond page 2.
+- Chessigma Google Play listing (truncated), its Conversion Trainer page, which pricing column holds Chess DNA, and whether the coach text comes from a language model.
+- Noctie: Product Hunt review text; independent reviews. Decode Chess: independent reviews; footer dated 2022.
+- The Aimchess UBC study; any method behind Chessiro's "83% rated higher", Chessigma's "+112 Elo" or Chess.com's "2.7X".
+- Chessiro has no App Store listing seen; Notation's App Store page not read; ChessCoach store status unknown.
+- No data on switching triggers or willingness to pay; Reddit not reached; Chessbook not found; Chess Tempo, Dr. Wolf, ChessBase, Chessmood and Chessiverse not researched.
+- No product was trialled; every feature claim is vendor wording.
 
 ## Final step: what next (pick one)
 
-1. **Try the two free checks:** Chess.com Diamond trial (Insights) and one free Aimchess report on the owner's account, then compare with our loss map.
-2. **Validate the three problem hypotheses:** five short interviews with players rated 500 to 1600 before anything is built for others.
-3. **Install the watch:** quarterly delta on this baseline, with the watchlist above.
+1. **Try the free tiers on the owner's account** (Chessigma, Aimchess, Chessy, Chess.com trial) and compare with our loss map; the owner signs in, I read the outputs.
+2. **Validate the three problem hypotheses** with five short interviews of players rated 500 to 1600.
+3. **Install the quarterly watch** on this baseline.
 4. **Update ADR 0019, the spec and the study plan** with these verdicts.
