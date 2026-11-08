@@ -123,7 +123,7 @@ spending limit in the Anthropic Console too: the local figures are estimates.
 
 ## Agent skills
 
-This repo uses Matt Pocock's engineering skills (`github.com/mattpocock/skills`; Claude Code plugin `mattpocock-skills`). Suggested flow per change: `/grill-with-docs` → `/to-spec` → `/to-tickets` → `/tdd` → `/code-review`. The rules in this file still apply (branches, `HANDOFF.md`, tests, licences).
+This repo uses Matt Pocock's engineering skills (`github.com/mattpocock/skills`; Claude Code plugin `mattpocock-skills`). Suggested flow per change: `/grill-with-docs` → `/to-spec` → `/to-tickets` → `/tdd` → `/code-review`. The full loop (Challenge, Define, Design, Build, Review, Prove), with the skill and the written output for each step, is in `docs/workflow.md`. The rules in this file still apply (branches, `HANDOFF.md`, tests, licences).
 
 ### Issue tracker
 
