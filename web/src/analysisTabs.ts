@@ -1,8 +1,9 @@
 /**
- * Review and Blind spots are built but hidden by default, to keep the page simple while practising (owner's request,
- * PR 59). They stay reachable: open the page with `?analysis=1` to show the tabs.
+ * Review and Blind spots are the Analyze part of the product (Play, Practice, Progress, powered by Analyze). They were hidden by
+ * default to keep the page simple while practising (owner's request, PR 59) and are shown by default since 2026-11-08 (owner:
+ * "finish the partly built items"). Open the page with `?analysis=0` to hide them again.
  */
-export const SHOW_ANALYSIS_TABS_BY_DEFAULT = false
+export const SHOW_ANALYSIS_TABS_BY_DEFAULT = true
 
 export function showAnalysisTabs(search: string): boolean {
   const flag = new URLSearchParams(search).get('analysis')
