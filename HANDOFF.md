@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-09 (build) · MacBook · Claude Code: deeper engine check replaces the human hand-check (branch `feat/slip-handcheck`)
+
+- **Why:** the owner (under 1000) cannot judge an engine's move by eye, so the 27-of-30 human check measured the wrong thing. `app/learner/slipverify.py` re-runs the drill's position from scratch at depth 24 (the drills were built at 18, MultiPV 3) and checks: the played move still loses at least 150 cp (`slip_holds`), and the deeper best move is one of the accepted moves (`answers_hold`). A position decided at depth is noted, not failed.
+- **Result on the 30 sampled positions:** slip holds 29 of 30, answers hold 30 of 30; gate 27 passed. One drill (`bdb20f8cd02557fd`) was not confirmed at depth 24 and should be dropped. Caveat: same engine at higher depth, a second opinion and not independent proof.
+- **Not run:** `slipverify all` over the 382 own drills (resumable; slow). The human page (`slipcheck`) stays as an optional "can I follow the explanation" check.
+- **Next:** decide whether to run all 382; Lichess build; web screen.
+
 ### 2026-11-09 (build) · MacBook · Claude Code: first-slip hand-check (branch `feat/slip-handcheck`)
 
 - **Own-games build done:** 627 games, 0 errors, 382 first-slip drills (61% of games; the depth-10 estimate was 87%, the gap is depth-18 confirmation plus the `unclear` rules, not split out yet). Median first slip at move 8; 197 drills have one accepted answer; median loss 363 cp.
