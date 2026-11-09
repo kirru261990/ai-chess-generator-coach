@@ -108,11 +108,16 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(ledger_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
-    have = {r[1] for r in conn.execute("PRAGMA table_info(slip_attempt)")}
-    for col in ("timer_s", "over_time"):  # a ledger made before ADR 0021 gets the new columns; its old attempts keep NULL
-        if col not in have:
-            conn.execute(f"ALTER TABLE slip_attempt ADD COLUMN {col} INTEGER")
-    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")  # two first requests must not both see the old layout and both add the column
+    try:
+        have = {r[1] for r in conn.execute("PRAGMA table_info(slip_attempt)")}
+        for col in ("timer_s", "over_time"):  # a ledger made before ADR 0021 gets the new columns; its old attempts keep NULL
+            if col not in have:
+                conn.execute(f"ALTER TABLE slip_attempt ADD COLUMN {col} INTEGER")
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
     return conn
 
 
@@ -177,6 +182,8 @@ def current(conn: sqlite3.Connection, timer_s: int = DEFAULT_TIMER) -> dict:
     if timer_s not in TIMERS:
         raise RoundError("bad_timer", f"The timer can be {', '.join(map(str, TIMERS[:-1]))} seconds or 0 for none.")
     rnd = _open_round(conn)
+    if rnd["round_version"] != VERSION:
+        timer_s = 0  # a round started before the timer existed stays untimed until it is finished (ADR 0021)
     drills = _drills(rnd)
     done = {r[0] for r in conn.execute("SELECT drill_id FROM slip_attempt WHERE round_id = ? AND answered_at IS NOT NULL", (rnd["id"],))}
     for pos, d in enumerate(drills):

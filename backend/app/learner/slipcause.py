@@ -11,6 +11,7 @@ by drill id, so the drill file is never rewritten. A label from an older detecto
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections import Counter
 
@@ -57,7 +58,10 @@ def label(drill: dict, analyser, detectors=DETECTORS) -> dict:
 
 
 def save(labels: dict[str, dict]) -> None:
-    causes_path().write_text(json.dumps(labels, indent=1, sort_keys=True) + "\n")
+    path = causes_path()
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(labels, indent=1, sort_keys=True) + "\n")
+    os.replace(tmp, path)  # a reader sees the old file or the new one, never half of one
 
 
 def _current(entry: dict) -> bool:
@@ -71,7 +75,11 @@ def load() -> dict[str, dict]:
     p = causes_path()
     if not p.exists():
         return {}
-    return {k: v for k, v in json.loads(p.read_text()).items() if _current(v)}
+    try:
+        raw = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return {}  # unreadable labels read as "no labels": the answer still goes through, with no cause given
+    return {k: v for k, v in raw.items() if _current(v)} if isinstance(raw, dict) else {}
 
 
 def explain_cause(cause: str | None) -> dict:

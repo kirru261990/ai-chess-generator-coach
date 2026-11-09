@@ -298,3 +298,64 @@ def test_the_round_version_records_that_the_round_had_a_timer(slips, conn):
     for _ in range(10):
         SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
     assert SR.current(conn)["summary"]["versions"]["round"] == "2"  # v1 rounds had no timer
+
+
+def test_an_unreadable_label_file_never_costs_the_player_an_answer(slips, conn):
+    from app.learner import slipcause
+
+    shown = SR.current(conn)
+    slipcause.causes_path().write_text("")  # what a reader sees while a rewrite is in progress
+    got = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert got["matched"] is True and got["cause"]["cause"] == "other"
+    slipcause.causes_path().write_text("{not json")
+    assert slipcause.load() == {}
+
+
+def test_saving_labels_replaces_the_file_whole_and_leaves_no_temporary_file(slips):
+    from app.learner import slipcause
+
+    slipcause.save({"a": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION}})
+    slipcause.save({"b": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION}})
+    assert set(slipcause.load()) == {"b"} and [p.name for p in slipcause.causes_path().parent.glob("slip_causes*")] == ["slip_causes_v1.json"]
+
+
+def test_two_first_requests_on_an_old_ledger_both_upgrade_it_without_a_duplicate_column_error(slips):
+    import sqlite3
+    import threading
+
+    SR.ledger_path().unlink(missing_ok=True)
+    old = sqlite3.connect(SR.ledger_path())
+    old.executescript("""CREATE TABLE slip_round (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, round_version TEXT NOT NULL,
+        drills TEXT NOT NULL, finished_at TEXT);
+        CREATE TABLE slip_attempt (round_id INTEGER NOT NULL, drill_id TEXT NOT NULL, position INTEGER NOT NULL, shown_at TEXT NOT NULL,
+        answered_at TEXT, move_uci TEXT, matched INTEGER, elapsed_ms INTEGER, assisted INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (round_id, drill_id));""")
+    old.close()
+    errors, gate = [], threading.Barrier(8)
+
+    def go():
+        try:
+            gate.wait()
+            SR.connect().close()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=go) for _ in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == []
+
+
+def test_an_unfinished_version_1_round_stays_untimed_until_it_is_finished(slips, conn):
+    SR.current(conn)
+    conn.execute("UPDATE slip_round SET round_version = '1'")
+    conn.execute("DELETE FROM slip_attempt")
+    conn.commit()
+    shown = SR.current(conn, timer_s=15)
+    assert shown["timer_s"] == 0  # version 1 means untimed (ADR 0021)
+    backdate(conn, 60)
+    assert SR.answer(conn, shown["drill_id"], "d2d4")["over_time"] is False
+    for _ in range(9):
+        SR.answer(conn, SR.current(conn, timer_s=15)["drill_id"], "d2d4")
+    assert SR.current(conn, timer_s=15)["done"] is True  # the version 1 round is finished
+    assert SR.current(conn, timer_s=15)["timer_s"] == 15  # the next round is version 2 and timed
