@@ -292,3 +292,9 @@ def test_an_older_ledger_without_the_timer_columns_is_upgraded_in_place(slips):
     c = SR.connect()
     assert SR.current(c)["timer_s"] == 15
     c.close()
+
+
+def test_the_round_version_records_that_the_round_had_a_timer(slips, conn):
+    for _ in range(10):
+        SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert SR.current(conn)["summary"]["versions"]["round"] == "2"  # v1 rounds had no timer

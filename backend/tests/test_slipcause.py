@@ -30,7 +30,7 @@ def test_the_first_confirming_detector_in_priority_order_gives_the_cause():
 
 def test_uncertain_or_silent_detectors_give_other_never_a_guess():
     got = slipcause.label(DRILL, None, table(hang="uncertain", threat="uncertain", free="uncertain"))
-    assert got == {"cause": "other", "detector": None, "version": None}
+    assert got == {"cause": "other", "detector": None, "version": slipcause.SET_VERSION}
     assert slipcause.label(DRILL, None, table())["cause"] == "other"
 
 
@@ -54,3 +54,9 @@ def test_each_cause_has_a_plain_sentence_and_a_habit_and_other_gives_no_reason()
     other = slipcause.explain_cause("other")
     assert other["habit"] is None and "no reason" in other["sentence"]
     assert json.dumps(slipcause.explain_cause("nonsense")) == json.dumps(other)
+
+
+def test_an_other_label_from_an_older_detector_set_is_not_served_either(causes):
+    slipcause.save({"d1": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION},
+                    "d2": {"cause": "other", "detector": None, "version": "hanging_own@3+threat@4+missed_free@3"}})
+    assert set(slipcause.load()) == {"d1"}  # d2 was judged "other" by a detector set that no longer exists, so it is relabelled

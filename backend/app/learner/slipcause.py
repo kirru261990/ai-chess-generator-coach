@@ -17,7 +17,7 @@ from collections import Counter
 import chess
 
 from app.detectors import hanging_own_v4, missed_free_v3, missed_threat
-from app.learner import drillbank, slipround
+from app.learner import drillbank
 
 # (cause, detector version, detect function, the outcome that confirms it), in priority order: the first confirming one wins
 DETECTORS = (
@@ -25,7 +25,15 @@ DETECTORS = (
     ("threat", missed_threat.VERSION, missed_threat.detect, "missed"),
     ("missed_free", missed_free_v3.VERSION, missed_free_v3.detect, "missed"),
 )
-OTHER = {"cause": "other", "detector": None, "version": None}
+
+
+def set_version(detectors=DETECTORS) -> str:
+    """The detector set a label was made under, e.g. `hanging_own@4+threat@4+missed_free@3`. An `other` label means "none of these
+    confirmed it", so it is only valid for the set that was run."""
+    return "+".join(f"{cause}@{version}" for cause, version, *_ in detectors)
+
+
+SET_VERSION = set_version()
 
 WORDS = {
     "hanging_own": ("Your move left a piece that the opponent could win.", "Before each move, ask: what can they take after this?"),
@@ -45,7 +53,7 @@ def label(drill: dict, analyser, detectors=DETECTORS) -> dict:
     for cause, version, detect, confirms in detectors:
         if detect(board, move, drill["ply"], analyser).outcome == confirms:
             return {"cause": cause, "detector": cause, "version": version}
-    return dict(OTHER)
+    return {"cause": "other", "detector": None, "version": set_version(detectors)}
 
 
 def save(labels: dict[str, dict]) -> None:
@@ -54,7 +62,7 @@ def save(labels: dict[str, dict]) -> None:
 
 def _current(entry: dict) -> bool:
     if entry["cause"] == "other":
-        return True
+        return entry["version"] == SET_VERSION
     return any(c == entry["cause"] and v == entry["version"] for c, v, *_ in DETECTORS)
 
 
@@ -77,7 +85,7 @@ def explain_cause(cause: str | None) -> dict:
 def label_all() -> dict[str, dict]:
     from app.db.schema import connect
     from app.engine.evidence import open_evidence
-    from app.learner import slipbank
+    from app.learner import slipbank, slipround
 
     labels = load()
     todo = [d for d in slipround.read_slips() if d["id"] not in labels]
