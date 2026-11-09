@@ -41,10 +41,11 @@ def causes(tmp_path, monkeypatch):
 
 
 def test_labels_are_saved_by_drill_id_and_an_older_detector_version_is_not_served(causes):
-    slipcause.save({"d1": {"cause": "hanging_own", "detector": "hanging_own", "version": "4"},
-                    "d2": {"cause": "threat", "detector": "threat", "version": "3"}})  # threat is at v4 now
+    slipcause.save({"d1": {"cause": "hanging_own", "detector": "hanging_own", "version": "4", "why": None},
+                    "d2": {"cause": "threat", "detector": "threat", "version": "3", "why": None},  # threat is at v4 now
+                    "d3": {"cause": "threat", "detector": "threat", "version": "4"}})  # made before the why existed: relabelled
     got = slipcause.load()
-    assert got["d1"]["cause"] == "hanging_own" and "d2" not in got
+    assert got["d1"]["cause"] == "hanging_own" and set(got) == {"d1"}
 
 
 def test_each_cause_has_a_plain_sentence_and_a_habit_and_other_gives_no_reason():
@@ -60,3 +61,23 @@ def test_an_other_label_from_an_older_detector_set_is_not_served_either(causes):
     slipcause.save({"d1": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION},
                     "d2": {"cause": "other", "detector": None, "version": "hanging_own@3+threat@4+missed_free@3"}})
     assert set(slipcause.load()) == {"d1"}  # d2 was judged "other" by a detector set that no longer exists, so it is relabelled
+
+
+def test_a_confirmed_label_carries_the_why_built_from_the_detectors_record(monkeypatch):
+    seen = {}
+
+    def fake_build(cause, drill, evidence, alternatives=None):
+        seen.update(cause=cause, evidence=evidence, alternatives=alternatives)
+        return {"mine": {"text": "x"}, "better": None}
+
+    monkeypatch.setattr(slipcause.slipwhy, "build", fake_build)
+    hit = lambda board, move, ply, analyser: NS(outcome="missed", reason="r", evidence={"threat_move": "e"}, alternatives=({"uci": "e2e4"},))
+    got = slipcause.label(DRILL, None, (("threat", "4", hit, "missed"),))
+    assert got["why"] == {"mine": {"text": "x"}, "better": None}
+    assert seen == {"cause": "threat", "evidence": {"threat_move": "e"}, "alternatives": ["e2e4"]}
+
+
+def test_explain_cause_adds_the_why_only_for_a_named_cause():
+    why = {"mine": {"text": "x"}, "better": None}
+    assert slipcause.explain_cause("threat", why)["why"] == why
+    assert slipcause.explain_cause("other", why)["why"] is None

@@ -18,7 +18,9 @@ export type Question = {
   timer_s: number
 }
 
-export type Cause = { cause: string; sentence: string; habit: string | null }
+export type WhyMark = { step: number; text: string; arrows: { from: string; to: string; tone: 'their' | 'better' }[]; squares: string[] }
+export type Why = { mine: WhyMark | null; better: WhyMark | null }
+export type Cause = { cause: string; sentence: string; habit: string | null; why: Why | null }
 
 export type Answer = {
   matched: boolean
@@ -102,24 +104,27 @@ export function answerLine(a: Pick<Answer, 'matched' | 'your_move' | 'elapsed_ms
 
 export type Badge = { square: string; symbol: string; tone: string; label: string }
 const BLUE = 'rgba(80, 140, 230, 0.85)'
+const TONE = { their: 'rgba(240, 173, 78, 0.8)', better: 'rgba(60, 154, 95, 0.8)' }
 
 /** What to draw on the board for this frame, in the same style as the Practice board: a blue arrow for your answer (with a star when it
- *  matched), then a badge on the moved piece for the first move of each line. A miss gets no badge: the engine did not rule on it. */
-export function boardMarks(frame: Frame, line: Line, answered: { uci: string; matched: boolean }) {
+ *  matched), a badge on the moved piece for the first move of each line, and, at the step it belongs to, the why: one sentence, the arrows
+ *  it talks about and a ring on the square. A miss gets no badge: the engine did not rule on it. */
+export function boardMarks(frame: Frame, line: Line, answered: { uci: string; matched: boolean }, why?: Why | null) {
+  let arrows = frame.arrows
+  let badge: Badge | null = null
   if (frame.step === 0) {
-    return {
-      arrows: [{ startSquare: answered.uci.slice(0, 2), endSquare: answered.uci.slice(2, 4), color: BLUE }],
-      badge: answered.matched ? ({ square: answered.uci.slice(2, 4), symbol: '★', tone: 'best', label: 'Matches the checked moves' } as Badge) : null,
-    }
-  }
-  if (frame.step === 1) {
+    arrows = [{ startSquare: answered.uci.slice(0, 2), endSquare: answered.uci.slice(2, 4), color: BLUE }]
+    if (answered.matched) badge = { square: answered.uci.slice(2, 4), symbol: '★', tone: 'best', label: 'Matches the checked moves' }
+  } else if (frame.step === 1) {
     const last = frame.arrows[0]
-    const badge: Badge = line === 'mine'
+    badge = line === 'mine'
       ? { square: last.endSquare, symbol: '?', tone: 'mistake', label: 'The move you played in the game' }
       : { square: last.endSquare, symbol: '★', tone: 'best', label: 'The better move' }
-    return { arrows: frame.arrows, badge }
   }
-  return { arrows: frame.arrows, badge: null as Badge | null }
+  const mark = why?.[line]
+  if (!mark || mark.step !== frame.step) return { arrows, badge, squares: [] as string[], text: null as string | null }
+  const extra = mark.arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: TONE[a.tone] }))
+  return { arrows: [...arrows, ...extra], badge, squares: mark.squares, text: mark.text as string | null }
 }
 
 /** "6 of 10 matched · 2 of 10 over time · middle time 9 s": every count keeps its denominator. */

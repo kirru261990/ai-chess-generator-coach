@@ -18,7 +18,7 @@ from collections import Counter
 import chess
 
 from app.detectors import hanging_own_v4, missed_free_v3, missed_threat
-from app.learner import drillbank
+from app.learner import drillbank, slipwhy
 
 # (cause, detector version, detect function, the outcome that confirms it), in priority order: the first confirming one wins
 DETECTORS = (
@@ -52,8 +52,11 @@ def label(drill: dict, analyser, detectors=DETECTORS) -> dict:
     board = chess.Board(drill["fen"])
     move = chess.Move.from_uci(drill["played"])
     for cause, version, detect, confirms in detectors:
-        if detect(board, move, drill["ply"], analyser).outcome == confirms:
-            return {"cause": cause, "detector": cause, "version": version}
+        finding = detect(board, move, drill["ply"], analyser)
+        if finding.outcome == confirms:
+            alternatives = [a["uci"] for a in getattr(finding, "alternatives", ())]
+            why = slipwhy.build(cause, drill, finding.evidence or {}, alternatives)
+            return {"cause": cause, "detector": cause, "version": version, "why": why}
     return {"cause": "other", "detector": None, "version": set_version(detectors)}
 
 
@@ -67,7 +70,8 @@ def save(labels: dict[str, dict]) -> None:
 def _current(entry: dict) -> bool:
     if entry["cause"] == "other":
         return entry["version"] == SET_VERSION
-    return any(c == entry["cause"] and v == entry["version"] for c, v, *_ in DETECTORS)
+    # a label made before the why existed has no "why" key and is relabelled (the analyses are cached, so it is cheap)
+    return "why" in entry and any(c == entry["cause"] and v == entry["version"] for c, v, *_ in DETECTORS)
 
 
 def load() -> dict[str, dict]:
@@ -82,12 +86,13 @@ def load() -> dict[str, dict]:
     return {k: v for k, v in raw.items() if _current(v)} if isinstance(raw, dict) else {}
 
 
-def explain_cause(cause: str | None) -> dict:
-    """The plain sentence and the habit for a cause; anything unknown reads as `other`."""
+def explain_cause(cause: str | None, why: dict | None = None) -> dict:
+    """The plain sentence, the habit and the why (sentences with marks) for a cause; anything unknown reads as `other`."""
     if cause in WORDS:
         sentence, habit = WORDS[cause]
-        return {"cause": cause, "sentence": sentence, "habit": habit}
-    return {"cause": "other", "sentence": "No rule-based check confirmed a cause for this one, so there is no reason to give.", "habit": None}
+        return {"cause": cause, "sentence": sentence, "habit": habit, "why": why}
+    return {"cause": "other", "sentence": "No rule-based check confirmed a cause for this one, so there is no reason to give.", "habit": None,
+            "why": None}
 
 
 def label_all() -> dict[str, dict]:

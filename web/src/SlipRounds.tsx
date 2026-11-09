@@ -128,7 +128,7 @@ export default function SlipRounds() {
 
   const review = ans?.review ?? null
   const frame = review ? reviewFrame(review, line, step) : null
-  const marks = frame && ans ? boardMarks(frame, line, { uci: ans.your_uci, matched: ans.matched }) : null
+  const marks = frame && ans ? boardMarks(frame, line, { uci: ans.your_uci, matched: ans.matched }, ans.cause.why) : null
   const clock = q && !ans ? timerState(q.timer_s, now - shownAt) : null
 
   const styles: Record<string, React.CSSProperties> = {}
@@ -143,6 +143,7 @@ export default function SlipRounds() {
     }
   }
 
+  for (const sq of marks?.squares ?? []) styles[sq] = { background: 'rgba(255, 215, 0, 0.45)' }
   // The board library skips its own square styling when a custom renderer returns something, so this applies `styles` itself.
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>
@@ -202,6 +203,7 @@ export default function SlipRounds() {
                     <strong>{frame.caption}</strong>
                     {frame.points && <span>{frame.points}</span>}
                   </div>
+                  {marks?.text && <p className="slip-why">{marks.text}</p>}
                   <div className="slip-steps">
                     <button onClick={() => setStep(clampStep(review, line, step - 1))} disabled={step === 0}>Back</button>
                     <span>{step} of {frame.last}</span>

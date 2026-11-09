@@ -227,7 +227,8 @@ def answer(conn: sqlite3.Connection, drill_id: str, move_uci: str) -> dict:
                              (_now(), move_uci, int(matched), elapsed, int(over_time), rnd["id"], drill_id)).rowcount
     if taken == 0:
         raise RoundError("already_answered", "That position was already answered in this round.")
-    cause = slipcause.explain_cause(slipcause.load().get(drill_id, {}).get("cause"))
+    label = slipcause.load().get(drill_id, {})
+    cause = slipcause.explain_cause(label.get("cause"), label.get("why"))
     stored = slipline.load(d["versions"]["engine_config"]).get(drill_id)
     out = {"matched": matched, "your_move": board.san(move), "your_uci": move_uci, "checked_uci": d["accepted"],
            "checked_moves": [board.san(chess.Move.from_uci(u)) for u in d["accepted"]], "in_the_game": d["played_san"],

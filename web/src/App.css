@@ -138,3 +138,4 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .slip-cause { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 6px; }
 .slip-habit { font-size: 1.05em; }
 .slip-rounds-list { padding-left: 1.1em; }
+.slip-why { margin: 6px 0; font-size: 1.05em; font-weight: 600; }

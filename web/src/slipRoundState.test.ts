@@ -99,6 +99,29 @@ describe('boardMarks', () => {
   })
   it('puts no badge on later moves, only the fading arrows', () => {
     const f = reviewFrame(review, 'mine', 2)
-    expect(boardMarks(f, 'mine', answered)).toEqual({ arrows: f.arrows, badge: null })
+    expect(boardMarks(f, 'mine', answered)).toEqual({ arrows: f.arrows, badge: null, squares: [], text: null })
+  })
+})
+
+describe('boardMarks with the why', () => {
+  const answered = { uci: 'e2e4', matched: true }
+  const why = {
+    mine: { step: 1, text: 'Your queen on d1 can be taken by their bishop.', arrows: [{ from: 'g4', to: 'd1', tone: 'their' as const }], squares: ['d1'] },
+    better: { step: 0, text: 'You could win their rook on d5 with your queen.', arrows: [{ from: 'd2', to: 'd5', tone: 'better' as const }], squares: ['d5'] },
+  }
+  it('adds the sentence, an orange arrow for their move and a ring on the square, only at the step the why belongs to', () => {
+    const m = boardMarks(reviewFrame(review, 'mine', 1), 'mine', answered, why)
+    expect(m.text).toBe('Your queen on d1 can be taken by their bishop.')
+    expect(m.squares).toEqual(['d1'])
+    expect(m.arrows.at(-1)).toEqual({ startSquare: 'g4', endSquare: 'd1', color: 'rgba(240, 173, 78, 0.8)' })
+    const later = boardMarks(reviewFrame(review, 'mine', 2), 'mine', answered, why)
+    expect(later.text).toBeNull()
+    expect(later.squares).toEqual([])
+  })
+  it('draws a capture you could make in green, and says nothing when there is no why for that line', () => {
+    const m = boardMarks(reviewFrame(review, 'better', 0), 'better', answered, why)
+    expect(m.arrows.at(-1)).toEqual({ startSquare: 'd2', endSquare: 'd5', color: 'rgba(60, 154, 95, 0.8)' })
+    expect(boardMarks(reviewFrame(review, 'better', 1), 'better', answered, { mine: null, better: null }).text).toBeNull()
+    expect(boardMarks(reviewFrame(review, 'better', 1), 'better', answered, null).text).toBeNull()
   })
 })

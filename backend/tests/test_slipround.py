@@ -66,7 +66,7 @@ from app.api.main import app
 from app.learner import drillbank
 
 client = TestClient(app)
-FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit", "review"}
+FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit", "review", "why"}
 SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s"}
 
 
@@ -224,9 +224,11 @@ def test_the_cause_comes_with_the_answer_never_before_it_and_an_unlabelled_drill
 
     shown = SR.current(conn)
     assert "cause" not in json.dumps(shown)  # the leak rule: nothing about why before the answer
-    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1]}})
+    why = {"mine": {"step": 1, "text": "t", "arrows": [], "squares": []}, "better": None}
+    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1], "why": why}})
     got = SR.answer(conn, shown["drill_id"], "a2a3")
     assert got["cause"]["cause"] == "hanging_own" and "piece" in got["cause"]["sentence"] and got["cause"]["habit"]
+    assert got["cause"]["why"] == why
     nxt = SR.current(conn)
     other = SR.answer(conn, nxt["drill_id"], "d2d4")["cause"]
     assert other["cause"] == "other" and other["habit"] is None
