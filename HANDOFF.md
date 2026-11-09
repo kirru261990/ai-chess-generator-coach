@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-09 (build) · MacBook · Claude Code: slip round screen design and engine lines (branch `feat/slip-screen`, ADR 0021 decision 7)
+
+- **Design agreed** (`docs/design-slip-rounds.md`): new Slip rounds tab; timer start screen (15 / 8 / none) and a draining bar; after the answer, two tabs (Your move, Better move) stepped with Next move / Back / Play on the app's board (react-chessboard), up to 6 moves (3 each), red = your move, green = better, orange = their reply, a running points tag, then the cause and habit.
+- **Backend built:** `app/learner/slipline.py` computes the engine's line after the played move and after the first accepted move (6 plies), stores them in `data/drills/slip_lines_v1.json` (atomic write, keyed by drill id and engine config); `slipround.answer` returns `review` (start FEN plus steps with SAN, who, running points) after the answer only, `null` when no lines are stored. 1235 tests pass. Build the lines with `uv run python -m app.learner.slipline build` (resumable).
+- **Open question from the owner:** add a verified "why" for the better move (detector-confirmed reasons only; 298 of 382 drills are `other`, which has none). Not built.
+- **Next:** the web tab (state functions first, with tests), then the "why" if agreed.
+
 ### 2026-11-09 (build) · MacBook · Claude Code: slip cause labels and drill timer (branch `feat/slip-cause-timer`, ADR 0021)
 
 - **Built (backend only):** `app/learner/slipcause.py` labels each first-slip drill from the detectors (`hanging_own` v4, `missed_threat` v4, `missed_free` v3, else `other`); labels in `data/drills/slip_causes_v1.json`, shown after the answer only, with a one-line habit. Timer: `GET /drills/rounds/current?timer=15|8|0`, fixed when the position is first shown; the server marks `over_time`; the round summary counts it; round version is now `2`. Ledger upgraded in place (`timer_s`, `over_time`).

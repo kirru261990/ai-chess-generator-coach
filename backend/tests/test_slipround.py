@@ -66,7 +66,7 @@ from app.api.main import app
 from app.learner import drillbank
 
 client = TestClient(app)
-FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit"}
+FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit", "review"}
 SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s"}
 
 
@@ -359,3 +359,17 @@ def test_an_unfinished_version_1_round_stays_untimed_until_it_is_finished(slips,
         SR.answer(conn, SR.current(conn, timer_s=15)["drill_id"], "d2d4")
     assert SR.current(conn, timer_s=15)["done"] is True  # the version 1 round is finished
     assert SR.current(conn, timer_s=15)["timer_s"] == 15  # the next round is version 2 and timed
+
+
+def test_the_review_lines_come_with_the_answer_only_and_an_answer_without_stored_lines_still_works(slips, conn):
+    from app.learner import slipline
+
+    shown = SR.current(conn)
+    assert "review" not in json.dumps(shown)
+    d = next(x for x in slips if x["id"] == shown["drill_id"])
+    slipline.save({d["id"]: {"mine": ["a2a3", "e7e5"], "better": ["d2d4", "d7d5"], "engine_config": d["versions"]["engine_config"]}})
+    got = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert got["review"]["start_fen"] == START
+    assert [s["san"] for s in got["review"]["mine"]] == ["a3", "e5"] and [s["who"] for s in got["review"]["better"]] == ["you", "they"]
+    other = SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert other["review"] is None and other["matched"] is True  # no lines stored for this one: the answer is not lost
