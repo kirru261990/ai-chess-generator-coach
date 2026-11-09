@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerLine, clampStep, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
+import { answerLine, boardMarks, clampStep, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
 
 const review: Review = {
   start_fen: 'start',
@@ -69,13 +69,36 @@ describe('clampStep', () => {
 
 describe('answerLine', () => {
   it('says matched or not matched without calling a move wrong, with time and over time', () => {
-    expect(answerLine({ matched: true, your_move: 'e4', elapsed_ms: 6_000, over_time: false })).toBe('Yes, e4 is one of the checked moves. 6 s.')
-    expect(answerLine({ matched: false, your_move: 'a3', elapsed_ms: 21_000, over_time: true })).toBe('a3 is not one of the checked moves. 21 s, over time.')
+    expect(answerLine({ matched: true, your_move: 'e4', elapsed_ms: 6_000, over_time: false })).toBe('e4 matched · 6 s')
+    expect(answerLine({ matched: false, your_move: 'a3', elapsed_ms: 21_000, over_time: true })).toBe('a3 not matched · 21 s · over time')
   })
 })
 
 describe('roundLine', () => {
   it('keeps the denominators', () => {
     expect(roundLine({ answered: 10, total: 10, matched: 6, over_time: 2, median_ms: 9_400 })).toBe('6 of 10 matched · 2 of 10 over time · middle time 9 s')
+  })
+})
+
+
+describe('boardMarks', () => {
+  const answered = { uci: 'e2e4', matched: true }
+  it('marks your answer with a blue arrow, and a star when it matched, on the start position', () => {
+    const m = boardMarks(reviewFrame(review, 'mine', 0), 'mine', answered)
+    expect(m.arrows).toEqual([{ startSquare: 'e2', endSquare: 'e4', color: 'rgba(80, 140, 230, 0.85)' }])
+    expect(m.badge).toMatchObject({ square: 'e4', symbol: '★', tone: 'best' })
+  })
+  it('does not call a miss wrong: a blue arrow and no badge', () => {
+    const m = boardMarks(reviewFrame(review, 'mine', 0), 'mine', { uci: 'a2a3', matched: false })
+    expect(m.arrows).toHaveLength(1)
+    expect(m.badge).toBeNull()
+  })
+  it('labels the first move of each line on the moved piece: the game move with a question mark, the better move with a star', () => {
+    expect(boardMarks(reviewFrame(review, 'mine', 1), 'mine', answered).badge).toMatchObject({ square: 'd5', symbol: '?', tone: 'mistake', label: 'The move you played in the game' })
+    expect(boardMarks(reviewFrame(review, 'better', 1), 'better', answered).badge).toMatchObject({ square: 'f1', symbol: '★', tone: 'best', label: 'The better move' })
+  })
+  it('puts no badge on later moves, only the fading arrows', () => {
+    const f = reviewFrame(review, 'mine', 2)
+    expect(boardMarks(f, 'mine', answered)).toEqual({ arrows: f.arrows, badge: null })
   })
 })

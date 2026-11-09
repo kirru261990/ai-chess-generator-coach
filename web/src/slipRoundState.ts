@@ -23,6 +23,7 @@ export type Cause = { cause: string; sentence: string; habit: string | null }
 export type Answer = {
   matched: boolean
   your_move: string
+  your_uci: string
   checked_moves: string[]
   checked_uci: string[]
   in_the_game: string
@@ -94,9 +95,31 @@ export function clampStep(review: Review, line: Line, step: number): number {
   return Math.max(0, Math.min(review[line].length, step))
 }
 
+/** One short line: the move, whether it matched the engine-checked moves (never "wrong"), the time, and over time. */
 export function answerLine(a: Pick<Answer, 'matched' | 'your_move' | 'elapsed_ms' | 'over_time'>): string {
-  const head = a.matched ? `Yes, ${a.your_move} is one of the checked moves.` : `${a.your_move} is not one of the checked moves.`
-  return `${head} ${formatDuration(a.elapsed_ms)}${a.over_time ? ', over time' : ''}.`
+  return `${a.your_move} ${a.matched ? 'matched' : 'not matched'} · ${formatDuration(a.elapsed_ms)}${a.over_time ? ' · over time' : ''}`
+}
+
+export type Badge = { square: string; symbol: string; tone: string; label: string }
+const BLUE = 'rgba(80, 140, 230, 0.85)'
+
+/** What to draw on the board for this frame, in the same style as the Practice board: a blue arrow for your answer (with a star when it
+ *  matched), then a badge on the moved piece for the first move of each line. A miss gets no badge: the engine did not rule on it. */
+export function boardMarks(frame: Frame, line: Line, answered: { uci: string; matched: boolean }) {
+  if (frame.step === 0) {
+    return {
+      arrows: [{ startSquare: answered.uci.slice(0, 2), endSquare: answered.uci.slice(2, 4), color: BLUE }],
+      badge: answered.matched ? ({ square: answered.uci.slice(2, 4), symbol: '★', tone: 'best', label: 'Matches the checked moves' } as Badge) : null,
+    }
+  }
+  if (frame.step === 1) {
+    const last = frame.arrows[0]
+    const badge: Badge = line === 'mine'
+      ? { square: last.endSquare, symbol: '?', tone: 'mistake', label: 'The move you played in the game' }
+      : { square: last.endSquare, symbol: '★', tone: 'best', label: 'The better move' }
+    return { arrows: frame.arrows, badge }
+  }
+  return { arrows: frame.arrows, badge: null as Badge | null }
 }
 
 /** "6 of 10 matched · 2 of 10 over time · middle time 9 s": every count keeps its denominator. */

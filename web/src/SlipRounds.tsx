@@ -3,7 +3,7 @@ import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
-  answerLine, clampStep, reviewFrame, roundLine, timerState, TIMER_CHOICES,
+  answerLine, boardMarks, clampStep, reviewFrame, roundLine, timerState, TIMER_CHOICES,
   type Answer, type Current, type Line, type Question, type RoundSummary,
 } from './slipRoundState'
 
@@ -128,6 +128,7 @@ export default function SlipRounds() {
 
   const review = ans?.review ?? null
   const frame = review ? reviewFrame(review, line, step) : null
+  const marks = frame && ans ? boardMarks(frame, line, { uci: ans.your_uci, matched: ans.matched }) : null
   const clock = q && !ans ? timerState(q.timer_s, now - shownAt) : null
 
   const styles: Record<string, React.CSSProperties> = {}
@@ -142,14 +143,20 @@ export default function SlipRounds() {
     }
   }
 
+  // The board library skips its own square styling when a custom renderer returns something, so this applies `styles` itself.
+  const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
+    <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>
+      {children}
+      {marks?.badge && square === marks.badge.square && (
+        <span className={`move-badge ${marks.badge.tone}`} title={marks.badge.label} aria-label={marks.badge.label}>{marks.badge.symbol}</span>
+      )}
+    </div>
+  )
+
   const open = rounds.find((r) => !r.finished)
   return (
     <div className="slip-rounds">
-      <h2>Slip rounds</h2>
-      <p className="muted">
-        Ten positions from the moment games usually go wrong. Find the better move before the clock runs out. This is Practice: the answer
-        and the reason are shown after every move, and nothing here counts as evidence.
-      </p>
+      <h2>Slip rounds <span className="badge">assisted</span></h2>
       {error && <p className="error">{error}</p>}
 
       {q ? (
@@ -172,7 +179,8 @@ export default function SlipRounds() {
                 allowDragging: false,
                 onSquareClick,
                 squareStyles: styles,
-                arrows: frame ? frame.arrows : [],
+                arrows: marks ? marks.arrows : [],
+                squareRenderer,
                 id: 'slip-board',
               }}
             />
@@ -180,9 +188,7 @@ export default function SlipRounds() {
           {note && <p className="muted">{note}</p>}
           {ans && (
             <div className="feedback">
-              <p><strong>{answerLine(ans)}</strong></p>
-              <p>{ans.note}</p>
-              {ans.not_checked && <p className="muted">{ans.not_checked}</p>}
+              <p title={ans.matched ? undefined : 'Not one of the engine-checked moves. That does not mean it is bad: the engine did not rule on it.'}><strong>{answerLine(ans)}</strong></p>
               {review && frame ? (
                 <div className="slip-review">
                   <div className="slip-tabs">
@@ -201,10 +207,9 @@ export default function SlipRounds() {
                     <span>{step} of {frame.last}</span>
                     <button className="primary" onClick={() => setStep(clampStep(review, line, step + 1))} disabled={step >= frame.last}>Next move</button>
                   </div>
-                  <p className="muted slip-key">Red: your move. Green: the better move. Orange: their reply.</p>
                 </div>
               ) : (
-                <p className="muted">Checked moves: {ans.checked_moves.join(', ')}. No move-by-move line is stored for this position.</p>
+                <p className="muted">No line is stored for this position.</p>
               )}
               <div className="slip-cause">
                 <p><strong>{ans.cause.sentence}</strong></p>
@@ -218,7 +223,6 @@ export default function SlipRounds() {
         <>
           <p><strong>Round {done.round} finished.</strong></p>
           <p>{roundLine(done.summary)}</p>
-          <p className="muted">Practice, not evidence: a round shows what you can find with the answer one click away, not how you play in games.</p>
           <button onClick={next} disabled={busy}>Start next round</button>
         </>
       ) : (

@@ -112,6 +112,7 @@ def test_a_match_is_one_of_the_accepted_moves_and_a_miss_is_not_called_wrong(sli
     shown = SR.current(conn)
     hit = SR.answer(conn, shown["drill_id"], "d2d4")
     assert hit["matched"] is True and hit["assisted"] is True and hit["in_the_game"] == "e4"
+    assert hit["your_uci"] == "d2d4"  # the screen marks the answer on the board
     nxt = SR.current(conn)
     miss = SR.answer(conn, nxt["drill_id"], "a2a3")
     assert miss["matched"] is False and "did not rule" in miss["not_checked"]
