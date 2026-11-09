@@ -120,3 +120,11 @@ M1 is hanging a piece of your own; M2 is missing a free piece the opponent left.
 
 **Hand-check**:
 A person answers Yes / No / Can't tell on a sample of positions, with a pass gate set before looking.
+
+**Slip cause**:
+The pattern a detector confirmed in a slip: left a piece hanging, ignored a threat, or passed up a free capture. `other` when no detector confirmed one. Shown after the answer only.
+_Avoid_: "reason" (it says why the player moved, which no detector knows)
+
+**Over time**:
+An answer received after the position's timer ran out, judged by the server's clock. Still saved and still counted.
+

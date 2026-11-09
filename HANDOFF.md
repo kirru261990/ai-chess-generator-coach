@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-09 (build) · MacBook · Claude Code: slip cause labels and drill timer (branch `feat/slip-cause-timer`, ADR 0021)
+
+- **Built (backend only):** `app/learner/slipcause.py` labels each first-slip drill from the detectors (`hanging_own` v4, `missed_threat` v4, `missed_free` v3, else `other`); labels in `data/drills/slip_causes_v1.json`, shown after the answer only, with a one-line habit. Timer: `GET /drills/rounds/current?timer=15|8|0`, fixed when the position is first shown; the server marks `over_time`; the round summary counts it; round version is now `2`. Ledger upgraded in place (`timer_s`, `over_time`).
+- **Review (two axes) fixed:** HANDOFF missing, circular import, round version not bumped, `other` labels not tied to a detector set. Not built: the progress-page share of over-time answers (web step), a named type for `DETECTORS`.
+- **Labelling run:** `uv run python -m app.learner.slipcause label` (resumable). A run started before the `other` fix leaves its `other` labels stale; rerun the command once and they are redone from the cache.
+- **Next:** web screen (Impeccable Design step: countdown, cause card after the answer, progress share), Lichess build, hand-check answers.
+
 ### 2026-11-08 (build) · MacBook · Claude Code: first-slip drill backend (branch `feat/first-slip-drill`)
 - **Done (ADR 0020, test-first):** `app/learner/slipfinder.py` (first slip per game; depth-10 nominates, depth-18 MultiPV 3 confirms; accepted answers within 50 cp; `unclear` when a line is 50 to 100 cp worse), `slipround.py` (round of 5 own + 5 fresh, one per game, easiest first, no repeats, own ledger), `slipbank.py` (builder CLI for own and Lichess games), routes `/drills/rounds/*`, `tests/test_slipfinder.py`, `tests/test_slipround.py`. Full suite 1202 passed, ruff clean.
 - **Smoke run on real engine:** 4 of the owner's games gave 2 first-slip drills (one of them at move 10 loses 407 cp, accepted answer Kf8). One worker hit "database is locked" creating the cache at the same time; fixed by creating it before the workers start.
