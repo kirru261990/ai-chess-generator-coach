@@ -3,7 +3,7 @@ import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
-  answerLine, boardMarks, clampStep, keyStep, reviewFrame, tickMs, roundLine, timerState, TIMER_CHOICES,
+  answerLine, boardMarks, clampStep, keyStep, promotionChoices, reviewFrame, tickMs, roundLine, timerState, TIMER_CHOICES,
   type Answer, type Current, type Line, type Question, type RoundSummary,
 } from './slipRoundState'
 
@@ -31,6 +31,7 @@ export default function SlipRounds() {
   const [rounds, setRounds] = useState<RoundRow[]>([])
   const [from, setFrom] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [promo, setPromo] = useState<{ uci: string; label: string }[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(0)
@@ -66,6 +67,7 @@ export default function SlipRounds() {
     try {
       const c = await api<Current>(`/drills/rounds/current?timer=${timer}`)
       setAns(null)
+      setPromo(null)
       setFrom(null)
       setNote(null)
       setLine('mine')
@@ -116,6 +118,12 @@ export default function SlipRounds() {
     }
     if (!from) {
       setNote('Click one of your pieces first, then the square it should go to.')
+      return
+    }
+    const choices = promotionChoices(q.legal_moves, from, square)
+    if (choices.length > 0) {
+      setPromo(choices) // a pawn reaches the last rank: the player picks the piece before the answer is sent
+      setFrom(null)
       return
     }
     const uci = pickMove(q.legal_moves, from, square)
@@ -200,6 +208,14 @@ export default function SlipRounds() {
             />
           </div>
           {note && <p className="muted">{note}</p>}
+          {promo && !ans && (
+            <div className="slip-promo" role="group" aria-label="Promote the pawn to">
+              {promo.map((c) => (
+                <button key={c.uci} onClick={() => { setPromo(null); submit(c.uci) }}>{c.label}</button>
+              ))}
+              <button onClick={() => setPromo(null)}>Cancel</button>
+            </div>
+          )}
           {ans && (
             <div className="feedback">
               <p title={ans.matched ? undefined : 'Not one of the engine-checked moves. That does not mean it is bad: the engine did not rule on it.'}><strong>{answerLine(ans)}</strong></p>

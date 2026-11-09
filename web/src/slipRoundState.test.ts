@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerLine, boardMarks, clampStep, keyStep, tickMs, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
+import { answerLine, boardMarks, clampStep, keyStep, promotionChoices, tickMs, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
 
 const review: Review = {
   start_fen: 'start',
@@ -139,5 +139,19 @@ describe('tickMs', () => {
   it('updates the countdown four times a second, or once a second when the viewer prefers reduced motion', () => {
     expect(tickMs(false)).toBe(250)
     expect(tickMs(true)).toBe(1000)
+  })
+})
+
+
+describe('promotionChoices', () => {
+  const legal = ['c7c8q', 'c7c8r', 'c7c8b', 'c7c8n', 'c7b8q', 'a1a2']
+  it('offers the four pieces when a pawn reaches the last rank, so the player chooses', () => {
+    expect(promotionChoices(legal, 'c7', 'c8')).toEqual([
+      { uci: 'c7c8q', label: 'Queen' }, { uci: 'c7c8r', label: 'Rook' }, { uci: 'c7c8b', label: 'Bishop' }, { uci: 'c7c8n', label: 'Knight' },
+    ])
+  })
+  it('offers nothing for an ordinary move', () => {
+    expect(promotionChoices(legal, 'a1', 'a2')).toEqual([])
+    expect(promotionChoices(legal, 'h1', 'h2')).toEqual([])
   })
 })

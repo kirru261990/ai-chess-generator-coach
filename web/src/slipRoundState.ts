@@ -141,3 +141,11 @@ export function keyStep(key: string): -1 | 0 | 1 {
 export function tickMs(reducedMotion: boolean): number {
   return reducedMotion ? 1000 : 250
 }
+
+const PROMOTIONS: Record<string, string> = { q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' }
+
+/** When a pawn reaches the last rank, the legal moves from `from` to `to` differ only by the piece: the player chooses it. */
+export function promotionChoices(legal: string[], from: string, to: string): { uci: string; label: string }[] {
+  const options = legal.filter((m) => m.startsWith(from + to) && m.length === 5)
+  return options.length > 1 ? options.map((uci) => ({ uci, label: PROMOTIONS[uci[4]] ?? uci[4] })) : []
+}

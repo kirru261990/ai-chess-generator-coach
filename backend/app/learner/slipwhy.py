@@ -16,7 +16,7 @@ import chess
 
 from app.learner.slipline import POINTS
 
-VERSION = "1"  # the wording and the rules of the sentences; a label made under another version is relabelled
+VERSION = "2"  # v2: "defends" needs a legal recapture (a pinned defender does not count); the wording and the rules of the sentences; a label made under another version is relabelled
 
 NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
 TARGET_MIN = 3  # a fork target is a piece worth this much or more, or the king (as in threat_kind.py)
@@ -39,6 +39,17 @@ def _their(uci: str) -> dict:
     return {"from": uci[:2], "to": uci[2:4], "tone": "their"}
 
 
+def _recapture_possible(opp_to_move: chess.Board, their_uci: str, victim_sq: int) -> bool | None:
+    """After their recorded capture, can you legally recapture on the victim's square? None when the capture is no longer possible.
+    Legal moves count, so a pinned defender does not."""
+    move = chess.Move.from_uci(their_uci)
+    if move not in opp_to_move.legal_moves:
+        return None
+    after_capture = opp_to_move.copy(stack=False)
+    after_capture.push(move)
+    return any(m.to_square == victim_sq for m in after_capture.legal_moves)
+
+
 def _fix(board: chess.Board, drill: dict, victim_sq: int, attacker_sq: int, their_uci: str, victim: str, attacker: str,
          path: chess.SquareSet | None = None) -> dict | None:
     """The better move, described by what it does to a piece in danger (or a threat line). None when it does none of these."""
@@ -59,7 +70,10 @@ def _fix(board: chess.Board, drill: dict, victim_sq: int, attacker_sq: int, thei
         return _mark(1, text, their_arrow, [chess.square_name(victim_sq)])
     if path is not None and best.to_square in path:
         return _mark(1, "This blocks the attack.", their_arrow, [chess.square_name(victim_sq)])
-    newly_defended = after.piece_at(victim_sq) is not None and after.is_attacked_by(me, victim_sq) and not board.is_attacked_by(me, victim_sq)
+    before_opp = board.copy(stack=False)
+    before_opp.turn = not me  # the position before your move, with them to move: could you already recapture?
+    newly_defended = (after.piece_at(victim_sq) is not None and _recapture_possible(after, their_uci, victim_sq) is True
+                      and not _recapture_possible(before_opp, their_uci, victim_sq))
     if newly_defended and victim != "king":
         text = f"This defends your {victim} on {chess.square_name(victim_sq)}."
         return _mark(1, text, their_arrow, [chess.square_name(victim_sq)])

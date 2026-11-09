@@ -139,3 +139,5 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .slip-habit { font-size: 1.05em; }
 .slip-rounds-list { padding-left: 1.1em; }
 .slip-why { margin: 6px 0; font-size: 1.05em; font-weight: 600; }
+.slip-promo { display: flex; gap: 8px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
+.slip-promo button { padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }

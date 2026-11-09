@@ -85,3 +85,10 @@ def test_a_discovered_threat_names_the_piece_that_moves_and_the_piece_it_uncover
     why = slipwhy.build("threat", drill(fen, "g1h1", ["e2e5"]), ev)
     assert why["mine"]["text"] == "Moving their knight would uncover an attack on your queen."
     assert why["mine"]["squares"] == ["e2"] and why["mine"]["arrows"] == [{"from": "e5", "to": "c4", "tone": "their"}]
+
+
+def test_a_pinned_piece_is_not_counted_as_a_defender_because_it_could_not_legally_recapture():
+    fen = "k3r3/2n5/8/1R6/8/3P4/4B3/4K3 w - - 0 1"  # d4 opens the bishop's line to the rook, but the bishop is pinned to the king
+    ev = {"threat_move": {"uci": "c7b5"}, "threat_kind": "capture", "threat_line": {"uci": ["c7b5"]}}
+    why = slipwhy.build("threat", drill(fen, "e1f1", ["d3d4"]), ev)
+    assert why["mine"]["text"] == "They threaten to take your rook on b5 with the knight." and why["better"] is None
