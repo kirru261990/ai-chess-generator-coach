@@ -192,11 +192,12 @@ def current(conn: sqlite3.Connection, timer_s: int = DEFAULT_TIMER) -> dict:
                          (rnd["id"], d["id"], pos, _now(), timer_s))
             conn.commit()
             # the setting is fixed when a position is first shown: changing it after seeing the board does not change the limit
-            fixed = conn.execute("SELECT timer_s FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], d["id"])).fetchone()[0]
+            fixed, first_shown = conn.execute("SELECT timer_s, shown_at FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], d["id"])).fetchone()
+            elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(first_shown)).total_seconds() * 1000))
             side = "White" if d["side"] == "white" else "Black"
             return {"done": False, "round": _number(conn, rnd), "position": pos + 1, "total": len(drills), "drill_id": d["id"],
                     "fen": d["fen"], "side": d["side"], "question": f"Find the best move for {side}.",
-                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves), "timer_s": fixed}
+                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves), "timer_s": fixed, "elapsed_ms": elapsed}
     with conn:
         conn.execute("UPDATE slip_round SET finished_at = COALESCE(finished_at, ?) WHERE id = ?", (_now(), rnd["id"]))
     return {"done": True, "round": _number(conn, rnd), "summary": summary(conn, rnd)}

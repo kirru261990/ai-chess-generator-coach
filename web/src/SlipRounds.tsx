@@ -3,7 +3,7 @@ import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
-  answerLine, boardMarks, clampStep, reviewFrame, roundLine, timerState, TIMER_CHOICES,
+  answerLine, boardMarks, clampStep, keyStep, reviewFrame, tickMs, roundLine, timerState, TIMER_CHOICES,
   type Answer, type Current, type Line, type Question, type RoundSummary,
 } from './slipRoundState'
 
@@ -46,7 +46,8 @@ export default function SlipRounds() {
   // The countdown only ticks while a question is open; the server's clock decides what counts as over time.
   useEffect(() => {
     if (!q || ans) return
-    const id = setInterval(() => setNow(Date.now()), 250)
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    const id = setInterval(() => setNow(Date.now()), tickMs(reduced))
     return () => clearInterval(id)
   }, [q, ans])
 
@@ -77,7 +78,7 @@ export default function SlipRounds() {
         setDone(null)
         setQ(c)
         const t = Date.now()
-        setShownAt(t)
+        setShownAt(t - c.elapsed_ms) // the server's clock started when the position was first shown, not now
         setNow(t)
       }
     } catch (e) {
@@ -127,6 +128,18 @@ export default function SlipRounds() {
   }
 
   const review = ans?.review ?? null
+  // Arrow keys step the line once the answer is in.
+  useEffect(() => {
+    if (!review) return
+    const onKey = (e: KeyboardEvent) => {
+      const d = keyStep(e.key)
+      if (d === 0) return
+      e.preventDefault()
+      setStep((s) => clampStep(review, line, s + d))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [review, line])
   const frame = review ? reviewFrame(review, line, step) : null
   const marks = frame && ans ? boardMarks(frame, line, { uci: ans.your_uci, matched: ans.matched }, ans.cause.why) : null
   const clock = q && !ans ? timerState(q.timer_s, now - shownAt) : null

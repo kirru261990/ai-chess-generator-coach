@@ -56,7 +56,7 @@ def label(drill: dict, analyser, detectors=DETECTORS) -> dict:
         if finding.outcome == confirms:
             alternatives = [a["uci"] for a in getattr(finding, "alternatives", ())]
             why = slipwhy.build(cause, drill, finding.evidence or {}, alternatives)
-            return {"cause": cause, "detector": cause, "version": version, "why": why}
+            return {"cause": cause, "detector": cause, "version": version, "why": why, "why_version": slipwhy.VERSION}
     return {"cause": "other", "detector": None, "version": set_version(detectors)}
 
 
@@ -70,8 +70,8 @@ def save(labels: dict[str, dict]) -> None:
 def _current(entry: dict) -> bool:
     if entry["cause"] == "other":
         return entry["version"] == SET_VERSION
-    # a label made before the why existed has no "why" key and is relabelled (the analyses are cached, so it is cheap)
-    return "why" in entry and any(c == entry["cause"] and v == entry["version"] for c, v, *_ in DETECTORS)
+    # a label made under another wording of the why (or before the why existed) is relabelled; the analyses are cached, so it is cheap
+    return entry.get("why_version") == slipwhy.VERSION and any(c == entry["cause"] and v == entry["version"] for c, v, *_ in DETECTORS)
 
 
 def load() -> dict[str, dict]:

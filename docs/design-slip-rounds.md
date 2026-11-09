@@ -17,10 +17,10 @@ A new tab, **Slip rounds**, next to Drill cycles. Drill cycles stays as it is (i
 3. **Review (after the answer).** Matched or not (never "wrong"), time, over time or not. Then the line on the board:
    - Two tabs, **Your move** and **Better move**, each a line of up to 6 moves (3 for each side) from the engine, stepped with **Next move** and **Back** only. No autoplay and no GIF: the owner chooses when to move on (2026-11-09).
    - The latest move is a bold arrow, earlier ones fade. Colours as on the 30-position page: red = your move, green = better move, orange = their reply. No move numbers.
-   - A caption names the move ("They: pawn takes queen on d5"), a running tag shows the points ("You −8 points", or "Level"), and under it one **why** sentence for the step, built only from the detector's own record (see below).
+   - A caption names the move in notation ("They: Qxd5"; plain words were dropped to keep the page short), a running tag shows the points ("You −8 points", or "Level"), and under it one **why** sentence for the step, built only from the detector's own record (see below).
    - Under the board: the cause label and the one-line habit. Neutral colour, so it does not read as a verdict. `other` says there is no reason to give and shows no habit.
 4. **Next position.** One button.
-5. **End of round.** Matched x of 10, over time x of 10, middle time, and "Practice, not evidence". Rates keep their denominators.
+5. **End of round.** Matched x of 10, over time x of 10, middle time. Rates keep their denominators. The `assisted` badge in the page header stays on every screen; the "Practice, not evidence" sentence was cut to keep the page short.
 
 ## Data the screen needs (all after the answer)
 
@@ -45,7 +45,13 @@ Each why sentence draws what it talks about on the board, so the sentence and th
 - When the sentence says how the better move stops a threat, both arrows show together: orange for the threat, green for your answer. A move that defends draws its arrow to the defended square; a move that blocks draws it onto the line between the attacker and the target.
 - Squares and moves come from the detector's own record, never from the wording. Without a detector record there is no sentence and no extra marks, only the stepper's own arrows.
 
+### Added at the owner's request (2026-11-09)
+
+Badges on the pieces, as in Practice: a blue arrow for your answer with a green star when it matched (a miss gets no badge), an orange `?` on the move you played in the game and a green star on the better move. The `?` marks the game move; it is not a verdict on you. "Defends" is said only when the move newly defends a piece that was not defended before, and never for a king. For a piece you moved into danger, the better move gets "This does not leave a piece to be taken." only when it is one of the detector's sound alternatives. The `discovered` sentence names the piece that moves and the piece the uncovered attack lands on.
+
 ## Not in the first version
+
+The over-time share and seconds on the Progress page, split by timer setting (the round list on this tab shows each round's over-time count).
 
 Per-cause match rates and cause-weighted rounds; phone layout (undecided in `PRODUCT.md`); lines longer than 6 moves; arrows on the board during the question.
 

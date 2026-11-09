@@ -41,9 +41,10 @@ def causes(tmp_path, monkeypatch):
 
 
 def test_labels_are_saved_by_drill_id_and_an_older_detector_version_is_not_served(causes):
-    slipcause.save({"d1": {"cause": "hanging_own", "detector": "hanging_own", "version": "4", "why": None},
-                    "d2": {"cause": "threat", "detector": "threat", "version": "3", "why": None},  # threat is at v4 now
-                    "d3": {"cause": "threat", "detector": "threat", "version": "4"}})  # made before the why existed: relabelled
+    slipcause.save({"d1": {"cause": "hanging_own", "detector": "hanging_own", "version": "4", "why": None, "why_version": slipcause.slipwhy.VERSION},
+                    "d2": {"cause": "threat", "detector": "threat", "version": "3", "why": None, "why_version": slipcause.slipwhy.VERSION},  # threat is at v4 now
+                    "d3": {"cause": "threat", "detector": "threat", "version": "4", "why": None},  # made before the why was versioned: relabelled
+                    "d4": {"cause": "threat", "detector": "threat", "version": "4", "why": None, "why_version": "0"}})  # other wording: relabelled
     got = slipcause.load()
     assert got["d1"]["cause"] == "hanging_own" and set(got) == {"d1"}
 
@@ -73,7 +74,7 @@ def test_a_confirmed_label_carries_the_why_built_from_the_detectors_record(monke
     monkeypatch.setattr(slipcause.slipwhy, "build", fake_build)
     hit = lambda board, move, ply, analyser: NS(outcome="missed", reason="r", evidence={"threat_move": "e"}, alternatives=({"uci": "e2e4"},))
     got = slipcause.label(DRILL, None, (("threat", "4", hit, "missed"),))
-    assert got["why"] == {"mine": {"text": "x"}, "better": None}
+    assert got["why"] == {"mine": {"text": "x"}, "better": None} and got["why_version"] == slipcause.slipwhy.VERSION
     assert seen == {"cause": "threat", "evidence": {"threat_move": "e"}, "alternatives": ["e2e4"]}
 
 

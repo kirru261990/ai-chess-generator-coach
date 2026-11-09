@@ -38,7 +38,7 @@ def lines_for(drill: dict, analyser) -> dict:
     """The line after the played move and after the first accepted move (empty when the drill has none)."""
     board = chess.Board(drill["fen"])
     better = _line(board, drill["accepted"][0], analyser) if drill["accepted"] else []
-    return {"mine": _line(board, drill["played"], analyser), "better": better, "engine_config": analyser.config.id}
+    return {"mine": _line(board, drill["played"], analyser), "better": better, "engine_config": analyser.config.id, "plies": PLIES}
 
 
 def _material(board: chess.Board, color: chess.Color) -> int:
@@ -74,7 +74,7 @@ def load(engine_config: str) -> dict[str, dict]:
         raw = json.loads(p.read_text())
     except (OSError, ValueError):
         return {}
-    return {k: v for k, v in raw.items() if isinstance(v, dict) and v.get("engine_config") == engine_config} if isinstance(raw, dict) else {}
+    return {k: v for k, v in raw.items() if isinstance(v, dict) and v.get("engine_config") == engine_config and v.get("plies") == PLIES} if isinstance(raw, dict) else {}
 
 
 def review(drill: dict, stored: dict) -> dict | None:

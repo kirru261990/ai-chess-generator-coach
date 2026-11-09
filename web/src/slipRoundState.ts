@@ -16,6 +16,7 @@ export type Question = {
   question: string
   legal_moves: string[]
   timer_s: number
+  elapsed_ms: number // how long the server has been counting for this position (it does not restart on a reload)
 }
 
 export type WhyMark = { step: number; text: string; arrows: { from: string; to: string; tone: 'their' | 'better' }[]; squares: string[] }
@@ -131,4 +132,12 @@ export function boardMarks(frame: Frame, line: Line, answered: { uci: string; ma
 export function roundLine(s: RoundSummary): string {
   const time = s.median_ms === null ? '' : ` · middle time ${formatDuration(s.median_ms)}`
   return `${s.matched} of ${s.answered} matched · ${s.over_time} of ${s.answered} over time${time}`
+}
+
+export function keyStep(key: string): -1 | 0 | 1 {
+  return key === 'ArrowRight' ? 1 : key === 'ArrowLeft' ? -1 : 0
+}
+
+export function tickMs(reducedMotion: boolean): number {
+  return reducedMotion ? 1000 : 250
 }

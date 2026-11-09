@@ -23,9 +23,9 @@ def test_the_better_move_is_described_by_what_it_does_on_the_board():
     assert away["arrows"] == [{"from": "g4", "to": "d1", "tone": "their"}]  # the threat it avoids stays on the board
     takes = slipwhy.build("hanging_own", drill(HANG, "e1f1", ["d1g4"]), HANG_EV, alternatives=["d1g4"])["better"]
     assert takes["text"] == "This takes the bishop that was about to take your queen." and takes["arrows"] == []
-    defended = slipwhy.build("hanging_own", drill("4k3/8/8/8/6b1/8/8/R2Q1K2 w - - 0 1", "f1g1", ["f1e1"]),
-                             {**HANG_EV, "player_move": {"uci": "f1g1"}}, alternatives=["f1e1"])["better"]
-    assert defended["text"] == "This keeps your queen on d1 defended."
+    undefended = "4k3/8/8/8/6b1/8/8/3Q1K2 w - - 0 1"  # nothing defends the queen until the king steps next to it
+    defended = slipwhy.build("hanging_own", drill(undefended, "f1g1", ["f1e1"]), {**HANG_EV, "player_move": {"uci": "f1g1"}}, alternatives=["f1e1"])["better"]
+    assert defended["text"] == "This defends your queen on d1."
 
 
 def test_a_better_move_that_does_none_of_those_gets_no_sentence_rather_than_a_guess():
@@ -68,3 +68,20 @@ def test_other_has_no_why_and_a_record_that_does_not_fit_the_board_gives_none_no
     assert slipwhy.build("other", drill(HANG, "e1f1", []), {}) is None
     assert slipwhy.build("hanging_own", drill(HANG, "e1f1", []), {"refutation_line": {"uci": ["a1a2"]}, "lost_piece": "other",
                                                                   "lost_piece_square_after": "a2"}) is None
+
+
+def test_defends_is_only_said_when_the_move_newly_defends_the_piece_and_never_for_a_king():
+    already = "4k3/8/8/8/6b1/8/8/R2Q1K2 w - - 0 1"  # the rook already defends the queen, so stepping the king over changes nothing
+    why = slipwhy.build("hanging_own", drill(already, "f1g1", ["f1e1"]), {**HANG_EV, "player_move": {"uci": "f1g1"}}, alternatives=["f1e1"])
+    assert why["better"] is None
+    mate = slipwhy.build("threat", drill("r5k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1", "g1h1", ["g2g3"]),
+                         {"threat_move": {"uci": "a8a1"}, "threat_kind": "mate", "threat_line": {"uci": ["a8a1"]}})
+    assert mate["better"] is None or "defends" not in mate["better"]["text"]
+
+
+def test_a_discovered_threat_names_the_piece_that_moves_and_the_piece_it_uncovers_an_attack_on():
+    fen = "4r1k1/8/8/4n3/8/8/4Q3/6K1 w - - 0 1"  # moving the knight uncovers the rook on the queen
+    ev = {"threat_move": {"uci": "e5c4"}, "threat_kind": "discovered", "threat_line": {"uci": ["e5c4"]}}
+    why = slipwhy.build("threat", drill(fen, "g1h1", ["e2e5"]), ev)
+    assert why["mine"]["text"] == "Moving their knight would uncover an attack on your queen."
+    assert why["mine"]["squares"] == ["e2"] and why["mine"]["arrows"] == [{"from": "e5", "to": "c4", "tone": "their"}]

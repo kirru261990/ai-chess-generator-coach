@@ -38,7 +38,7 @@ def engine():
 
 def test_each_line_starts_with_the_move_and_follows_the_engines_reply_up_to_six_moves():
     got = slipline.lines_for(DRILL, engine())
-    assert got["mine"] == ["d2d5", "c6d5", "e1f1", "e8e7", "f1e2"] and got["engine_config"] == "ec-test"
+    assert got["mine"] == ["d2d5", "c6d5", "e1f1", "e8e7", "f1e2"] and got["engine_config"] == "ec-test" and got["plies"] == 6
     assert got["better"] == ["e1f1", "e8e7", "f1e2", "e7d6", "e2d3", "d6c5"]  # six moves: three for each side
     assert len(slipline.lines_for(DRILL, engine())["better"]) == slipline.PLIES == 6
 
@@ -66,8 +66,10 @@ def folder(tmp_path, monkeypatch):
 
 
 def test_lines_are_saved_whole_and_read_back_only_for_the_current_engine_config(folder):
-    slipline.save({"a": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-test"},
-                   "b": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-old"}})
+    slipline.save({"a": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-test", "plies": 6},
+                   "b": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-old", "plies": 6},
+                   "c": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-test", "plies": 4},  # built with another line length
+                   "d": {"mine": ["d2d5"], "better": ["e1f1"], "engine_config": "ec-test"}})  # made before the line length was recorded
     assert set(slipline.load("ec-test")) == {"a"}
     assert [p.name for p in slipline.lines_path().parent.glob("slip_lines*")] == ["slip_lines_v1.json"]
     slipline.lines_path().write_text("{not json")

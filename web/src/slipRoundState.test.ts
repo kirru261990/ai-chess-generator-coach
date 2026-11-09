@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerLine, boardMarks, clampStep, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
+import { answerLine, boardMarks, clampStep, keyStep, tickMs, pointsTag, reviewFrame, roundLine, timerState, TIMER_CHOICES, type Review } from './slipRoundState'
 
 const review: Review = {
   start_fen: 'start',
@@ -123,5 +123,21 @@ describe('boardMarks with the why', () => {
     expect(m.arrows.at(-1)).toEqual({ startSquare: 'd2', endSquare: 'd5', color: 'rgba(60, 154, 95, 0.8)' })
     expect(boardMarks(reviewFrame(review, 'better', 1), 'better', answered, { mine: null, better: null }).text).toBeNull()
     expect(boardMarks(reviewFrame(review, 'better', 1), 'better', answered, null).text).toBeNull()
+  })
+})
+
+
+describe('keyStep', () => {
+  it('steps the line with the arrow keys and ignores everything else', () => {
+    expect(keyStep('ArrowRight')).toBe(1)
+    expect(keyStep('ArrowLeft')).toBe(-1)
+    expect(keyStep('Enter')).toBe(0)
+  })
+})
+
+describe('tickMs', () => {
+  it('updates the countdown four times a second, or once a second when the viewer prefers reduced motion', () => {
+    expect(tickMs(false)).toBe(250)
+    expect(tickMs(true)).toBe(1000)
   })
 })

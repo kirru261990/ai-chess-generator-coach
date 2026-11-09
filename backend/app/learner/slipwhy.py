@@ -14,8 +14,11 @@ from __future__ import annotations
 
 import chess
 
+from app.learner.slipline import POINTS
+
+VERSION = "1"  # the wording and the rules of the sentences; a label made under another version is relabelled
+
 NAMES = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
-VALUE = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 TARGET_MIN = 3  # a fork target is a piece worth this much or more, or the king (as in threat_kind.py)
 
 
@@ -56,14 +59,14 @@ def _fix(board: chess.Board, drill: dict, victim_sq: int, attacker_sq: int, thei
         return _mark(1, text, their_arrow, [chess.square_name(victim_sq)])
     if path is not None and best.to_square in path:
         return _mark(1, "This blocks the attack.", their_arrow, [chess.square_name(victim_sq)])
-    if after.piece_at(victim_sq) is not None and after.is_attacked_by(me, victim_sq):
-        text = f"This keeps your {victim} on {chess.square_name(victim_sq)} defended." if path is None \
-            else f"This defends your {victim} on {chess.square_name(victim_sq)}."
+    newly_defended = after.piece_at(victim_sq) is not None and after.is_attacked_by(me, victim_sq) and not board.is_attacked_by(me, victim_sq)
+    if newly_defended and victim != "king":
+        text = f"This defends your {victim} on {chess.square_name(victim_sq)}."
         return _mark(1, text, their_arrow, [chess.square_name(victim_sq)])
     return None
 
 
-def _hanging(board: chess.Board, drill: dict, ev: dict) -> dict | None:
+def _hanging(board: chess.Board, drill: dict, ev: dict, alternatives: list[str]) -> dict | None:
     after = board.copy(stack=False)
     after.push(chess.Move.from_uci(drill["played"]))
     their = ev["refutation_line"]["uci"][0]
@@ -75,7 +78,7 @@ def _hanging(board: chess.Board, drill: dict, ev: dict) -> dict | None:
     mine = _mark(1, f"Your {victim} on {where} can be taken by their {attacker}.", [_their(their)], [where])
     if ev.get("lost_piece") == "moved":
         # You moved the piece into danger, so it has no square on the better line: describe the better move only when the detector listed it as sound.
-        ok = drill["accepted"] and drill["accepted"][0] in (ev.get("_alternatives") or [])
+        ok = drill["accepted"] and drill["accepted"][0] in alternatives
         return {"mine": mine, "better": _mark(1, "This does not leave a piece to be taken.", [], []) if ok else None}
     return {"mine": mine, "better": _fix(board, drill, victim_sq, attacker_sq, their, victim, attacker)}
 
@@ -84,9 +87,25 @@ def _forks(board_after: chess.Board, square: int, victim: chess.Color) -> list[s
     out = []
     for sq in sorted(board_after.attacks(square)):
         p = board_after.piece_at(sq)
-        if p and p.color == victim and (p.piece_type == chess.KING or VALUE[p.piece_type] >= TARGET_MIN):
+        if p and p.color == victim and (p.piece_type == chess.KING or POINTS[p.piece_type] >= TARGET_MIN):
             out.append(NAMES[p.piece_type])
     return out
+
+
+def _uncovered(passed: chess.Board, move: chess.Move, me: chess.Color) -> tuple[int, str] | None:
+    """The most valuable piece of yours that another of their pieces starts to attack once `move` is played (a discovered attack)."""
+    after = passed.copy(stack=False)
+    after.push(move)
+    best = None
+    for sq, piece in after.piece_map().items():
+        if piece.color != me or (piece.piece_type != chess.KING and POINTS[piece.piece_type] < TARGET_MIN):
+            continue
+        new = after.attackers(not me, sq) - chess.SquareSet([move.to_square])
+        if new and not passed.attackers(not me, sq):
+            rank = 100 if piece.piece_type == chess.KING else POINTS[piece.piece_type]
+            if best is None or rank > best[0]:
+                best = (rank, sq, NAMES[piece.piece_type])
+    return (best[1], best[2]) if best else None
 
 
 def _threat(board: chess.Board, drill: dict, ev: dict) -> dict | None:
@@ -115,6 +134,8 @@ def _threat(board: chess.Board, drill: dict, ev: dict) -> dict | None:
         if len(hit) < 2:
             return None
         text, squares = f"They threaten a fork: the {attacker} to {to} would attack your {' and '.join(hit[:2])}.", [to]
+    elif kind == "discovered" and (found := _uncovered(passed, move, me)):
+        text, squares = f"Moving their {attacker} would uncover an attack on your {found[1]}.", [chess.square_name(found[0])]
     else:
         text, squares = f"They threaten to win material with the {attacker} to {to}.", []
     mine = _mark(1, text, [_their(uci)], squares)
@@ -146,7 +167,7 @@ def build(cause: str, drill: dict, evidence: dict, alternatives: list[str] | Non
     board = chess.Board(drill["fen"])
     try:
         if cause == "hanging_own":
-            return _hanging(board, drill, {**evidence, "_alternatives": alternatives or []})
+            return _hanging(board, drill, evidence, alternatives or [])
         if cause == "threat":
             return _threat(board, drill, evidence)
         if cause == "missed_free":
