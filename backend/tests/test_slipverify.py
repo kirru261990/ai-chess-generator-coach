@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace as NS
 
 import chess
+import pytest
 
 from app.learner import drillbank, slipfinder, slipverify
 
@@ -89,3 +90,50 @@ def test_exclusions_list_the_drills_whose_slip_did_not_hold_and_are_saved_whole(
     assert got == {"b": {"reason": "slip_not_confirmed_at_depth_24"}}
     slipverify.save_exclusions(got)
     assert json.loads(slipverify.excluded_path().read_text()) == got
+
+
+def test_the_sample_does_not_change_after_a_drill_is_excluded(tmp_path, monkeypatch):
+    monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
+    drillbank.bank_dir().mkdir(parents=True)
+    drills = [sample_drill(n) for n in range(60)]
+    for d in drills:
+        d["evidence"], d["ply"] = {}, 8
+        d["versions"]["engine_config"] = "ec"
+    slipround_path = drillbank.bank_dir() / "slips_v1.jsonl"
+    slipround_path.write_text("".join(json.dumps(d) + "\n" for d in drills))
+    before = [d["id"] for d in slipverify.sample_drills()]
+    slipverify.save_exclusions({before[0]: {"reason": "slip_not_confirmed_at_depth_24"}})
+    assert [d["id"] for d in slipverify.sample_drills()] == before  # the same 30, including the one that failed
+
+
+def test_a_half_written_last_line_in_the_results_file_does_not_stop_a_report_or_a_resume(tmp_path, monkeypatch):
+    monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
+    drillbank.bank_dir().mkdir(parents=True)
+    good = {"id": "a", "slip_holds": True, "answers_hold": True, "verdict": "holds", "depth": 24}
+    slipverify.results_path(24).write_text(json.dumps(good) + "\n" + '{"id": "b", "slip_ho')
+    assert list(slipverify._load(24)) == ["a"]
+
+
+def test_a_move_that_ends_the_game_is_not_searched_and_is_never_a_slip():
+    mate = "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"  # Qg7 is checkmate
+    got = slipverify.verify({"id": "m", "fen": mate, "played": "f7g7", "accepted": ["f7f8"], "game_id": "g"}, Fake([A("f7f8", 900)], None), depth=24)
+    assert got["slip_holds"] is False and got["played_cp"] == slipverify.MATE_CP
+
+
+def test_the_rows_say_which_engine_and_settings_made_them():
+    class Named(Fake):
+        name = "Stockfish test"
+
+    got = slipverify.verify(DRILL, Named([A("e2e4", 40)], A("e7e5", -300)), depth=24)
+    assert got["engine"] == "Stockfish test" and got["hash_mb"] == slipverify.HASH_MB and got["threads"] == slipverify.THREADS
+
+
+def test_exclude_refuses_a_corrupt_file_rather_than_erasing_it_and_a_search_shallower_than_the_check(tmp_path, monkeypatch):
+    monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
+    drillbank.bank_dir().mkdir(parents=True)
+    slipverify.excluded_path().write_text("{not json")
+    with pytest.raises(SystemExit):
+        slipverify.main(["exclude"])
+    assert slipverify.excluded_path().read_text() == "{not json"
+    with pytest.raises(SystemExit):
+        slipverify.main(["exclude", "--depth", "18"])

@@ -6,7 +6,7 @@
   uv run python -m app.learner.slipverify exclude [--depth 24]  # keep drills whose slip did not hold out of the rounds (slip_excluded_v1.json)
 
 The drills were confirmed at depth 18, MultiPV 3. A player under 1000 cannot judge an engine by eye, so the check is the engine itself
-at a deeper search, run from scratch (hash cleared). A slip *holds* when the deeper search still loses at least SLIP_LOSS_CP for the
+at a deeper search. The first search of a drill starts with a cleared hash; the search of the played move shares it. A slip *holds* when the deeper search still loses at least SLIP_LOSS_CP for the
 mover (a position that is decided at the deeper search is noted, not failed). The answers *hold* when the deeper best move is one of the drill's accepted moves. This is a
 second engine opinion at higher depth, not a proof. Imports no LLM code.
 """
@@ -29,6 +29,7 @@ DEPTH = 24
 MATE_CP = 10_000
 GATE = 27
 SAMPLE_SIZE = 30
+HASH_MB, THREADS = 256, 4  # engine options of the check; recorded in every row because threads can change a deep search
 SAMPLE_SALT = "slipcheck-v1"  # the salt of the first sample (2026-11-09); keeping it keeps those 30 positions
 
 
@@ -46,7 +47,10 @@ def verify(drill: dict, engine, depth: int = DEPTH) -> dict:
     top = engine.analyse_multi(board, 3, budget, perspective=mover, new_game=True)
     after = board.copy(stack=False)
     after.push(chess.Move.from_uci(drill["played"]))
-    played_cp = _cp(engine.analyse(after, budget, perspective=mover).score)
+    if after.is_game_over():  # the played move ended the game: nothing to search, and it is never a slip
+        played_cp = MATE_CP if after.is_checkmate() else 0
+    else:
+        played_cp = _cp(engine.analyse(after, budget, perspective=mover).score)
     best_cp = _cp(top[0].score)
     loss = best_cp - played_cp
     slip_holds = loss >= slipfinder.SLIP_LOSS_CP  # a position decided at depth is noted, not failed: a big loss from it is still a slip
@@ -54,7 +58,8 @@ def verify(drill: dict, engine, depth: int = DEPTH) -> dict:
     answers_hold = top[0].best_move in drill["accepted"]
     verdict = "slip_not_confirmed" if not slip_holds else ("holds" if answers_hold else "slip_holds_answers_differ")
     return {"id": drill["id"], "game_id": drill["game_id"], "depth": depth, "best_cp": best_cp, "played_cp": played_cp, "loss_cp": loss,
-            "deep_best": top[0].best_move, "slip_holds": slip_holds, "decided_deep": decided, "answers_hold": answers_hold, "verdict": verdict}
+            "deep_best": top[0].best_move, "slip_holds": slip_holds, "decided_deep": decided, "answers_hold": answers_hold, "verdict": verdict,
+            "engine": getattr(engine, "name", None), "hash_mb": HASH_MB, "threads": THREADS}
 
 
 def summarise(rows: list[dict], gate: int | None = None, expected: int | None = None) -> dict:
@@ -67,8 +72,7 @@ def summarise(rows: list[dict], gate: int | None = None, expected: int | None = 
     return out
 
 
-def excluded_path() -> Path:
-    return slipround.excluded_path()
+excluded_path = slipround.excluded_path
 
 
 def exclusions(rows: list[dict]) -> dict[str, dict]:
@@ -77,11 +81,16 @@ def exclusions(rows: list[dict]) -> dict[str, dict]:
 
 
 def _saved_exclusions() -> dict[str, dict]:
+    """The exclusions already saved. A file that exists but cannot be read is not overwritten: that would erase them."""
+    if not excluded_path().exists():
+        return {}
     try:
         raw = json.loads(excluded_path().read_text())
     except (OSError, ValueError):
-        return {}
-    return raw if isinstance(raw, dict) else {}
+        raw = None
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{excluded_path()} exists but is not a readable map of drill ids; fix or delete it first")
+    return raw
 
 
 def save_exclusions(excluded: dict[str, dict]) -> None:
@@ -96,15 +105,23 @@ def results_path(depth: int) -> Path:
 
 
 def _load(depth: int) -> dict[str, dict]:
+    """Rows saved so far. A line cut short by a crash is skipped, so a report or a resume still works."""
     p = results_path(depth)
-    return {r["id"]: r for r in map(json.loads, p.read_text().splitlines())} if p.exists() else {}
+    rows: dict[str, dict] = {}
+    for line in p.read_text().splitlines() if p.exists() else []:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        rows[row["id"]] = row
+    return rows
 
 
 def run(drills: list[dict], depth: int) -> list[dict]:
     from app.engine.stockfish import Engine
 
     done = _load(depth)
-    with Engine(options={"Hash": 256, "Threads": 4}) as engine, results_path(depth).open("a") as f:
+    with Engine(options={"Hash": HASH_MB, "Threads": THREADS}) as engine, results_path(depth).open("a") as f:
         for n, d in enumerate((d for d in drills if d["id"] not in done), 1):
             row = verify(d, engine, depth)
             done[d["id"]] = row
@@ -131,7 +148,7 @@ def sample(drills: list[dict], n: int = SAMPLE_SIZE) -> list[dict]:
 
 
 def sample_drills() -> list[dict]:
-    return sample(slipround.read_slips())
+    return sample(slipround.read_slips(include_excluded=True))  # the same 30 after a drill is excluded
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -139,13 +156,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("cmd", choices=["sample", "all", "report", "exclude"])
     ap.add_argument("--depth", type=int, default=DEPTH)
     a = ap.parse_args(argv)
+    if a.cmd == "exclude":  # reads the saved results, never runs the engine; only the deep check may keep a drill out of the rounds
+        if a.depth < DEPTH:
+            raise SystemExit(f"exclude needs results from depth {DEPTH} or deeper")
+        save_exclusions({**_saved_exclusions(), **exclusions(list(_load(a.depth).values()))})
     if a.cmd == "sample":
         rows = run(sample_drills(), a.depth)
         print(json.dumps(summarise(rows, GATE, SAMPLE_SIZE), indent=1))
-    elif a.cmd == "all":
-        run([d for d in slipround.read_slips() if d["source"] == "own"], a.depth)
-    elif a.cmd == "exclude":  # keep the drills that failed the deeper check out of the rounds (a reversible list, the drill file is not touched)
-        save_exclusions({**_saved_exclusions(), **exclusions(list(_load(a.depth).values()))})
+        return 0
+    if a.cmd == "all":
+        run([d for d in slipround.read_slips(include_excluded=True) if d["source"] == "own"], a.depth)
     print(json.dumps(summarise(list(_load(a.depth).values())), indent=1))
     return 0
 

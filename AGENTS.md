@@ -93,7 +93,7 @@ uv run python -m app.learner.handcheck_m3 scan [--db COPY] | make | score ANSWER
 uv run python -m app.learner.realgame_rates status|report       # windows and how many games are checked; the rates with their denominators and floors
 uv run python -m app.learner.realgame_rates freeze               # freeze the M3 window once (ADR 0011); then run|report --types M3
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)
-uv run python -m app.learner.slipverify sample|all|report|exclude [--depth 24]   # deeper engine check of the first-slip drills (the 30-position sample passed at depth 24); exclude keeps failed drills out of the rounds
+uv run python -m app.learner.slipverify sample|all|report|exclude [--depth 24]   # deeper engine check of the first-slip drills (the 30-position sample passed at depth 24); exclude reads the saved results (no engine) and keeps drills whose slip did not hold out of the rounds; delete data/drills/slip_excluded_v1.json to undo
 uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
 uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a hand-check's answers with the labels
 uv run python ../evals/tools/run_e2.py run e2_v2 [--resume DIR]  # E2 explanation eval (about 2 dollars; refuses to start if the month's budget cannot cover it)

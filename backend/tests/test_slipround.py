@@ -393,3 +393,12 @@ def test_drills_listed_in_the_exclusion_file_are_not_served_and_an_unreadable_fi
     assert not served & set(ids) and len(served) == len(slips) - 2
     (SR.slips_path().parent / "slip_excluded_v1.json").write_text("{not json")
     assert len(SR.read_slips()) == len(slips)
+
+
+def test_an_exclusion_file_that_is_not_a_map_of_drill_ids_excludes_nothing_and_a_caller_can_ask_for_every_drill(slips):
+    path = SR.slips_path().parent / "slip_excluded_v1.json"
+    path.write_text(json.dumps("abc"))
+    assert len(SR.read_slips()) == len(slips)  # not the letters a, b, c
+    path.write_text(json.dumps({slips[0]["id"]: {"reason": "x"}}))
+    assert len(SR.read_slips()) == len(slips) - 1
+    assert len(SR.read_slips(include_excluded=True)) == len(slips)

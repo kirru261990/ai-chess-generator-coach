@@ -128,3 +128,9 @@ _Avoid_: "reason" (it says why the player moved, which no detector knows)
 **Over time**:
 An answer received after the position's timer ran out, judged by the server's clock. Still saved and still counted.
 
+**Deeper check**:
+The same first-slip drill searched again from scratch at depth 24, where it was built at 18: the slip must still lose at least 150 cp and the deeper best move should be one of the accepted moves. A second opinion from the same engine, not independent proof.
+
+**Excluded drill**:
+A first-slip drill whose slip did not hold at the deeper check. It stays in the drill file but is never put in a round.
+

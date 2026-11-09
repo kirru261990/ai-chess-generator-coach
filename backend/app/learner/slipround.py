@@ -130,22 +130,24 @@ def excluded_path() -> Path:
 
 
 def _excluded() -> set[str]:
-    """Drills a deeper check did not confirm (`slipverify exclude`); an unreadable file excludes nothing."""
+    """Drill ids a deeper check did not confirm (`slipverify exclude`). An unreadable file, or one that is not a map of ids, excludes
+    nothing: practice must not stop because of it (`slipverify exclude` refuses to overwrite such a file)."""
     try:
-        return set(json.loads(excluded_path().read_text()))
-    except (OSError, ValueError, TypeError):
+        raw = json.loads(excluded_path().read_text())
+    except (OSError, ValueError):
         return set()
+    return set(raw) if isinstance(raw, dict) else set()
 
 
-def read_slips() -> list[dict]:
+def read_slips(include_excluded: bool = False) -> list[dict]:
     p = slips_path()
     if not p.exists():
         raise RoundError("no_slip_drills", "No first-slip drills have been built on this computer yet, so there is nothing to practise.")
     drills = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
     # only drills from the current finder and record layout are served; older ones stay in the file as history
-    out = _excluded()
+    skip = set() if include_excluded else _excluded()
     return [d for d in drills if d.get("versions", {}).get("slip_finder") == slipfinder.VERSION
-            and d["versions"].get("bank") == slipfinder.BANK_VERSION and d["id"] not in out]
+            and d["versions"].get("bank") == slipfinder.BANK_VERSION and d["id"] not in skip]
 
 
 def _snapshot(d: dict) -> dict:
