@@ -76,6 +76,7 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 - **Own-games build done:** 627 games, 0 errors, 382 first-slip drills (61% of games; the depth-10 estimate was 87%, the gap is depth-18 confirmation plus the `unclear` rules, not split out yet). Median first slip at move 8; 197 drills have one accepted answer; median loss 363 cp.
 - **Hand-check built:** `app/learner/slipcheck.py` (`make` / `score`, gate 27 of 30, 30 own drills one per game, sample frozen in `data/drills/slipcheck_v1_key.json`). Page published as a private artifact for the owner to answer; 4 tests, full suite 1217 passed.
+- **Explanation added:** each card has a "Why the computer prefers it" fold-out, built from the pinned engine's lines and a material count (no language model): the expected 4-ply line after the played move and after the first accepted move, points won or lost, the computer's rating, and the loss from the drill. Stored in the frozen key (`why`). Reading it can bias the owner's answer, so the check is judged with it showing.
 - **Next:** owner answers the page, then `uv run python -m app.learner.slipcheck score ANSWERS.txt`. If the gate passes: Lichess build for fresh drills, then the web screen (Impeccable first).
 
 ### 2026-11-08 (build) · MacBook · Claude Code: first-slip drill backend (branch `feat/first-slip-drill`)

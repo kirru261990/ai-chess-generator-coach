@@ -72,3 +72,66 @@ def test_score_gate_and_unanswered(bank):
     assert part["unanswered"] == [ids[29]] and not part["passed"]  # 29 real, one unanswered: the gate needs every answer
     cant = slipcheck.score(lines(set(ids[:27])).replace(f"{ids[0]}: A yes", f"{ids[0]}: A cant"))
     assert cant["real"] == 26 and not cant["passed"]
+
+
+# --- the explanation: plain English built only from engine lines, never from a language model ---
+
+QFEN = "4k3/8/2p5/3p4/8/8/3Q4/4K3 w - - 0 1"  # White's queen can take the d5 pawn, and a pawn takes it back
+
+
+class Line:
+    def __init__(self, move, pv, cp=0, mate=None):
+        self.move, self.pv, self.cp, self.mate, self.mate_sign, self.depth = move, tuple(pv), cp, mate, None, 18
+
+
+class Result:
+    def __init__(self, line):
+        self.best, self.lines = line, [line]
+
+
+class Scripted:
+    """An analyser that answers from a table of first move -> engine line, keyed by the position's FEN."""
+
+    def __init__(self, table):
+        self.table = table
+
+    def analyse(self, board, depth=None):
+        return Result(self.table[board.fen()])
+
+
+def test_explanation_says_which_material_is_lost_after_the_played_move_and_what_the_better_move_keeps():
+    after_played = chess.Board(QFEN)
+    after_played.push_uci("d2d5")
+    after_better = chess.Board(QFEN)
+    after_better.push_uci("e1f1")
+    analyser = Scripted({after_played.fen(): Line("c6d5", ["c6d5"], cp=-800), after_better.fen(): Line("e8e7", ["e8e7"], cp=0)})
+    why = slipcheck.explain({"fen": QFEN, "played": "d2d5", "accepted": ["e1f1"]}, analyser)
+    assert "queen takes the pawn on d5" in why["played"] and "pawn takes the queen on d5" in why["played"]
+    assert "8 points behind" in why["played"] and "gives up" not in why["played"]  # no loss figure without the drill's evidence
+    why = slipcheck.explain({"fen": QFEN, "played": "d2d5", "accepted": ["e1f1"], "evidence": {"loss_cp": 350}}, analyser)
+    assert "gives up about 3.5 pawns" in why["played"]
+    assert "king to f1" in why["better"].lower() and "level" in why["better"]
+
+
+def test_explanation_names_a_forced_mate_and_a_loss_with_no_material_change():
+    start = chess.Board()
+    played_board = start.copy()
+    played_board.push_uci("f2f3")
+    analyser = Scripted({played_board.fen(): Line("e7e5", ["e7e5", "g2g4", "d8h4"], cp=None, mate=-1)})
+    why = slipcheck.explain({"fen": start.fen(), "played": "f2f3", "accepted": []}, analyser)
+    assert "checkmate" in why["played"]
+    quiet = chess.Board()
+    quiet.push_uci("a2a3")
+    analyser = Scripted({quiet.fen(): Line("e7e5", ["e7e5"], cp=-300)})
+    why = slipcheck.explain({"fen": start.fen(), "played": "a2a3", "accepted": []}, analyser)
+    assert "no material is lost" in why["played"] and "3 pawns" in why["played"]
+
+
+def test_make_stores_the_explanation_in_the_frozen_key_and_shows_it_on_the_card(bank):
+    class Any:
+        def analyse(self, board, depth=None):
+            return Result(Line(next(iter(board.legal_moves)).uci(), [next(iter(board.legal_moves)).uci()], cp=-300))
+
+    page = slipcheck.make(analyser=Any()).read_text()
+    key = json.loads(slipcheck.key_path().read_text())
+    assert all(set(i["why"]) == {"played", "better"} for i in key["items"]) and page.count("Why the computer prefers it") == 30
