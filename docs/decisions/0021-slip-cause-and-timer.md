@@ -1,6 +1,6 @@
 # 0021 · Slip cause and drill timer (2026-11-09)
 
-Status: accepted (Define step); not built yet. The owner answered the grilling questions Q1 to Q5 in chat on 2026-11-09 ("yes"). Extends ADR 0020 (first-slip drill) and follows ADR 0005 (practice is assisted) and ADR 0018 (server timing, leak test).
+Status: accepted; backend built on `feat/slip-cause-timer` (2026-11-09): `slipcause.py`, timer in `slipround.py`, `?timer=` on the current-position route. The web screen (countdown, cause card) needs the Design step first. The owner answered the grilling questions Q1 to Q5 in chat on 2026-11-09 ("yes"). Extends ADR 0020 (first-slip drill) and follows ADR 0005 (practice is assisted) and ADR 0018 (server timing, leak test).
 
 ## Why
 

@@ -66,8 +66,8 @@ from app.api.main import app
 from app.learner import drillbank
 
 client = TestClient(app)
-FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source"}
-SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves"}
+FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit"}
+SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s"}
 
 
 def keys(x):
@@ -216,3 +216,79 @@ def test_two_requests_cannot_start_two_rounds_with_the_same_drills(slips, monkey
     ids = [d["id"] for r in c_a.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"])]
     assert len(ids) == len(set(ids)) == 20
     c_a.close(), c_b.close()
+
+
+def test_the_cause_comes_with_the_answer_never_before_it_and_an_unlabelled_drill_reads_as_other(slips, conn):
+    from app.learner import slipcause
+
+    shown = SR.current(conn)
+    assert "cause" not in json.dumps(shown)  # the leak rule: nothing about why before the answer
+    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1]}})
+    got = SR.answer(conn, shown["drill_id"], "a2a3")
+    assert got["cause"]["cause"] == "hanging_own" and "piece" in got["cause"]["sentence"] and got["cause"]["habit"]
+    nxt = SR.current(conn)
+    other = SR.answer(conn, nxt["drill_id"], "d2d4")["cause"]
+    assert other["cause"] == "other" and other["habit"] is None
+
+
+def backdate(conn, seconds):
+    """Pretend the position was shown `seconds` ago (the server's clock decides over time, not the browser's)."""
+    from datetime import UTC, datetime, timedelta
+
+    conn.execute("UPDATE slip_attempt SET shown_at = ? WHERE answered_at IS NULL",
+                 ((datetime.now(UTC) - timedelta(seconds=seconds)).isoformat(timespec="milliseconds"),))
+    conn.commit()
+
+
+def test_the_timer_defaults_to_15_seconds_accepts_8_or_none_and_refuses_anything_else(slips, conn):
+    assert SR.current(conn)["timer_s"] == 15
+    for bad in (7, -1, 600):
+        with pytest.raises(SR.RoundError) as e:
+            SR.current(conn, timer_s=bad)
+        assert e.value.code == "bad_timer"
+    assert SR.current(conn, timer_s=8)["timer_s"] == 15  # the setting is fixed when the position is first shown
+    assert SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")["timer_s"] == 15
+
+
+def test_an_answer_after_the_limit_is_saved_and_marked_over_time_by_the_servers_clock(slips, conn):
+    shown = SR.current(conn, timer_s=8)
+    backdate(conn, 20)
+    late = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert late["over_time"] is True and late["matched"] is True and late["timer_s"] == 8 and late["elapsed_ms"] >= 20000
+    quick = SR.current(conn, timer_s=8)
+    assert SR.answer(conn, quick["drill_id"], "d2d4")["over_time"] is False
+
+
+def test_with_no_timer_nothing_is_over_time_and_the_round_summary_counts_over_time_answers(slips, conn):
+    shown = SR.current(conn, timer_s=0)
+    backdate(conn, 300)
+    assert SR.answer(conn, shown["drill_id"], "d2d4")["over_time"] is False
+    for n in range(9):
+        s = SR.current(conn, timer_s=15)
+        if n < 3:
+            backdate(conn, 30)
+        SR.answer(conn, s["drill_id"], "d2d4")
+    done = SR.current(conn)
+    assert done["summary"]["over_time"] == 3 and done["summary"]["timer_s"] == {"0": 1, "15": 9}
+
+
+def test_http_timer_query_and_a_bad_timer_is_a_400(slips):
+    assert client.get("/drills/rounds/current?timer=8").json()["timer_s"] == 8
+    r = client.get("/drills/rounds/current?timer=9")
+    assert r.status_code == 400 and r.json()["error"] == "bad_timer"
+
+
+def test_an_older_ledger_without_the_timer_columns_is_upgraded_in_place(slips):
+    import sqlite3
+
+    SR.ledger_path().unlink(missing_ok=True)
+    old = sqlite3.connect(SR.ledger_path())
+    old.executescript("""CREATE TABLE slip_round (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, round_version TEXT NOT NULL,
+        drills TEXT NOT NULL, finished_at TEXT);
+        CREATE TABLE slip_attempt (round_id INTEGER NOT NULL, drill_id TEXT NOT NULL, position INTEGER NOT NULL, shown_at TEXT NOT NULL,
+        answered_at TEXT, move_uci TEXT, matched INTEGER, elapsed_ms INTEGER, assisted INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (round_id, drill_id));""")
+    old.close()
+    c = SR.connect()
+    assert SR.current(c)["timer_s"] == 15
+    c.close()
