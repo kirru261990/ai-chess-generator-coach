@@ -125,14 +125,27 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
+def excluded_path() -> Path:
+    return drillbank.bank_dir() / "slip_excluded_v1.json"
+
+
+def _excluded() -> set[str]:
+    """Drills a deeper check did not confirm (`slipverify exclude`); an unreadable file excludes nothing."""
+    try:
+        return set(json.loads(excluded_path().read_text()))
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
 def read_slips() -> list[dict]:
     p = slips_path()
     if not p.exists():
         raise RoundError("no_slip_drills", "No first-slip drills have been built on this computer yet, so there is nothing to practise.")
     drills = [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
     # only drills from the current finder and record layout are served; older ones stay in the file as history
+    out = _excluded()
     return [d for d in drills if d.get("versions", {}).get("slip_finder") == slipfinder.VERSION
-            and d["versions"].get("bank") == slipfinder.BANK_VERSION]
+            and d["versions"].get("bank") == slipfinder.BANK_VERSION and d["id"] not in out]
 
 
 def _snapshot(d: dict) -> dict:

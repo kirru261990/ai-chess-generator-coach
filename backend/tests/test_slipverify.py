@@ -1,10 +1,11 @@
 """Deeper engine check of first-slip drills (ADR 0020 hand-check replacement): does the slip and its answer set hold at a deeper search?"""
 
+import json
 from types import SimpleNamespace as NS
 
 import chess
 
-from app.learner import drillbank, slipverify
+from app.learner import drillbank, slipfinder, slipverify
 
 START = chess.Board().fen()
 DRILL = {"id": "d1", "fen": START, "played": "a2a3", "accepted": ["e2e4", "d2d4"], "game_id": "g1"}
@@ -64,3 +65,27 @@ def test_summary_reports_rates_with_denominators_and_the_30_gate(tmp_path, monke
     assert got["of"] == 30 and got["slip_holds"] == 28 and got["answers_hold"] == 25 and got["gate"] == 27 and got["passed"] is True
     assert slipverify.summarise(rows[:29], gate=27, expected=30)["passed"] is False  # the gate is 27 of 30 and the set is incomplete
     assert "gate" not in slipverify.summarise(rows)  # no gate unless one is given (the full run has none)
+
+
+def sample_drill(n, source="own", game=None):
+    return {"id": f"s{n:03d}", "source": source, "game_id": game or f"g{n}", "fen": START, "played": "a2a3", "accepted": ["e2e4"],
+            "versions": {"slip_finder": slipfinder.VERSION, "bank": slipfinder.BANK_VERSION}}
+
+
+def test_the_sample_is_30_own_drills_one_per_game_chosen_by_a_hash_not_by_the_order_of_the_bank():
+    drills = [sample_drill(n) for n in range(80)] + [sample_drill(900, source="lichess"), sample_drill(901, game="g1")]
+    s = slipverify.sample(drills)
+    assert len(s) == 30 and len({d["game_id"] for d in s}) == 30 and {d["source"] for d in s} == {"own"}
+    assert slipverify.sample(list(reversed(drills))) == s
+    assert len(slipverify.sample(drills[:12])) == 12  # fewer than 30 available: all of them, and the caller sees the shortfall
+
+
+
+def test_exclusions_list_the_drills_whose_slip_did_not_hold_and_are_saved_whole(tmp_path, monkeypatch):
+    monkeypatch.setattr(drillbank.config, "DATA_DIR", tmp_path)
+    drillbank.bank_dir().mkdir(parents=True)
+    rows = [{"id": "a", "slip_holds": True, "verdict": "holds", "depth": 24}, {"id": "b", "slip_holds": False, "verdict": "slip_not_confirmed", "depth": 24}]
+    got = slipverify.exclusions(rows)
+    assert got == {"b": {"reason": "slip_not_confirmed_at_depth_24"}}
+    slipverify.save_exclusions(got)
+    assert json.loads(slipverify.excluded_path().read_text()) == got
