@@ -66,8 +66,8 @@ from app.api.main import app
 from app.learner import drillbank
 
 client = TestClient(app)
-FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source"}
-SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves"}
+FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit", "review", "why"}
+SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s", "elapsed_ms"}
 
 
 def keys(x):
@@ -112,6 +112,7 @@ def test_a_match_is_one_of_the_accepted_moves_and_a_miss_is_not_called_wrong(sli
     shown = SR.current(conn)
     hit = SR.answer(conn, shown["drill_id"], "d2d4")
     assert hit["matched"] is True and hit["assisted"] is True and hit["in_the_game"] == "e4"
+    assert hit["your_uci"] == "d2d4"  # the screen marks the answer on the board
     nxt = SR.current(conn)
     miss = SR.answer(conn, nxt["drill_id"], "a2a3")
     assert miss["matched"] is False and "did not rule" in miss["not_checked"]
@@ -216,3 +217,170 @@ def test_two_requests_cannot_start_two_rounds_with_the_same_drills(slips, monkey
     ids = [d["id"] for r in c_a.execute("SELECT drills FROM slip_round") for d in json.loads(r["drills"])]
     assert len(ids) == len(set(ids)) == 20
     c_a.close(), c_b.close()
+
+
+def test_the_cause_comes_with_the_answer_never_before_it_and_an_unlabelled_drill_reads_as_other(slips, conn):
+    from app.learner import slipcause
+
+    shown = SR.current(conn)
+    assert "cause" not in json.dumps(shown)  # the leak rule: nothing about why before the answer
+    why = {"mine": {"step": 1, "text": "t", "arrows": [], "squares": []}, "better": None}
+    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1], "why": why, "why_version": slipcause.slipwhy.VERSION}})
+    got = SR.answer(conn, shown["drill_id"], "a2a3")
+    assert got["cause"]["cause"] == "hanging_own" and "piece" in got["cause"]["sentence"] and got["cause"]["habit"]
+    assert got["cause"]["why"] == why
+    nxt = SR.current(conn)
+    other = SR.answer(conn, nxt["drill_id"], "d2d4")["cause"]
+    assert other["cause"] == "other" and other["habit"] is None
+
+
+def backdate(conn, seconds):
+    """Pretend the position was shown `seconds` ago (the server's clock decides over time, not the browser's)."""
+    from datetime import UTC, datetime, timedelta
+
+    conn.execute("UPDATE slip_attempt SET shown_at = ? WHERE answered_at IS NULL",
+                 ((datetime.now(UTC) - timedelta(seconds=seconds)).isoformat(timespec="milliseconds"),))
+    conn.commit()
+
+
+def test_the_timer_defaults_to_15_seconds_accepts_8_or_none_and_refuses_anything_else(slips, conn):
+    assert SR.current(conn)["timer_s"] == 15
+    for bad in (7, -1, 600):
+        with pytest.raises(SR.RoundError) as e:
+            SR.current(conn, timer_s=bad)
+        assert e.value.code == "bad_timer"
+    assert SR.current(conn, timer_s=8)["timer_s"] == 15  # the setting is fixed when the position is first shown
+    assert SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")["timer_s"] == 15
+
+
+def test_an_answer_after_the_limit_is_saved_and_marked_over_time_by_the_servers_clock(slips, conn):
+    shown = SR.current(conn, timer_s=8)
+    backdate(conn, 20)
+    late = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert late["over_time"] is True and late["matched"] is True and late["timer_s"] == 8 and late["elapsed_ms"] >= 20000
+    quick = SR.current(conn, timer_s=8)
+    assert SR.answer(conn, quick["drill_id"], "d2d4")["over_time"] is False
+
+
+def test_with_no_timer_nothing_is_over_time_and_the_round_summary_counts_over_time_answers(slips, conn):
+    shown = SR.current(conn, timer_s=0)
+    backdate(conn, 300)
+    assert SR.answer(conn, shown["drill_id"], "d2d4")["over_time"] is False
+    for n in range(9):
+        s = SR.current(conn, timer_s=15)
+        if n < 3:
+            backdate(conn, 30)
+        SR.answer(conn, s["drill_id"], "d2d4")
+    done = SR.current(conn)
+    assert done["summary"]["over_time"] == 3 and done["summary"]["timer_s"] == {"0": 1, "15": 9}
+
+
+def test_http_timer_query_and_a_bad_timer_is_a_400(slips):
+    assert client.get("/drills/rounds/current?timer=8").json()["timer_s"] == 8
+    r = client.get("/drills/rounds/current?timer=9")
+    assert r.status_code == 400 and r.json()["error"] == "bad_timer"
+
+
+def test_an_older_ledger_without_the_timer_columns_is_upgraded_in_place(slips):
+    import sqlite3
+
+    SR.ledger_path().unlink(missing_ok=True)
+    old = sqlite3.connect(SR.ledger_path())
+    old.executescript("""CREATE TABLE slip_round (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, round_version TEXT NOT NULL,
+        drills TEXT NOT NULL, finished_at TEXT);
+        CREATE TABLE slip_attempt (round_id INTEGER NOT NULL, drill_id TEXT NOT NULL, position INTEGER NOT NULL, shown_at TEXT NOT NULL,
+        answered_at TEXT, move_uci TEXT, matched INTEGER, elapsed_ms INTEGER, assisted INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (round_id, drill_id));""")
+    old.close()
+    c = SR.connect()
+    assert SR.current(c)["timer_s"] == 15
+    c.close()
+
+
+def test_the_round_version_records_that_the_round_had_a_timer(slips, conn):
+    for _ in range(10):
+        SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert SR.current(conn)["summary"]["versions"]["round"] == "2"  # v1 rounds had no timer
+
+
+def test_an_unreadable_label_file_never_costs_the_player_an_answer(slips, conn):
+    from app.learner import slipcause
+
+    shown = SR.current(conn)
+    slipcause.causes_path().write_text("")  # what a reader sees while a rewrite is in progress
+    got = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert got["matched"] is True and got["cause"]["cause"] == "other"
+    slipcause.causes_path().write_text("{not json")
+    assert slipcause.load() == {}
+
+
+def test_saving_labels_replaces_the_file_whole_and_leaves_no_temporary_file(slips):
+    from app.learner import slipcause
+
+    slipcause.save({"a": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION}})
+    slipcause.save({"b": {"cause": "other", "detector": None, "version": slipcause.SET_VERSION}})
+    assert set(slipcause.load()) == {"b"} and [p.name for p in slipcause.causes_path().parent.glob("slip_causes*")] == ["slip_causes_v1.json"]
+
+
+def test_two_first_requests_on_an_old_ledger_both_upgrade_it_without_a_duplicate_column_error(slips):
+    import sqlite3
+    import threading
+
+    SR.ledger_path().unlink(missing_ok=True)
+    old = sqlite3.connect(SR.ledger_path())
+    old.executescript("""CREATE TABLE slip_round (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, round_version TEXT NOT NULL,
+        drills TEXT NOT NULL, finished_at TEXT);
+        CREATE TABLE slip_attempt (round_id INTEGER NOT NULL, drill_id TEXT NOT NULL, position INTEGER NOT NULL, shown_at TEXT NOT NULL,
+        answered_at TEXT, move_uci TEXT, matched INTEGER, elapsed_ms INTEGER, assisted INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (round_id, drill_id));""")
+    old.close()
+    errors, gate = [], threading.Barrier(8)
+
+    def go():
+        try:
+            gate.wait()
+            SR.connect().close()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=go) for _ in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == []
+
+
+def test_an_unfinished_version_1_round_stays_untimed_until_it_is_finished(slips, conn):
+    SR.current(conn)
+    conn.execute("UPDATE slip_round SET round_version = '1'")
+    conn.execute("DELETE FROM slip_attempt")
+    conn.commit()
+    shown = SR.current(conn, timer_s=15)
+    assert shown["timer_s"] == 0  # version 1 means untimed (ADR 0021)
+    backdate(conn, 60)
+    assert SR.answer(conn, shown["drill_id"], "d2d4")["over_time"] is False
+    for _ in range(9):
+        SR.answer(conn, SR.current(conn, timer_s=15)["drill_id"], "d2d4")
+    assert SR.current(conn, timer_s=15)["done"] is True  # the version 1 round is finished
+    assert SR.current(conn, timer_s=15)["timer_s"] == 15  # the next round is version 2 and timed
+
+
+def test_the_review_lines_come_with_the_answer_only_and_an_answer_without_stored_lines_still_works(slips, conn):
+    from app.learner import slipline
+
+    shown = SR.current(conn)
+    assert "review" not in json.dumps(shown)
+    d = next(x for x in slips if x["id"] == shown["drill_id"])
+    slipline.save({d["id"]: {"mine": ["a2a3", "e7e5"], "better": ["d2d4", "d7d5"], "engine_config": d["versions"]["engine_config"], "plies": slipline.PLIES}})
+    got = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert got["review"]["start_fen"] == START
+    assert [s["san"] for s in got["review"]["mine"]] == ["a3", "e5"] and [s["who"] for s in got["review"]["better"]] == ["you", "they"]
+    other = SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert other["review"] is None and other["matched"] is True  # no lines stored for this one: the answer is not lost
+
+
+def test_a_position_shown_again_reports_how_long_the_server_has_been_counting(slips, conn):
+    first = SR.current(conn, timer_s=15)
+    assert first["elapsed_ms"] < 2000
+    backdate(conn, 9)
+    again = SR.current(conn, timer_s=15)  # a reload or Continue: the clock did not restart
+    assert again["drill_id"] == first["drill_id"] and 9000 <= again["elapsed_ms"] < 12000

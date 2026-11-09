@@ -60,15 +60,16 @@ def build_round(drills: list[dict], exclude: set[str] | frozenset[str] = frozens
 import json
 import sqlite3
 import statistics
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
 import chess
 
-from app.learner import drillbank, slipfinder
+from app.learner import drillbank, slipcause, slipfinder, slipline
 from app.learner.drillcycle import ELAPSED_CAP_MS
 
-VERSION = "1"
+VERSION = "2"  # v2: positions carry a timer (ADR 0021); v1 rounds have none
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS slip_round (
   id INTEGER PRIMARY KEY,
@@ -87,6 +88,8 @@ CREATE TABLE IF NOT EXISTS slip_attempt (
   matched INTEGER,
   elapsed_ms INTEGER,
   assisted INTEGER NOT NULL DEFAULT 1,
+  timer_s INTEGER,
+  over_time INTEGER,
   PRIMARY KEY (round_id, drill_id)
 );
 """
@@ -105,6 +108,16 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(ledger_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    conn.execute("BEGIN IMMEDIATE")  # two first requests must not both see the old layout and both add the column
+    try:
+        have = {r[1] for r in conn.execute("PRAGMA table_info(slip_attempt)")}
+        for col in ("timer_s", "over_time"):  # a ledger made before ADR 0021 gets the new columns; its old attempts keep NULL
+            if col not in have:
+                conn.execute(f"ALTER TABLE slip_attempt ADD COLUMN {col} INTEGER")
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
     return conn
 
 
@@ -160,20 +173,31 @@ def _number(conn: sqlite3.Connection, row: sqlite3.Row) -> int:
     return conn.execute("SELECT COUNT(*) FROM slip_round WHERE id <= ?", (row["id"],)).fetchone()[0]
 
 
-def current(conn: sqlite3.Connection) -> dict:
+TIMERS = (15, 8, 0)  # seconds a position is given: your average in a 10-minute game, pressure, none (ADR 0021)
+DEFAULT_TIMER = 15
+
+
+def current(conn: sqlite3.Connection, timer_s: int = DEFAULT_TIMER) -> dict:
     """What to show now. Before the answer: the board, who moves, the legal moves, the question, and nothing else."""
+    if timer_s not in TIMERS:
+        raise RoundError("bad_timer", f"The timer can be {', '.join(map(str, TIMERS[:-1]))} seconds or 0 for none.")
     rnd = _open_round(conn)
+    if rnd["round_version"] != VERSION:
+        timer_s = 0  # a round started before the timer existed stays untimed until it is finished (ADR 0021)
     drills = _drills(rnd)
     done = {r[0] for r in conn.execute("SELECT drill_id FROM slip_attempt WHERE round_id = ? AND answered_at IS NOT NULL", (rnd["id"],))}
     for pos, d in enumerate(drills):
         if d["id"] not in done:
-            conn.execute("INSERT OR IGNORE INTO slip_attempt (round_id, drill_id, position, shown_at) VALUES (?, ?, ?, ?)",
-                         (rnd["id"], d["id"], pos, _now()))
+            conn.execute("INSERT OR IGNORE INTO slip_attempt (round_id, drill_id, position, shown_at, timer_s) VALUES (?, ?, ?, ?, ?)",
+                         (rnd["id"], d["id"], pos, _now(), timer_s))
             conn.commit()
+            # the setting is fixed when a position is first shown: changing it after seeing the board does not change the limit
+            fixed, first_shown = conn.execute("SELECT timer_s, shown_at FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], d["id"])).fetchone()
+            elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(first_shown)).total_seconds() * 1000))
             side = "White" if d["side"] == "white" else "Black"
             return {"done": False, "round": _number(conn, rnd), "position": pos + 1, "total": len(drills), "drill_id": d["id"],
                     "fen": d["fen"], "side": d["side"], "question": f"Find the best move for {side}.",
-                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves)}
+                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves), "timer_s": fixed, "elapsed_ms": elapsed}
     with conn:
         conn.execute("UPDATE slip_round SET finished_at = COALESCE(finished_at, ?) WHERE id = ?", (_now(), rnd["id"]))
     return {"done": True, "round": _number(conn, rnd), "summary": summary(conn, rnd)}
@@ -196,16 +220,21 @@ def answer(conn: sqlite3.Connection, drill_id: str, move_uci: str) -> dict:
         raise RoundError("illegal_move", "That move is not legal in this position.")
     elapsed = min(ELAPSED_CAP_MS, max(0, int((datetime.now(UTC) - datetime.fromisoformat(row["shown_at"])).total_seconds() * 1000)))
     matched = move_uci in d["accepted"]
+    timer_s = row["timer_s"] or 0
+    over_time = bool(timer_s and elapsed > timer_s * 1000)  # the server's clock decides; the answer is kept either way
     with conn:  # only the first answer is accepted
-        taken = conn.execute("UPDATE slip_attempt SET answered_at = ?, move_uci = ?, matched = ?, elapsed_ms = ?"
+        taken = conn.execute("UPDATE slip_attempt SET answered_at = ?, move_uci = ?, matched = ?, elapsed_ms = ?, over_time = ?"
                              " WHERE round_id = ? AND drill_id = ? AND answered_at IS NULL",
-                             (_now(), move_uci, int(matched), elapsed, rnd["id"], drill_id)).rowcount
+                             (_now(), move_uci, int(matched), elapsed, int(over_time), rnd["id"], drill_id)).rowcount
     if taken == 0:
         raise RoundError("already_answered", "That position was already answered in this round.")
-    out = {"matched": matched, "your_move": board.san(move), "checked_uci": d["accepted"],
+    label = slipcause.load().get(drill_id, {})
+    cause = slipcause.explain_cause(label.get("cause"), label.get("why"))
+    stored = slipline.load(d["versions"]["engine_config"]).get(drill_id)
+    out = {"matched": matched, "your_move": board.san(move), "your_uci": move_uci, "checked_uci": d["accepted"],
            "checked_moves": [board.san(chess.Move.from_uci(u)) for u in d["accepted"]], "in_the_game": d["played_san"],
            "note": f"In the game {d['played_san']} was played; by the engine's count it gave up about {d['loss_cp'] / 100:.1f} pawns.",
-           "elapsed_ms": elapsed, "assisted": True}
+           "cause": cause, "review": slipline.review(d, stored), "elapsed_ms": elapsed, "timer_s": timer_s, "over_time": over_time, "assisted": True}
     if not matched:
         out["not_checked"] = "This move is not one of the engine-checked moves. That does not mean it is bad: the engine did not rule on it."
     return out
@@ -215,6 +244,7 @@ def summary(conn: sqlite3.Connection, rnd: sqlite3.Row) -> dict:
     rows = conn.execute("SELECT * FROM slip_attempt WHERE round_id = ? AND answered_at IS NOT NULL", (rnd["id"],)).fetchall()
     times = [r["elapsed_ms"] for r in rows]
     return {"answered": len(rows), "total": len(_drills(rnd)), "matched": sum(r["matched"] for r in rows),
+            "over_time": sum(r["over_time"] or 0 for r in rows), "timer_s": dict(Counter(str(r["timer_s"] or 0) for r in rows)),
             "total_ms": sum(times), "median_ms": int(statistics.median(times)) if times else None,
             "versions": {"round": rnd["round_version"]}}
 

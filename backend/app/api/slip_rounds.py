@@ -14,7 +14,7 @@ from app.learner import slipround as S
 RoundError = S.RoundError  # for `main.py`'s error handler
 router = APIRouter(prefix="/drills/rounds")
 
-STATUS = {"no_slip_drills": 409, "round_too_small": 409, "not_current_position": 409, "already_answered": 409, "illegal_move": 400}
+STATUS = {"no_slip_drills": 409, "round_too_small": 409, "not_current_position": 409, "already_answered": 409, "illegal_move": 400, "bad_timer": 400}
 
 
 def db() -> Iterator:
@@ -39,8 +39,8 @@ def overview(conn: Conn):
 
 
 @router.get("/current")
-def current(conn: Conn):
-    return S.current(conn)
+def current(conn: Conn, timer: int = S.DEFAULT_TIMER):
+    return S.current(conn, timer)
 
 
 @router.post("/current/answer")
