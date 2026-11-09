@@ -66,7 +66,7 @@ from pathlib import Path
 
 import chess
 
-from app.learner import drillbank, slipcause, slipfinder
+from app.learner import drillbank, slipcause, slipfinder, slipline
 from app.learner.drillcycle import ELAPSED_CAP_MS
 
 VERSION = "2"  # v2: positions carry a timer (ADR 0021); v1 rounds have none
@@ -192,11 +192,12 @@ def current(conn: sqlite3.Connection, timer_s: int = DEFAULT_TIMER) -> dict:
                          (rnd["id"], d["id"], pos, _now(), timer_s))
             conn.commit()
             # the setting is fixed when a position is first shown: changing it after seeing the board does not change the limit
-            fixed = conn.execute("SELECT timer_s FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], d["id"])).fetchone()[0]
+            fixed, first_shown = conn.execute("SELECT timer_s, shown_at FROM slip_attempt WHERE round_id = ? AND drill_id = ?", (rnd["id"], d["id"])).fetchone()
+            elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(first_shown)).total_seconds() * 1000))
             side = "White" if d["side"] == "white" else "Black"
             return {"done": False, "round": _number(conn, rnd), "position": pos + 1, "total": len(drills), "drill_id": d["id"],
                     "fen": d["fen"], "side": d["side"], "question": f"Find the best move for {side}.",
-                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves), "timer_s": fixed}
+                    "legal_moves": sorted(m.uci() for m in chess.Board(d["fen"]).legal_moves), "timer_s": fixed, "elapsed_ms": elapsed}
     with conn:
         conn.execute("UPDATE slip_round SET finished_at = COALESCE(finished_at, ?) WHERE id = ?", (_now(), rnd["id"]))
     return {"done": True, "round": _number(conn, rnd), "summary": summary(conn, rnd)}
@@ -227,11 +228,13 @@ def answer(conn: sqlite3.Connection, drill_id: str, move_uci: str) -> dict:
                              (_now(), move_uci, int(matched), elapsed, int(over_time), rnd["id"], drill_id)).rowcount
     if taken == 0:
         raise RoundError("already_answered", "That position was already answered in this round.")
-    cause = slipcause.explain_cause(slipcause.load().get(drill_id, {}).get("cause"))
-    out = {"matched": matched, "your_move": board.san(move), "checked_uci": d["accepted"],
+    label = slipcause.load().get(drill_id, {})
+    cause = slipcause.explain_cause(label.get("cause"), label.get("why"))
+    stored = slipline.load(d["versions"]["engine_config"]).get(drill_id)
+    out = {"matched": matched, "your_move": board.san(move), "your_uci": move_uci, "checked_uci": d["accepted"],
            "checked_moves": [board.san(chess.Move.from_uci(u)) for u in d["accepted"]], "in_the_game": d["played_san"],
            "note": f"In the game {d['played_san']} was played; by the engine's count it gave up about {d['loss_cp'] / 100:.1f} pawns.",
-           "cause": cause, "elapsed_ms": elapsed, "timer_s": timer_s, "over_time": over_time, "assisted": True}
+           "cause": cause, "review": slipline.review(d, stored), "elapsed_ms": elapsed, "timer_s": timer_s, "over_time": over_time, "assisted": True}
     if not matched:
         out["not_checked"] = "This move is not one of the engine-checked moves. That does not mean it is bad: the engine did not rule on it."
     return out

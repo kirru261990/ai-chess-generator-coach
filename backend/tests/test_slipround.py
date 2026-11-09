@@ -66,8 +66,8 @@ from app.api.main import app
 from app.learner import drillbank
 
 client = TestClient(app)
-FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit"}
-SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s"}
+FORBIDDEN = {"accepted", "evidence", "played", "played_san", "in_the_game", "matched", "checked_moves", "loss_cp", "source", "cause", "habit", "review", "why"}
+SHOWN = {"done", "round", "position", "total", "drill_id", "fen", "side", "question", "legal_moves", "timer_s", "elapsed_ms"}
 
 
 def keys(x):
@@ -112,6 +112,7 @@ def test_a_match_is_one_of_the_accepted_moves_and_a_miss_is_not_called_wrong(sli
     shown = SR.current(conn)
     hit = SR.answer(conn, shown["drill_id"], "d2d4")
     assert hit["matched"] is True and hit["assisted"] is True and hit["in_the_game"] == "e4"
+    assert hit["your_uci"] == "d2d4"  # the screen marks the answer on the board
     nxt = SR.current(conn)
     miss = SR.answer(conn, nxt["drill_id"], "a2a3")
     assert miss["matched"] is False and "did not rule" in miss["not_checked"]
@@ -223,9 +224,11 @@ def test_the_cause_comes_with_the_answer_never_before_it_and_an_unlabelled_drill
 
     shown = SR.current(conn)
     assert "cause" not in json.dumps(shown)  # the leak rule: nothing about why before the answer
-    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1]}})
+    why = {"mine": {"step": 1, "text": "t", "arrows": [], "squares": []}, "better": None}
+    slipcause.save({shown["drill_id"]: {"cause": "hanging_own", "detector": "hanging_own", "version": slipcause.DETECTORS[0][1], "why": why, "why_version": slipcause.slipwhy.VERSION}})
     got = SR.answer(conn, shown["drill_id"], "a2a3")
     assert got["cause"]["cause"] == "hanging_own" and "piece" in got["cause"]["sentence"] and got["cause"]["habit"]
+    assert got["cause"]["why"] == why
     nxt = SR.current(conn)
     other = SR.answer(conn, nxt["drill_id"], "d2d4")["cause"]
     assert other["cause"] == "other" and other["habit"] is None
@@ -359,3 +362,25 @@ def test_an_unfinished_version_1_round_stays_untimed_until_it_is_finished(slips,
         SR.answer(conn, SR.current(conn, timer_s=15)["drill_id"], "d2d4")
     assert SR.current(conn, timer_s=15)["done"] is True  # the version 1 round is finished
     assert SR.current(conn, timer_s=15)["timer_s"] == 15  # the next round is version 2 and timed
+
+
+def test_the_review_lines_come_with_the_answer_only_and_an_answer_without_stored_lines_still_works(slips, conn):
+    from app.learner import slipline
+
+    shown = SR.current(conn)
+    assert "review" not in json.dumps(shown)
+    d = next(x for x in slips if x["id"] == shown["drill_id"])
+    slipline.save({d["id"]: {"mine": ["a2a3", "e7e5"], "better": ["d2d4", "d7d5"], "engine_config": d["versions"]["engine_config"], "plies": slipline.PLIES}})
+    got = SR.answer(conn, shown["drill_id"], "d2d4")
+    assert got["review"]["start_fen"] == START
+    assert [s["san"] for s in got["review"]["mine"]] == ["a3", "e5"] and [s["who"] for s in got["review"]["better"]] == ["you", "they"]
+    other = SR.answer(conn, SR.current(conn)["drill_id"], "d2d4")
+    assert other["review"] is None and other["matched"] is True  # no lines stored for this one: the answer is not lost
+
+
+def test_a_position_shown_again_reports_how_long_the_server_has_been_counting(slips, conn):
+    first = SR.current(conn, timer_s=15)
+    assert first["elapsed_ms"] < 2000
+    backdate(conn, 9)
+    again = SR.current(conn, timer_s=15)  # a reload or Continue: the clock did not restart
+    assert again["drill_id"] == first["drill_id"] and 9000 <= again["elapsed_ms"] < 12000

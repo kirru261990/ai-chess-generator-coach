@@ -118,3 +118,26 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 /* The chat's bigger view: the board fills the height it is given (the chat's full-screen mode), the controls stay under it. */
 .app-large { max-width: none; }
 .app-large .board { max-width: min(92vw, calc(100vh - 150px)); }
+
+/* Slip rounds (ADR 0021): the countdown bar, the line stepper and the cause card. */
+.slip-clock { display: flex; align-items: center; gap: 10px; max-width: 520px; margin: 8px auto; }
+.slip-clock-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.slip-clock-bar > div { height: 100%; background: #3caa5a; transition: width 0.25s linear; }
+.slip-clock.low .slip-clock-bar > div { background: #e0b030; }
+.slip-clock.over .slip-clock-bar > div { background: #c0392b; }
+.slip-clock span { min-width: 5.5em; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .slip-clock-bar > div { transition: none; } }
+.slip-timer-choice { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 8px 12px; }
+.slip-timer-choice label { display: block; padding: 6px 0; cursor: pointer; }
+.slip-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.slip-tabs button { padding: 10px; border: 2px solid var(--border); border-radius: 8px; font-weight: 600; background: transparent; color: inherit; cursor: pointer; }
+.slip-tabs button.on.mine { border-color: #d9534f; }
+.slip-tabs button.on.better { border-color: #3c9a5f; }
+.slip-caption { display: flex; justify-content: space-between; gap: 12px; margin: 6px 0; }
+.slip-steps { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.slip-cause { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 6px; }
+.slip-habit { font-size: 1.05em; }
+.slip-rounds-list { padding-left: 1.1em; }
+.slip-why { margin: 6px 0; font-size: 1.05em; font-weight: 600; }
+.slip-promo { display: flex; gap: 8px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
+.slip-promo button { padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }
