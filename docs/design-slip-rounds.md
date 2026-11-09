@@ -35,6 +35,16 @@ One plain sentence per step, from a fixed template filled with facts a detector 
 - **Missed free capture:** "You could take their rook on d5 with the queen, and nothing can take it back." The better move: that capture.
 - **Other:** no sentence. The line and the points still show; no reason is invented.
 
+### Arrows that go with the why (owner, 2026-11-09)
+
+Each why sentence draws what it talks about on the board, so the sentence and the picture say the same thing:
+
+- **Orange arrow:** their move, the threat or the capture they can make ("the knight takes the bishop on e5").
+- **Red arrow** for your played move, **green arrow** for the better move, same colours as the stepper.
+- **Yellow square** on the piece in danger or the piece you could take (the detector's `target_squares`).
+- When the sentence says how the better move stops a threat, both arrows show together: orange for the threat, green for your answer. A move that defends draws its arrow to the defended square; a move that blocks draws it onto the line between the attacker and the target.
+- Squares and moves come from the detector's own record, never from the wording. Without a detector record there is no sentence and no extra marks, only the stepper's own arrows.
+
 ## Not in the first version
 
 Per-cause match rates and cause-weighted rounds; phone layout (undecided in `PRODUCT.md`); lines longer than 6 moves; arrows on the board during the question.
