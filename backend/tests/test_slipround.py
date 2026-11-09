@@ -384,3 +384,21 @@ def test_a_position_shown_again_reports_how_long_the_server_has_been_counting(sl
     backdate(conn, 9)
     again = SR.current(conn, timer_s=15)  # a reload or Continue: the clock did not restart
     assert again["drill_id"] == first["drill_id"] and 9000 <= again["elapsed_ms"] < 12000
+
+
+def test_drills_listed_in_the_exclusion_file_are_not_served_and_an_unreadable_file_excludes_nothing(slips):
+    ids = [d["id"] for d in slips[:2]]
+    (SR.slips_path().parent / "slip_excluded_v1.json").write_text(json.dumps({i: {"reason": "slip_not_confirmed_at_depth_24"} for i in ids}))
+    served = {d["id"] for d in SR.read_slips()}
+    assert not served & set(ids) and len(served) == len(slips) - 2
+    (SR.slips_path().parent / "slip_excluded_v1.json").write_text("{not json")
+    assert len(SR.read_slips()) == len(slips)
+
+
+def test_an_exclusion_file_that_is_not_a_map_of_drill_ids_excludes_nothing_and_a_caller_can_ask_for_every_drill(slips):
+    path = SR.slips_path().parent / "slip_excluded_v1.json"
+    path.write_text(json.dumps("abc"))
+    assert len(SR.read_slips()) == len(slips)  # not the letters a, b, c
+    path.write_text(json.dumps({slips[0]["id"]: {"reason": "x"}}))
+    assert len(SR.read_slips()) == len(slips) - 1
+    assert len(SR.read_slips(include_excluded=True)) == len(slips)
