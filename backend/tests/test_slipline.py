@@ -47,7 +47,10 @@ def test_steps_name_who_moves_and_count_your_points_as_the_line_plays():
     steps = slipline.steps(QFEN, ["d2d5", "c6d5", "e1f1", "e8e7"])
     assert [s["who"] for s in steps] == ["you", "they", "you", "they"]
     assert [s["san"] for s in steps] == ["Qxd5", "cxd5", "Kf1", "Ke7"]
-    assert [s["points"] for s in steps] == [1, -8, -8, -8]  # you take a pawn (+1), they take the queen (-9), nothing else changes
+    assert [s["points"] for s in steps] == [1, -8, -8, -8]
+    b = chess.Board(QFEN)
+    b.push_uci("d2d5")
+    assert steps[0]["fen"] == b.fen()  # each step carries the position after its move, so the screen needs no chess rules of its own  # you take a pawn (+1), they take the queen (-9), nothing else changes
 
 
 def test_a_move_that_ends_the_game_stops_the_line_and_the_engine_is_not_asked():
@@ -76,4 +79,4 @@ def test_the_review_holds_both_lines_with_the_start_position_and_is_none_without
     stored = {"mine": ["d2d5", "c6d5"], "better": ["e1f1", "e8e7"], "engine_config": "ec-test"}
     got = slipline.review(DRILL, stored)
     assert got["start_fen"] == QFEN and set(got) == {"start_fen", "mine", "better"}
-    assert got["mine"][1] == {"uci": "c6d5", "san": "cxd5", "who": "they", "points": -8}
+    assert got["mine"][1] == {"uci": "c6d5", "san": "cxd5", "who": "they", "points": -8, "fen": after(after(QFEN, "d2d5"), "c6d5")}

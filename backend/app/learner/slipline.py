@@ -46,7 +46,7 @@ def _material(board: chess.Board, color: chess.Color) -> int:
 
 
 def steps(fen: str, ucis: list[str]) -> list[dict]:
-    """Each move with who plays it (`you` is the side to move in the drill), its SAN, and your running material change in points."""
+    """Each move with who plays it (`you` is the side to move in the drill), its SAN, your running material change in points, and the position after it."""
     board = chess.Board(fen)
     me = board.turn
     start, out = _material(board, me), []
@@ -54,7 +54,7 @@ def steps(fen: str, ucis: list[str]) -> list[dict]:
         move = chess.Move.from_uci(uci)
         who, san = ("you" if board.turn == me else "they"), board.san(move)
         board.push(move)
-        out.append({"uci": uci, "san": san, "who": who, "points": _material(board, me) - start})
+        out.append({"uci": uci, "san": san, "who": who, "points": _material(board, me) - start, "fen": board.fen()})
     return out
 
 
