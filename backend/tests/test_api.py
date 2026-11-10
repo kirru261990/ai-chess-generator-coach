@@ -459,3 +459,21 @@ def test_hints_search_once_per_position_and_never_for_the_first_step(monkeypatch
     assert client.get(f"/games/{gid}/hint?level=3").json()["steps"][2]["from"] == "e2"
     assert engine.searches == 2
     assert client.get(f"/games/{gid}").json()["hints_used"] == 2
+
+
+def test_loss_map_endpoint_sorts_synced_games_and_is_empty_when_nothing_is_synced(tmp_path, monkeypatch):
+    import json
+
+    from app import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("CHESSCOM_USERNAME", "me")
+    empty = client.get("/loss-map").json()
+    assert empty["games_total"] == 0 and empty["sorted"] == 0
+    (tmp_path / "games").mkdir()
+    (tmp_path / "analysis").mkdir()
+    (tmp_path / "games" / "chesscom_me.jsonl").write_text(json.dumps({"source_id": "g1", "user_color": "white", "user_result": "win"}) + "\n")
+    positions = [{"ply": i, "cp": 120 if i == 10 else 0, "mate": None} for i in range(20)]
+    (tmp_path / "analysis" / "chesscom_me.jsonl").write_text(json.dumps({"source_id": "g1", "positions": positions}) + "\n")
+    got = client.get("/loss-map").json()
+    assert got["sorted"] == 1 and got["zones"][0]["zone"] == "ahead" and got["zones"][0]["wins"] == 1

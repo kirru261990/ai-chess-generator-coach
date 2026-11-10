@@ -10,6 +10,7 @@ from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
 from app.engine.stockfish import EngineError
+from app.learner import lossmap
 
 
 @asynccontextmanager
@@ -118,6 +119,11 @@ def synced_game_review(gid: str):
 @app.get("/blind-spots/baseline")
 def baseline_blind_spots():
     return blind_spots.baseline_blind_spots()
+
+
+@app.get("/loss-map")
+def loss_map():
+    return lossmap.own()
 
 
 @app.get("/games/{game_id}/feedback/{ply}")
