@@ -149,9 +149,28 @@ def test_a_game_left_out_does_not_add_to_the_recorded_searches():
     assert got["searches"] == []
 
 
-def test_a_mate_of_zero_has_no_known_side_so_it_is_left_out():
+def test_a_mate_of_zero_with_neither_a_stored_winner_nor_a_side_to_move_is_left_out():
     assert lossmap.zone_of(None, 0, "white") is None
     assert lossmap.zone_of(None, 0, "black") is None
+
+
+def test_a_checkmate_at_the_checkpoint_uses_the_stored_winner():
+    assert lossmap.zone_of(None, 0, "white", mate_sign=-1) == "behind"  # Black mated White
+    assert lossmap.zone_of(None, 0, "white", mate_sign=1) == "ahead"
+    assert lossmap.zone_of(None, 0, "black", mate_sign=-1) == "ahead"
+
+
+def test_a_checkmate_without_a_stored_winner_uses_the_side_to_move_as_the_mated_side():
+    assert lossmap.zone_of(None, 0, "white", to_move="w") == "behind"  # White to move and mated
+    assert lossmap.zone_of(None, 0, "white", to_move="b") == "ahead"
+
+
+def test_the_reviewers_game_is_counted_as_a_white_loss_not_left_out():
+    # 1. a3 a6 2. a4 a5 3. h3 h6 4. f3 e5 5. g4 Qh4# : checkmate after Black's 5th move, stored with mate=0 and mate_sign=-1
+    a = analysis("a", plies=12)
+    a["positions"][lossmap.ZONE_PLY] = {"ply": 10, "cp": None, "mate": 0, "mate_sign": -1}
+    got = lossmap.compute([game("a", "white", "checkmated")], [a])
+    assert got["left_out"]["no_score"] == 0 and zone(got, "behind")["losses"] == 1
 
 
 def test_with_no_username_set_the_map_is_empty_and_reads_no_file(monkeypatch, tmp_path):

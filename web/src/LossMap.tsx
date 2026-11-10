@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { biggestLossZone, leftOutText, searchText, zoneRows, type LossMap as LossMapData } from './lossMapState'
+import { biggestLossZone, emptyText, leftOutText, searchText, zoneRows, type LossMap as LossMapData } from './lossMapState'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -24,7 +24,7 @@ export default function LossMap() {
       </p>
     )
   if (!data) return <p>Loading…</p>
-  if (data.sorted === 0) return <p className="note">No analysed games yet. Sync your games and run the engine pass first.</p>
+  if (data.sorted === 0) return <p className="note">{emptyText(data)}</p>
 
   const rows = zoneRows(data)
   const biggest = biggestLossZone(data)
@@ -38,7 +38,7 @@ export default function LossMap() {
         {biggest && (
           <>
             {' '}
-            The largest share of your losses starts <strong>{biggest}</strong>.
+            The largest share of your sorted losses starts <strong>{biggest}</strong>.
           </>
         )}
       </p>

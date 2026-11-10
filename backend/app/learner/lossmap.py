@@ -35,11 +35,26 @@ def outcome(result: str) -> str | None:
     return None
 
 
-def zone_of(cp: int | None, mate: int | None, color: str) -> str | None:
-    """The zone for the player from White's-side score. None when there is no usable score (also a mate of 0, whose side is unknown)."""
+def zone_of(
+    cp: int | None,
+    mate: int | None,
+    color: str,
+    mate_sign: int | None = None,
+    to_move: str | None = None,
+) -> str | None:
+    """The zone for the player from White's-side score. None when there is no usable score.
+
+    A mate of 0 is a position that is already checkmate: the stored `mate_sign` (+1 White mates, -1 Black mates) names the winner,
+    and without it the side to move (`to_move`, "w" or "b" from the FEN) is the one mated. With neither, the game is left out.
+    """
     if mate is not None:
         if mate == 0:
-            return None
+            if mate_sign in (1, -1):
+                mate = mate_sign
+            elif to_move in ("w", "b"):
+                mate = -1 if to_move == "w" else 1  # White to move and mated: Black won
+            else:
+                return None
         cp = MATE_CP if mate > 0 else -MATE_CP
     if cp is None:
         return None
@@ -69,7 +84,9 @@ def compute(games: list[dict], analyses: list[dict]) -> dict:
             left_out["unknown_result"] += 1
             continue
         p = a["positions"][ZONE_PLY]
-        z = zone_of(p.get("cp"), p.get("mate"), g["user_color"])
+        fen = p.get("fen") or ""
+        to_move = fen.split()[1] if len(fen.split()) > 1 else None
+        z = zone_of(p.get("cp"), p.get("mate"), g["user_color"], p.get("mate_sign"), to_move)
         if z is None:
             left_out["no_score"] += 1
             continue
@@ -78,7 +95,9 @@ def compute(games: list[dict], analyses: list[dict]) -> dict:
         row = zones[z]
         row["games"] += 1
         row[{"win": "wins", "draw": "draws", "loss": "losses"}[res]] += 1
-    losses = sum(r["losses"] for r in zones.values())
+    losses = sum(
+        r["losses"] for r in zones.values()
+    )  # losses among the sorted games only; left-out games are not in it
     sorted_games = sum(r["games"] for r in zones.values())
     for r in zones.values():
         r["loss_share"] = {"n": r["losses"], "of": losses}

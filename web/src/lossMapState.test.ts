@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { biggestLossZone, leftOutText, searchText, zoneRows, type LossMap } from './lossMapState'
+import { biggestLossZone, emptyText, leftOutText, searchText, zoneRows, type LossMap } from './lossMapState'
 
 const zone = (name: string, games: number, wins: number, draws: number, losses: number, of = 100, enough = true) => ({
   zone: name,
@@ -38,7 +38,7 @@ describe('zoneRows', () => {
 
   it('shows the share of losses as a rate with its denominator', () => {
     const [r] = zoneRows(map([zone('level', 40, 20, 10, 10, 40)]))
-    expect(r.lossShare).toBe('25% of your losses (10 of 40)')
+    expect(r.lossShare).toBe('25% of your sorted losses (10 of 40)')
   })
 
   it('shows no share and says why when a zone has too few games', () => {
@@ -103,5 +103,23 @@ describe('searchText', () => {
     expect(searchText([{ engine: 'Stockfish 19', depth: 10, games: 5 }, { engine: 'Stockfish 19', depth: 12, games: 2 }])).toBe(
       'Stockfish 19 at depth 10 (5 games), Stockfish 19 at depth 12 (2 games)',
     )
+  })
+})
+
+describe('emptyText', () => {
+  const none = { not_analysed: 0, too_short: 0, no_score: 0, unknown_result: 0 }
+
+  it('asks for a sync and the engine pass when there are no games at all', () => {
+    expect(emptyText({ ...map([], none), games_total: 0, sorted: 0 })).toBe('No games could be sorted yet. Sync your games and run the engine pass first.')
+  })
+
+  it('shows why games were left out and does not ask for an engine pass that cannot help', () => {
+    const m = { ...map([], { ...none, too_short: 1 }), games_total: 1, sorted: 0 }
+    expect(emptyText(m)).toBe('No games could be sorted yet. Left out: 1 game too short to reach the checkpoint.')
+  })
+
+  it('asks for the engine pass when some games are not analysed', () => {
+    const m = { ...map([], { ...none, not_analysed: 3 }), games_total: 3, sorted: 0 }
+    expect(emptyText(m)).toBe('No games could be sorted yet. Left out: 3 games not yet analysed. Sync your games and run the engine pass first.')
   })
 })
