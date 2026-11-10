@@ -13,7 +13,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 type Tab = 'play' | 'test' | 'drills' | 'slips' | 'spots' | 'review' | 'lossmap'
 
-// Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
+// The Analyze tabs (Review, Blind spots, Loss map) show by default; `?analysis=0` hides them (see analysisTabs.ts).
 const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
 
 export default function Shell() {

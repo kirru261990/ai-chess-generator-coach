@@ -3,7 +3,7 @@
 The sort is taken from the depth-10 pass over the player's own games (`data/analysis/`), so it is a quick check, not a verdict (rule 5:
 a game with no usable score at the checkpoint is left out and counted, never sorted as level). Everything here is a rate with its
 denominator (rule 3); a zone with fewer than MIN_GAMES games carries `enough: false` so the screen shows no rate for it. Read-only,
-imports no LLM code, and changing ZONE_PLY, ZONE_CP or the result groups is a new VERSION (rule 6).
+imports no LLM code, records the engine and depth each game was sorted with in `searches` (rule 6), and changing ZONE_PLY, ZONE_CP or the result groups is a new VERSION (rule 6).
 """
 
 from __future__ import annotations
@@ -54,6 +54,7 @@ def zone_of(cp: int | None, mate: int | None, color: str) -> str | None:
 def compute(games: list[dict], analyses: list[dict]) -> dict:
     by_id = {a["source_id"]: a for a in analyses}
     left_out = {"not_analysed": 0, "too_short": 0, "no_score": 0, "unknown_result": 0}
+    searches: dict[tuple[str, int | None], int] = {}
     zones = {z: {"zone": z, "games": 0, "wins": 0, "draws": 0, "losses": 0} for z in ZONES}
     for g in games:
         a = by_id.get(g["source_id"])
@@ -72,6 +73,8 @@ def compute(games: list[dict], analyses: list[dict]) -> dict:
         if z is None:
             left_out["no_score"] += 1
             continue
+        key = (a.get("engine") or "unknown", (a.get("budget") or {}).get("depth"))
+        searches[key] = searches.get(key, 0) + 1
         row = zones[z]
         row["games"] += 1
         row[{"win": "wins", "draw": "draws", "loss": "losses"}[res]] += 1
@@ -85,7 +88,10 @@ def compute(games: list[dict], analyses: list[dict]) -> dict:
         "zone_ply": ZONE_PLY,
         "threshold_cp": ZONE_CP,
         "min_games": MIN_GAMES,
-        "depth": 10,
+        "searches": [
+            {"engine": e, "depth": d, "games": n}
+            for (e, d), n in sorted(searches.items(), key=lambda kv: str(kv[0]))
+        ],
         "games_total": len(games),
         "sorted": sorted_games,
         "losses": losses,
@@ -101,8 +107,11 @@ def _read(path: Path) -> list[dict]:
 
 
 def own() -> dict:
-    """The loss map over the player's synced games."""
-    name = f"chesscom_{(config.chesscom_username() or '').lower()}.jsonl"
+    """The loss map over the player's synced games (empty when no Chess.com username is set)."""
+    user = config.chesscom_username()
+    if not user:
+        return compute([], [])
+    name = f"chesscom_{user.lower()}.jsonl"
     games = _read(config.DATA_DIR / "games" / name)
     analyses = _read(config.DATA_DIR / "analysis" / name)
     return compute(games, analyses)

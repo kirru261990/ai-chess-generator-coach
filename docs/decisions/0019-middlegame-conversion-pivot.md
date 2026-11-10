@@ -62,6 +62,14 @@ Effect on the zone split at the earlier checkpoint (same 618 games, depth-10 pas
 
 At move 4 or 5 most games are still level at ±1.0, so "good opening" and a conversion rate sorted at that checkpoint cover few games and mean something different ("a lead from early play, often the opponent's slip"). **Decided by the owner (2026-11-08): the zone split is taken at the checkpoint position after Black's 5th move, with a ±0.5 threshold.** On the 618 games (depth-10 pass, one player): ahead 196 (117 won, 9 drawn, 70 lost), level 224 (99 won, 114 lost), behind 198 (90 won, 97 lost). That gives a conversion rate of 117 out of 196 (60%), and the losses split 25% ahead, 41% level, 35% behind. The move-10 tables above are history. Caveats: a ±0.5 lead after 5 moves is often the opponent's slip, not good opening play, and depth-10 evaluations this early are noisy (154 of 351 games that dipped to -1.0 by move 10 were back above it a move later); the numbers were measured once on the games used to choose the checkpoint, so a later window is the real test. Any new definition of "good opening" or of a detector's first move is a new version and a re-measure, not a retune on these games.
 
+## Amendment 2026-11-10: the loss map is in the app
+
+`GET /loss-map` and the Loss map tab (PR 129) sort the owner's synced games at the checkpoint position (positions[10] of the depth-10 pass, ±50 cp, the player's side) and show won / drawn / lost per zone with each zone's share of all losses. It is **Analyze, not evidence**: a quick check, and Practice does not change it. A game with no usable score is left out and counted. A zone under 10 games shows no bar or rate. The result records the engine and depth it was sorted with.
+
+On the 618 sorted games: ahead 190 (111 won, 9 drawn, 70 lost), level 233 (107, 11, 115), behind 195 (88, 11, 96); 281 losses. **These do not reproduce the table above (196 / 224 / 198).** The loss counts agree (70 / 115 / 96 against 70 / 114 / 97) but the zone sizes differ by up to 9 games. Other checkpoint positions (ply 9 or 11), strict instead of inclusive ±50 and other mate handling were tried and none gives the ADR's sizes; the script behind that table is not in the repo. Quote the app's numbers, not the table's, and re-measure on a later window before reading anything into the difference. The loss map recomputes the zone itself instead of calling the slip finder; unify them when the first-slip split is added.
+
+Not built: the first big mistake per loss, a per-game list for each zone, per time control, a recent-games window.
+
 ## What this does not show
 
 - No claim that the product raises ratings. Conversion rate across months and the 72-hour delayed test are the later evidence.

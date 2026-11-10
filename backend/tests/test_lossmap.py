@@ -7,12 +7,17 @@ def game(gid, color="white", result="win"):
     return {"source_id": gid, "user_color": color, "user_result": result}
 
 
-def analysis(gid, cp=None, mate=None, plies=38):
+def analysis(gid, cp=None, mate=None, plies=38, engine="Stockfish 19", depth=10):
     """Depth-10 pass of one game. `cp` is from White's side, as the pass stores it."""
     positions = [{"ply": i, "cp": 0, "mate": None} for i in range(plies)]
     if plies > lossmap.ZONE_PLY:
         positions[lossmap.ZONE_PLY] = {"ply": lossmap.ZONE_PLY, "cp": cp, "mate": mate}
-    return {"source_id": gid, "positions": positions}
+    return {
+        "source_id": gid,
+        "positions": positions,
+        "engine": engine,
+        "budget": {"depth": depth, "movetime_ms": None},
+    }
 
 
 def build(rows):
@@ -126,3 +131,33 @@ def test_a_zone_with_too_few_games_is_marked_so_no_rate_is_read_from_it():
 def test_the_result_names_its_version_and_rules_so_a_later_change_is_a_new_measurement():
     got = build([("a", "white", "win", 100)])
     assert got["version"] == lossmap.VERSION and got["zone_ply"] == 10 and got["threshold_cp"] == 50
+
+
+def test_the_engine_and_depth_behind_the_sort_are_recorded_from_the_analysis_not_assumed():
+    games = [game("a"), game("b"), game("c")]
+    got = lossmap.compute(
+        games, [analysis("a", 100), analysis("b", 100), analysis("c", 100, depth=12)]
+    )
+    assert got["searches"] == [
+        {"engine": "Stockfish 19", "depth": 10, "games": 2},
+        {"engine": "Stockfish 19", "depth": 12, "games": 1},
+    ]
+
+
+def test_a_game_left_out_does_not_add_to_the_recorded_searches():
+    got = lossmap.compute([game("a")], [analysis("a", plies=6)])
+    assert got["searches"] == []
+
+
+def test_a_mate_of_zero_has_no_known_side_so_it_is_left_out():
+    assert lossmap.zone_of(None, 0, "white") is None
+    assert lossmap.zone_of(None, 0, "black") is None
+
+
+def test_with_no_username_set_the_map_is_empty_and_reads_no_file(monkeypatch, tmp_path):
+    from app import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.delenv("CHESSCOM_USERNAME", raising=False)
+    got = lossmap.own()
+    assert got["games_total"] == 0 and got["sorted"] == 0

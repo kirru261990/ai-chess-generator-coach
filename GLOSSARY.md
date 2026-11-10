@@ -30,6 +30,10 @@ Where a game stands at the checkpoint position from the player's side: **ahead**
 _Avoid_: "state", "phase" (phase means opening or middlegame)
 _Avoid_: "winning position", "advantage position"
 
+**Loss map**:
+The player's synced games sorted into zones, with how each zone ended (won, drawn, lost) and each zone's share of all losses. Games that cannot be sorted (too short, not yet analysed, no clear score) are **left out** and counted, never placed in a zone. A zone with fewer than 10 games shows no rate.
+_Avoid_: "weakness map" (a zone count is not a weakness until it is a rate over a fair window)
+
 **Conversion game**:
 A game in which the player had a good opening.
 _Avoid_: "winning game" (it may be lost)
