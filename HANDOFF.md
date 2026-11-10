@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-10 (build) · MacBook · Claude Code: loss map in the app (branch `feat/loss-map`, ADR 0019 amendment)
+- **Built:** `backend/app/learner/lossmap.py` (VERSION 1), `GET /loss-map`, a Loss map tab (`web/src/LossMap.tsx`, `lossMapState.ts`, shown with the other Analyze tabs). Each synced game is sorted ahead / level / behind from the depth-10 score at ply 10 (after Black's 5th move, ±50 cp, the player's side), with won / drawn / lost per zone and each zone's share of all losses as n of N. A zone under 10 games shows no rate; games too short, not analysed, with no score or with an unknown result are left out and counted.
+- **Owner skipped the grilling step ("no time"); decisions made without it:** own games only (no public pool), depth-10 data only (no re-run), no first-slip split yet, shown as Analyze (not evidence, Practice does not change it).
+- **On the owner's 627 games:** 618 sorted; ahead 190 (111 won, 9 drawn, 70 lost), level 233 (107, 11, 115), behind 195 (88, 11, 96); losses 281. The ADR 0019 table had 196 / 224 / 198 for the same 618 games; the loss counts agree (70 / 115 / 96 against 70 / 114 / 97) but zone sizes differ by up to 9 games. The cause is not found (the one-time script is not in the repo); do not quote the ADR's zone sizes against these.
+- **Not built:** first big mistake per loss (the slip finder is shared, `slipfinder.py`), per time control, a window over recent games, a deeper re-check of games near the ±50 line.
+- **Tests:** 13 in `test_lossmap.py`, one API test, 10 web tests; full suites pass (backend 1277, web 168).
+
 ### 2026-11-09 (build) · MacBook · Claude Code: slip round screen design and engine lines (branch `feat/slip-screen`, ADR 0021 decision 7)
 
 - **Design agreed** (`docs/design-slip-rounds.md`): new Slip rounds tab; timer start screen (15 / 8 / none) and a draining bar; after the answer, two tabs (Your move, Better move) stepped with Next move / Back (no autoplay) on the app's board (react-chessboard), up to 6 moves (3 each), red = your move, green = better, orange = their reply, a running points tag, then the cause and habit.

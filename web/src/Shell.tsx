@@ -3,6 +3,7 @@ import { showAnalysisTabs } from './analysisTabs'
 import App from './App'
 import BlindSpots from './BlindSpots'
 import DrillCycles from './DrillCycles'
+import LossMap from './LossMap'
 import SlipRounds from './SlipRounds'
 import Mistakes from './Mistakes'
 import ReviewPage from './Review'
@@ -10,7 +11,7 @@ import { usageLabel, type Usage } from './usageLabel'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
-type Tab = 'play' | 'test' | 'drills' | 'slips' | 'spots' | 'review'
+type Tab = 'play' | 'test' | 'drills' | 'slips' | 'spots' | 'review' | 'lossmap'
 
 // Review and Blind spots are hidden by default to keep the page simple while practising; `?analysis=1` shows them.
 const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
@@ -51,6 +52,9 @@ export default function Shell() {
             <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
               Blind spots
             </button>
+            <button className={tab === 'lossmap' ? 'on' : ''} onClick={() => setTab('lossmap')}>
+              Loss map
+            </button>
           </>
         )}
       </nav>
@@ -64,6 +68,7 @@ export default function Shell() {
       <div hidden={tab !== 'slips'}>{tab === 'slips' && <SlipRounds />}</div>
       <div hidden={tab !== 'review'}>{tab === 'review' && <ReviewPage />}</div>
       <div hidden={tab !== 'spots'}>{tab === 'spots' && <BlindSpots />}</div>
+      <div hidden={tab !== 'lossmap'}>{tab === 'lossmap' && <LossMap />}</div>
     </>
   )
 }

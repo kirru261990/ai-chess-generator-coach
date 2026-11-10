@@ -141,3 +141,14 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .slip-why { margin: 6px 0; font-size: 1.05em; font-weight: 600; }
 .slip-promo { display: flex; gap: 8px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
 .slip-promo button { padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }
+
+/* Loss map */
+.lossmap { max-width: 900px; margin: 0 auto; padding: 16px; text-align: left; }
+.lossmap .zone h3 { margin: 0; font-size: 1em; }
+.lossmap .bar { display: flex; height: 10px; margin: 10px 0 6px; border-radius: 5px; overflow: hidden; background: var(--border); }
+.lossmap .bar i { display: block; height: 100%; }
+.lossmap .bar .won { background: #3a9d5d; }
+.lossmap .bar .drawn { background: #9ca3af; }
+.lossmap .bar .lost { background: #ca3431; }
+.lossmap .results { margin: 0; font-size: 0.9em; font-variant-numeric: tabular-nums; }
+.lossmap .caution { margin: 6px 0 0; font-size: 0.85em; color: #6b4e00; }
