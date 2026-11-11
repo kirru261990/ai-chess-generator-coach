@@ -72,6 +72,15 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-11 (build) · MacBook · Claude Code: opening repertoire, first slice (branch `feat/opening-repertoire`, ADR 0022)
+- **Owner asked to build it; the grilling step was skipped,** so the decisions are in ADR 0022 and open to change. The owner approved reading about 300 MB of the public Lichess September file (CC0).
+- **Built:** `openingtrie.py` (streams the file and counts first-move prefixes for the five openings by a fixed gate per opening; saved to `data/repertoire/openings_2026-09_700_1500.json`, git-ignored; 925,802 games seen), `repertoire.py` (books: our moves most-played and engine-checked at depth 18, a miss over 50 cp is replaced or the line stops; their replies at least 6% of the games there, at least 0.3% of the opening and 5 games), `repdrill.py` (line drills, a separate git-ignored ledger `data/repertoire/drills.sqlite3`, always assisted, expected move named only after the answer, a line with misses comes back first), `/repertoire` routes, an Openings tab (`Openings.tsx`, `repertoireState.ts`).
+- **Counts:** Jobava 1,508 games, Italian 4,787, Queen's Gambit 1,934, Caro-Kann 2,985, King's Indian 585. Books have 14 to 31 lines each, ending at 5 to 15 plies: players at this level leave the book early. **"All lines into the middlegame" is not met**; the next step is engine-led continuations labelled as such.
+- **Not built:** principles per line (needs the owner's own-words notes from the free courses, then the Masters and engine checks), middlegame puzzles per opening, plan notes, other languages, engine-led continuations, a per-opening progress view beyond counts.
+- **Study:** the repertoire is a second intervention beside the first-slip drill; the study's decision rule does not read it (ADR 0022 decision 5).
+- **Tests:** 20 in `test_openingtrie.py`, 11 in `test_repertoire.py`, 12 in `test_repdrill.py`, one API test, 12 web tests; suites pass (backend 1328, web 188).
+- **Run:** `uv run python -m app.learner.openingtrie build` (once), `uv run python -m app.learner.repertoire --counts ../data/repertoire/openings_2026-09_700_1500.json`, restart the API, open the Openings tab.
+
 ### 2026-11-10 (build) · MacBook · Claude Code: loss map in the app (branch `feat/loss-map`, ADR 0019 amendment)
 - **Built:** `backend/app/learner/lossmap.py` (VERSION 1), `GET /loss-map`, a Loss map tab (`web/src/LossMap.tsx`, `lossMapState.ts`, shown with the other Analyze tabs). Each synced game is sorted ahead / level / behind from the depth-10 score at ply 10 (after Black's 5th move, ±50 cp, the player's side), with won / drawn / lost per zone and each zone's share of all losses as n of N. A zone under 10 games shows no rate; games too short, not analysed, with no score or with an unknown result are left out and counted.
 - **Owner skipped the grilling step ("no time"); decisions made without it:** own games only (no public pool), depth-10 data only (no re-run), no first-slip split yet, shown as Analyze (not evidence, Practice does not change it).
