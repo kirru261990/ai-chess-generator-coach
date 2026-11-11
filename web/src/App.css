@@ -153,3 +153,15 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .lossmap .results { margin: 0; font-size: 0.9em; font-variant-numeric: tabular-nums; }
 .lossmap .caution { margin: 6px 0 0; font-size: 0.85em; }
 .lossmap .legend { margin: 0 0 12px; }
+
+/* Opening lines */
+.openings { max-width: 900px; margin: 0 auto; padding: 16px; text-align: left; }
+.openings .history { font-family: ui-monospace, Consolas, monospace; margin: 4px 0 8px; }
+.openings .banner { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+.openings .banner.right { background: #d6f0dc; color: #1c5a2a; }
+.openings .banner.wrong { background: #f5e6b8; color: #6b4e00; }
+.openings .caution { color: #6b4e00; }
+.openings .run-head { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; min-height: 1.6em; }
+.openings .history { margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.4em; }
+.openings .status-row { min-height: 2.6em; margin-top: 8px; display: flex; align-items: center; }
+.openings .status-row .banner { margin: 0; padding: 4px 10px; }

@@ -4,6 +4,7 @@ import App from './App'
 import BlindSpots from './BlindSpots'
 import DrillCycles from './DrillCycles'
 import LossMap from './LossMap'
+import Openings from './Openings'
 import SlipRounds from './SlipRounds'
 import Mistakes from './Mistakes'
 import ReviewPage from './Review'
@@ -11,7 +12,7 @@ import { usageLabel, type Usage } from './usageLabel'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
-type Tab = 'play' | 'test' | 'drills' | 'slips' | 'spots' | 'review' | 'lossmap'
+type Tab = 'play' | 'test' | 'drills' | 'slips' | 'spots' | 'review' | 'lossmap' | 'openings'
 
 // The Analyze tabs (Review, Blind spots, Loss map) show by default; `?analysis=0` hides them (see analysisTabs.ts).
 const SHOW_ANALYSIS_TABS = showAnalysisTabs(window.location.search)
@@ -44,6 +45,9 @@ export default function Shell() {
         <button className={tab === 'slips' ? 'on' : ''} onClick={() => setTab('slips')}>
           Slip rounds
         </button>
+        <button className={tab === 'openings' ? 'on' : ''} onClick={() => setTab('openings')}>
+          Openings
+        </button>
         {SHOW_ANALYSIS_TABS && (
           <>
             <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
@@ -66,6 +70,7 @@ export default function Shell() {
       <div hidden={tab !== 'test'}>{tab === 'test' && <Mistakes />}</div>
       <div hidden={tab !== 'drills'}>{tab === 'drills' && <DrillCycles />}</div>
       <div hidden={tab !== 'slips'}>{tab === 'slips' && <SlipRounds />}</div>
+      <div hidden={tab !== 'openings'}>{tab === 'openings' && <Openings />}</div>
       <div hidden={tab !== 'review'}>{tab === 'review' && <ReviewPage />}</div>
       <div hidden={tab !== 'spots'}>{tab === 'spots' && <BlindSpots />}</div>
       <div hidden={tab !== 'lossmap'}>{tab === 'lossmap' && <LossMap />}</div>

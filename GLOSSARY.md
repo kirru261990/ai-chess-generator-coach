@@ -34,6 +34,12 @@ _Avoid_: "winning position", "advantage position"
 The player's synced games sorted into zones, with how each zone ended (won, drawn, lost) and each zone's share of all losses. Games that cannot be sorted (too short, not yet analysed, no clear score) are **left out** and counted, never placed in a zone. A zone with fewer than 10 games shows no rate.
 _Avoid_: "weakness map" (a zone count is not a weakness until it is a rate over a fair window)
 
+**Repertoire**:
+The five openings the owner is learning: Jobava London, Italian and Queen's Gambit (White), Caro-Kann and King's Indian (Black). Each has a **book**: the moves we play, each checked by the engine, and the replies players in the rating band really make (those with at least 6% of the games at that position), to move 10.
+
+**Line drill**:
+A run through one line of a book from move 1: the player answers at each of their turns and a miss brings that line back sooner. Practice, always assisted, never evidence.
+
 **Conversion game**:
 A game in which the player had a good opening.
 _Avoid_: "winning game" (it may be lost)

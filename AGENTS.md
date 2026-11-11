@@ -94,6 +94,8 @@ uv run python -m app.learner.realgame_rates status|report       # windows and ho
 uv run python -m app.learner.realgame_rates freeze               # freeze the M3 window once (ADR 0011); then run|report --types M3
 uv run python -m app.learner.patterns baseline                 # detector miss rates over the baseline window (results are frozen in data/baseline/)
 uv run python -m app.learner.slipverify sample|all|report|exclude [--depth 24]   # deeper engine check of the first-slip drills (the 30-position sample passed at depth 24); exclude reads the saved results (no engine) and keeps drills whose slip did not hold out of the rounds; delete data/drills/slip_excluded_v1.json to undo
+uv run python -m app.learner.openingtrie build [--month 2026-09] [--max-gb 0.3]   # count the first moves of Lichess Rapid games (CC0, streamed, about 300 MB) for the five repertoire openings (ADR 0022); `summary` lists what is saved
+uv run python -m app.learner.repertoire --counts ../data/repertoire/openings_2026-09_700_1500.json [--opening caro_kann] [--no-engine]   # build each opening's book (our moves engine-checked at depth 18; their replies from the counts)
 uv run python ../evals/tools/score_detectors.py                # score the detectors on the frozen real_play_v1 set
 uv run python ../evals/tools/compare_handcheck.py FILE [--full]  # compare a hand-check's answers with the labels
 uv run python ../evals/tools/run_e2.py run e2_v2 [--resume DIR]  # E2 explanation eval (about 2 dollars; refuses to start if the month's budget cannot cover it)
