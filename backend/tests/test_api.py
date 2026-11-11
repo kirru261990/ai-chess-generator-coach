@@ -507,6 +507,9 @@ def test_repertoire_endpoints_list_openings_run_a_line_and_refuse_a_missing_book
     (tmp_path / "repertoire" / f"book_caro_kann_v{repertoire.VERSION}.json").write_text(json.dumps(book))
     run = client.post("/repertoire/caro_kann/runs").json()
     assert run["history"] == ["e4"] and run["assisted"] is True and "ours" not in run
+    assert run["learn"] is True and run["arrow"] == "c7c6"  # learn is the default: the move is shown as an arrow
+    recall = client.post("/repertoire/caro_kann/runs?learn=false").json()
+    assert recall["learn"] is False and recall["arrow"] is None
     bad = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "e2e4"})
     assert bad.status_code == 400 and bad.json()["error"] == "illegal_move"
     wrong_route = client.post(f"/repertoire/italian/runs/{run['run_id']}/answer", json={"move": "c7c6"})

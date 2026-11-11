@@ -1,13 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
-import { answerBanner, historyText, openingCard, sourceLabel, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
+import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
 
+const LEARN_KEY = 'openings-show-move'
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
 
 /** Opening repertoire drills (ADR 0022): play a line from move 1. Practice, so always assisted; nothing here counts as evidence. */
+function savedLearn(): boolean {
+  try {
+    return localStorage.getItem(LEARN_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
 export default function Openings() {
+  const [learn, setLearn] = useState(savedLearn)
+  const [wrong, setWrong] = useState<string | null>(null) // the square the player tried: a cross shows there for a moment
+  const timer = useRef<number | undefined>(undefined)
   const [rows, setRows] = useState<OpeningRow[]>([])
   const [q, setQ] = useState<Question | null>(null)
   const [ans, setAns] = useState<Answer | null>(null)
@@ -26,7 +38,7 @@ export default function Openings() {
     setBusy(true)
     setError(null)
     try {
-      const first = await api<Question>(`/repertoire/${key}/runs`, {})
+      const first = await api<Question>(`/repertoire/${key}/runs?learn=${learn}`, {})
       setQ(first)
       setAns(null)
       setDone(null)
@@ -44,7 +56,21 @@ export default function Openings() {
     setBusy(true)
     setError(null)
     try {
-      setAns(await api<Answer>(`/repertoire/${q.key}/runs/${q.run_id}/answer`, { move }))
+      const a = await api<Answer>(`/repertoire/${q.key}/runs/${q.run_id}/answer`, { move })
+      if (a.retry) {
+        // Not the line's move: the board does not change (the piece stays where it was), a cross shows on the square, and the
+        // player tries again.
+        setWrong(move.slice(2, 4))
+        window.clearTimeout(timer.current)
+        timer.current = window.setTimeout(() => setWrong(null), 1500)
+        setAns(a)
+      } else {
+        setWrong(null)
+        setAns(a)
+        window.clearTimeout(timer.current)
+        // A right move shows a tick for a moment, then the line goes on by itself.
+        timer.current = window.setTimeout(() => finish(a), 700)
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -52,18 +78,28 @@ export default function Openings() {
     }
   }
 
-  function carryOn() {
-    if (!ans) return
-    if (ans.next) {
-      setQ(ans.next)
+  function finish(a: Answer) {
+    if (a.next) {
+      setQ(a.next)
       setAns(null)
       setFrom(null)
       setNote(null)
     } else {
-      setDone(ans.summary ?? null)
+      setDone(a.summary ?? null)
       setQ(null)
       setAns(null)
       load()
+    }
+  }
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  function pickLearn(on: boolean) {
+    setLearn(on)
+    try {
+      localStorage.setItem(LEARN_KEY, String(on))
+    } catch {
+      /* the choice is simply not remembered */
     }
   }
 
@@ -91,17 +127,27 @@ export default function Openings() {
   }
 
   const styles: Record<string, React.CSSProperties> = {}
-  if (q && !ans) {
+  if (q && !(ans && ans.matched)) {
     if (from) styles[from] = { background: 'rgba(255, 215, 0, 0.45)' }
     for (const t of targetsFrom(q.legal, from)) styles[t] = { background: DOT }
   }
-  if (ans) {
-    styles[ans.your_uci.slice(2, 4)] = { background: ans.matched ? 'rgba(80, 180, 90, 0.55)' : 'rgba(80, 140, 230, 0.6)' }
-    styles[ans.expected_uci.slice(0, 2)] = { background: 'rgba(80, 180, 90, 0.55)' }
-    styles[ans.expected_uci.slice(2, 4)] = { background: 'rgba(80, 180, 90, 0.55)' }
+  if (ans?.matched) {
+    styles[ans.your_uci.slice(2, 4)] = { background: 'rgba(80, 180, 90, 0.55)' }
   }
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
-    <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>{children}</div>
+    <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>
+      {children}
+      {wrong === square && (
+        <span className="move-badge blunder" title="Not the line's move" aria-label="Not the line's move">
+          ✕
+        </span>
+      )}
+      {ans?.matched && square === ans.your_uci.slice(2, 4) && (
+        <span className="move-badge best" title="Right" aria-label="Right">
+          ✓
+        </span>
+      )}
+    </div>
   )
 
   const banner = ans ? answerBanner(ans) : null
@@ -124,7 +170,7 @@ export default function Openings() {
           {!ans && <p>Your move.</p>}
           {sourceLabel(q.source) && <p className="chip">{sourceLabel(q.source)}</p>}
           <div className="board">
-            <Chessboard options={{ position: q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false }} />
+            <Chessboard options={{ position: q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false, arrows: arrowFor(q, ans) }} />
           </div>
           {note && (
             <p className="note" aria-live="polite">
@@ -134,15 +180,17 @@ export default function Openings() {
           {banner && (
             <div className={`banner ${banner.tone}`} role="status">
               <p>{banner.text}</p>
-              <button autoFocus onClick={carryOn}>
-                {ans?.next ? 'Continue' : 'Finish line'}
-              </button>
+
             </div>
           )}
         </>
       )}
       {!q && (
         <>
+          <label className="threat-toggle" title="Draw the move to play as an arrow while you learn a line">
+            <input type="checkbox" checked={learn} onChange={(e) => pickLearn(e.target.checked)} /> Show the move as an arrow
+          </label>
+          <p className="note">With the arrow on you learn a line. Switch it off to recall it: a wrong move shows a cross and you try again.</p>
           {done && <p className="banner right">Line finished. {summaryText(done)}</p>}
           {rows.map((o) => {
             const c = openingCard(o)

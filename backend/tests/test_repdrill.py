@@ -55,8 +55,8 @@ def conn(tmp_path, monkeypatch):
     c.close()
 
 
-def start(conn, book=BOOK, seed=1):
-    return D.start(conn, "caro_kann", book, rng=random.Random(seed))
+def start(conn, book=BOOK, seed=1, learn=False):
+    return D.start(conn, "caro_kann", book, rng=random.Random(seed), learn=learn)
 
 
 def test_a_black_run_starts_after_white_has_played_the_first_move(conn):
@@ -83,8 +83,16 @@ def test_the_question_leaks_nothing_before_the_answer(conn):
         "legal",
         "assisted",
         "source",
+        "learn",
+        "arrow",
     }
+    assert run["arrow"] is None and run["learn"] is False
     assert "ours" not in run and "expected" not in str(run)
+
+
+def test_a_learn_run_shows_the_move_as_an_arrow_so_the_player_knows_where_to_play(conn):
+    run = start(conn, learn=True)
+    assert run["learn"] is True and run["arrow"] == "c7c6"
 
 
 def test_the_question_says_whether_the_position_comes_from_players_or_the_engine(conn):
@@ -98,14 +106,61 @@ def test_the_right_move_is_a_hit_and_the_run_moves_on_past_their_reply(conn):
     assert got["next"]["ply"] == 3 and got["next"]["history"][:2] == ["e4", "c6"]
 
 
-def test_a_wrong_move_is_a_miss_the_right_one_is_shown_and_the_run_goes_on(conn):
+def test_a_wrong_move_does_not_move_the_line_on_and_the_player_tries_again(conn):
     run = start(conn)
     got = D.answer(conn, run["run_id"], "e7e5", BOOK)
-    assert got["matched"] is False and got["expected_san"] == "c6" and got["your_san"] == "e5"
-    assert got["next"]["history"][:2] == [
-        "e4",
-        "c6",
-    ]  # the book move is played so the line can continue
+    assert (
+        got["matched"] is False
+        and got["retry"] is True
+        and got["next"] is None
+        and got["your_san"] == "e5"
+    )
+    assert (
+        got["expected_san"] is None
+    )  # a recall run does not name the move after the first wrong try
+    assert (
+        conn.execute("SELECT ply FROM rep_run WHERE id = ?", (run["run_id"],)).fetchone()["ply"]
+        == 1
+    )
+    again = D.answer(conn, run["run_id"], "c7c6", BOOK)
+    assert again["matched"] is True and again["next"]["ply"] == 3
+
+
+def test_a_recall_run_shows_the_move_after_two_wrong_tries(conn):
+    run = start(conn)
+    D.answer(conn, run["run_id"], "e7e5", BOOK)
+    second = D.answer(conn, run["run_id"], "a7a6", BOOK)
+    assert (
+        second["attempts"] == 2
+        and second["expected_san"] == "c6"
+        and second["expected_uci"] == "c7c6"
+    )
+
+
+def test_several_wrong_tries_on_one_position_count_as_one_miss_and_the_late_right_move_is_no_hit(
+    conn,
+):
+    run = start(conn)
+    for bad in ("e7e5", "a7a6", "b7b6"):
+        D.answer(conn, run["run_id"], bad, BOOK)
+    D.answer(conn, run["run_id"], "c7c6", BOOK)
+    s = D.stats(conn, "caro_kann", BOOK)
+    assert s["misses"] == 1 and s["hits"] == 0
+
+
+def test_a_right_first_try_in_a_recall_run_counts_as_a_hit(conn):
+    run = start(conn)
+    D.answer(conn, run["run_id"], "c7c6", BOOK)
+    assert D.stats(conn, "caro_kann", BOOK)["hits"] == 1
+
+
+def test_a_learn_run_names_the_move_after_a_wrong_try_and_counts_neither_hits_nor_misses(conn):
+    run = start(conn, learn=True)
+    wrong = D.answer(conn, run["run_id"], "e7e5", BOOK)
+    assert wrong["retry"] is True and wrong["expected_uci"] == "c7c6"
+    D.answer(conn, run["run_id"], "c7c6", BOOK)
+    s = D.stats(conn, "caro_kann", BOOK)
+    assert s["hits"] == 0 and s["misses"] == 0 and s["nodes_seen"] == 1 and s["nodes_recalled"] == 0
 
 
 def test_an_illegal_move_is_refused_and_changes_nothing(conn):
@@ -120,7 +175,12 @@ def test_the_run_finishes_with_a_summary_after_the_last_answer(conn):
     run = start(conn)
     first = D.answer(conn, run["run_id"], "c7c6", BOOK)
     last = D.answer(conn, run["run_id"], "d7d5", BOOK)
-    assert last["next"] is None and last["summary"] == {"answered": 2, "hits": 2, "misses": 0}
+    assert last["next"] is None and last["summary"] == {
+        "answered": 2,
+        "hits": 2,
+        "misses": 0,
+        "shown": 0,
+    }
     assert first["next"] is not None
 
 

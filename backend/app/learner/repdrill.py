@@ -21,10 +21,13 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS rep_run (
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, book_id TEXT NOT NULL, line TEXT NOT NULL, ply INTEGER NOT NULL,
   hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0, finished INTEGER NOT NULL DEFAULT 0,
+  learn INTEGER NOT NULL DEFAULT 1, shown INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0,
+  missed_ply INTEGER NOT NULL DEFAULT -1,
   assisted INTEGER NOT NULL DEFAULT 1 CHECK (assisted = 1), started_at TEXT NOT NULL, finished_at TEXT
 );
 CREATE TABLE IF NOT EXISTS rep_node (
-  key TEXT NOT NULL, position TEXT NOT NULL, hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0, last_at TEXT,
+  key TEXT NOT NULL, position TEXT NOT NULL, hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0,
+  shown INTEGER NOT NULL DEFAULT 0, last_at TEXT,
   PRIMARY KEY (key, position)
 );
 """
@@ -47,6 +50,23 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(ledger_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    for table, cols in (
+        (
+            "rep_run",
+            (
+                "learn INTEGER NOT NULL DEFAULT 1",
+                "shown INTEGER NOT NULL DEFAULT 0",
+                "attempts INTEGER NOT NULL DEFAULT 0",
+                "missed_ply INTEGER NOT NULL DEFAULT -1",
+            ),
+        ),
+        ("rep_node", ("shown INTEGER NOT NULL DEFAULT 0",)),
+    ):  # a ledger made before learn mode gets the new columns; its old rows keep the defaults
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for col in cols:
+            if col.split()[0] not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col}")
+    conn.commit()
     return conn
 
 
@@ -81,17 +101,22 @@ def pick_line(conn: sqlite3.Connection, key: str, book: dict, rng: random.Random
     if not lines:
         raise DrillError("no_lines", f"the {key} book has no lines")
     stats = {
-        r["position"]: (r["hits"], r["misses"])
-        for r in conn.execute("SELECT position, hits, misses FROM rep_node WHERE key = ?", (key,))
+        r["position"]: (r["hits"], r["misses"], r["shown"])
+        for r in conn.execute(
+            "SELECT position, hits, misses, shown FROM rep_node WHERE key = ?", (key,)
+        )
     }
 
     def priority(line: list[str]) -> float:
         score = 0.0
         for position in _our_positions(book, line):
-            hits, misses = stats.get(position, (0, 0))
-            score += (
-                1.0 if hits + misses == 0 else 3.0 * misses / (hits + misses)
-            )  # never asked, or how often it was missed
+            hits, misses, shown = stats.get(position, (0, 0, 0))
+            if hits + misses > 0:
+                score += 3.0 * misses / (hits + misses)  # how often it was missed
+            else:
+                score += (
+                    0.5 if shown else 1.0
+                )  # only shown with the arrow counts as half known; never seen counts in full
         return score + 0.5 * _popularity(book, line)
 
     best = max(priority(ln) for ln in lines)
@@ -105,7 +130,8 @@ def _advance(book: dict, line: list[str], ply: int) -> int:
     return ply
 
 
-def _question(run_id: int, key: str, book: dict, line: list[str], ply: int) -> dict:
+def _question(run_id: int, key: str, book: dict, line: list[str], ply: int, learn: bool) -> dict:
+    """The position to answer. Only a learn run shows the move (as `arrow`); a recall run names nothing before the answer."""
     board = repertoire.board_after(line[:ply])
     return {
         "run_id": run_id,
@@ -118,25 +144,51 @@ def _question(run_id: int, key: str, book: dict, line: list[str], ply: int) -> d
         "legal": sorted(m.uci() for m in board.legal_moves),
         "assisted": True,
         "source": book["nodes"].get(repertoire.pos_key(board), {}).get("source", "players"),
+        "learn": learn,
+        "arrow": board.parse_san(line[ply]).uci() if learn else None,
     }
 
 
-def start(conn: sqlite3.Connection, key: str, book: dict, rng: random.Random | None = None) -> dict:
+def start(
+    conn: sqlite3.Connection,
+    key: str,
+    book: dict,
+    rng: random.Random | None = None,
+    learn: bool = True,
+) -> dict:
+    """Start a run. `learn` shows the move as an arrow (to learn a line); without it the player must recall it."""
     if not repertoire.is_checked(book):
-        raise DrillError("book_unchecked", "this book was built without the engine check, so it is not used for drills")
+        raise DrillError(
+            "book_unchecked",
+            "this book was built without the engine check, so it is not used for drills",
+        )
     line = pick_line(conn, key, book, rng or random.Random())
     ply = _advance(book, line, 0)
     cur = conn.execute(
-        "INSERT INTO rep_run (key, book_id, line, ply, started_at) VALUES (?, ?, ?, ?, ?)",
-        (key, book["id"], " ".join(line), ply, _now()),
+        "INSERT INTO rep_run (key, book_id, line, ply, learn, started_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (key, book["id"], " ".join(line), ply, 1 if learn else 0, _now()),
     )
     conn.commit()
-    return _question(cur.lastrowid, key, book, line, ply)
+    return _question(cur.lastrowid, key, book, line, ply, learn)
+
+
+REVEAL_AFTER = 2  # wrong tries on one position before a recall run shows the move
+
+
+def _count(conn: sqlite3.Connection, key: str, position: str, col: str) -> None:
+    conn.execute(
+        f"INSERT INTO rep_node (key, position, {col}, last_at) VALUES (?, ?, 1, ?) "
+        f"ON CONFLICT(key, position) DO UPDATE SET {col} = {col} + 1, last_at = excluded.last_at",
+        (key, position, _now()),
+    )
 
 
 def answer(
     conn: sqlite3.Connection, run_id: int, uci: str, book: dict, key: str | None = None
 ) -> dict:
+    """One try at the position. A wrong move does not move the line on: the player tries again (the board shows a cross and the
+    piece stays). In a recall run the first wrong try on a position counts as one miss, and a right first try as one hit; in a learn
+    run nothing is counted as right or wrong, because the arrow showed the move."""
     run = conn.execute("SELECT * FROM rep_run WHERE id = ?", (run_id,)).fetchone()
     if run is None:
         raise DrillError("no_such_run", "that run does not exist")
@@ -148,7 +200,7 @@ def answer(
         )
     if run["finished"]:
         raise DrillError("run_finished", "that run is already finished")
-    line, ply = run["line"].split(), run["ply"]
+    line, ply, learn = run["line"].split(), run["ply"], bool(run["learn"])
     board = repertoire.board_after(line[:ply])
     try:
         move = chess.Move.from_uci(uci)
@@ -157,33 +209,66 @@ def answer(
     if move is None or move not in board.legal_moves:
         raise DrillError("illegal_move", f"{uci} is not a legal move here")
     expected = line[ply]
-    matched = move == board.parse_san(expected)
-    your_san = board.san(move)
+    expected_uci = board.parse_san(expected).uci()
+    matched = move.uci() == expected_uci
     position = repertoire.pos_key(board)
-    conn.execute(
-        "INSERT INTO rep_node (key, position, hits, misses, last_at) VALUES (?, ?, ?, ?, ?) "
-        "ON CONFLICT(key, position) DO UPDATE SET hits = hits + excluded.hits, misses = misses + excluded.misses, last_at = excluded.last_at",
-        (run["key"], position, 1 if matched else 0, 0 if matched else 1, _now()),
-    )
-    nxt = _advance(book, line, ply + 1)
-    done = nxt >= len(line)
-    hits, misses = run["hits"] + (1 if matched else 0), run["misses"] + (0 if matched else 1)
-    conn.execute(
-        "UPDATE rep_run SET ply = ?, hits = ?, misses = ?, finished = ?, finished_at = ? WHERE id = ?",
-        (nxt, hits, misses, 1 if done else 0, _now() if done else None, run_id),
-    )
-    conn.commit()
-    out = {
+    base = {
         "matched": matched,
-        "expected_san": expected,
-        "expected_uci": board.parse_san(expected).uci(),
-        "your_san": your_san,
+        "your_san": board.san(move),
         "your_uci": move.uci(),
         "assisted": True,
-        "next": None if done else _question(run_id, run["key"], book, line, nxt),
+        "learn": learn,
+    }
+    if not matched:
+        attempts = run["attempts"] + 1
+        misses = run["misses"]
+        missed_ply = run["missed_ply"]
+        if (
+            not learn and missed_ply != ply
+        ):  # the first wrong try on this position is the miss; more tries add nothing
+            _count(conn, run["key"], position, "misses")
+            misses, missed_ply = misses + 1, ply
+        conn.execute(
+            "UPDATE rep_run SET attempts = ?, misses = ?, missed_ply = ? WHERE id = ?",
+            (attempts, misses, missed_ply, run_id),
+        )
+        conn.commit()
+        show = learn or attempts >= REVEAL_AFTER
+        return base | {
+            "retry": True,
+            "attempts": attempts,
+            "next": None,
+            "expected_san": expected if show else None,
+            "expected_uci": expected_uci if show else None,
+        }
+    hits, shown = run["hits"], run["shown"]
+    if learn:
+        _count(conn, run["key"], position, "shown")
+        shown += 1
+    elif run["missed_ply"] != ply:  # right at the first try
+        _count(conn, run["key"], position, "hits")
+        hits += 1
+    nxt = _advance(book, line, ply + 1)
+    done = nxt >= len(line)
+    conn.execute(
+        "UPDATE rep_run SET ply = ?, hits = ?, shown = ?, attempts = 0, finished = ?, finished_at = ? WHERE id = ?",
+        (nxt, hits, shown, 1 if done else 0, _now() if done else None, run_id),
+    )
+    conn.commit()
+    out = base | {
+        "retry": False,
+        "attempts": run["attempts"],
+        "expected_san": expected,
+        "expected_uci": expected_uci,
+        "next": None if done else _question(run_id, run["key"], book, line, nxt, learn),
     }
     if done:
-        out["summary"] = {"answered": hits + misses, "hits": hits, "misses": misses}
+        out["summary"] = {
+            "answered": hits + run["misses"] + shown,
+            "hits": hits,
+            "misses": run["misses"],
+            "shown": shown,
+        }
     return out
 
 
@@ -192,14 +277,19 @@ def stats(conn: sqlite3.Connection, key: str, book: dict) -> dict:
     ours = {p for ln in lines for p in _our_positions(book, ln)}
     engine = {p for p in ours if book["nodes"].get(p, {}).get("source") == "engine"}
     rows = conn.execute(
-        "SELECT position, hits, misses FROM rep_node WHERE key = ?", (key,)
+        "SELECT position, hits, misses, shown FROM rep_node WHERE key = ?", (key,)
     ).fetchall()
     return {
         "key": key,
         "lines": len(lines),
         "nodes_ours": len(ours),
         "nodes_engine": len(engine),
-        "nodes_seen": sum(1 for r in rows if r["position"] in ours),
+        "nodes_seen": sum(
+            1 for r in rows if r["position"] in ours and r["hits"] + r["misses"] + r["shown"] > 0
+        ),
+        "nodes_recalled": sum(
+            1 for r in rows if r["position"] in ours and r["hits"] + r["misses"] > 0
+        ),
         "hits": sum(r["hits"] for r in rows),
         "misses": sum(r["misses"] for r in rows),
         "assisted_only": True,

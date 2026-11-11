@@ -25,17 +25,22 @@ export interface Question {
   legal: string[]
   assisted: true
   source: 'players' | 'engine'
+  learn: boolean
+  arrow: string | null
 }
 
 export interface Answer {
   matched: boolean
-  expected_san: string
-  expected_uci: string
+  retry: boolean
+  attempts: number
+  learn: boolean
+  expected_san: string | null
+  expected_uci: string | null
   your_san: string
   your_uci: string
   assisted: true
   next: Question | null
-  summary?: { answered: number; hits: number; misses: number }
+  summary?: { answered: number; hits: number; misses: number; shown: number }
 }
 
 export interface OpeningCard {
@@ -77,15 +82,22 @@ export function historyText(history: string[]): string {
   return history.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${m}` : m)).join(' ')
 }
 
-export function answerBanner(a: Pick<Answer, 'matched' | 'expected_san' | 'your_san'>): { tone: 'right' | 'wrong'; text: string } {
-  return a.matched
-    ? { tone: 'right', text: `Right: ${a.expected_san}.` }
-    : { tone: 'wrong', text: `You played ${a.your_san}. The line plays ${a.expected_san}. It will come back sooner.` }
+export function answerBanner(a: Pick<Answer, 'matched' | 'expected_san'>): { tone: 'right' | 'wrong'; text: string } {
+  if (a.matched) return { tone: 'right', text: `Right: ${a.expected_san}.` }
+  return a.expected_san
+    ? { tone: 'wrong', text: `Not the line's move. The line plays ${a.expected_san}: follow the arrow.` }
+    : { tone: 'wrong', text: "Not the line's move. Try again." }
 }
 
-export function summaryText(s: { answered: number; hits: number; misses: number }): string {
-  const base = `${s.hits} of ${s.answered} right.`
+export function summaryText(s: { answered: number; hits: number; misses: number; shown: number }): string {
+  if (s.shown > 0 && s.hits + s.misses === 0) return `You played all ${s.shown} moves with the arrow.`
+  const base = `${s.hits} of ${s.answered} right first time.`
   return s.misses > 0 ? `${base} ${s.misses} will come back sooner.` : base
+}
+
+export function arrowFor(q: Question | null, a: Answer | null): { startSquare: string; endSquare: string; color: string }[] {
+  const uci = q?.arrow ?? (a && a.retry ? a.expected_uci : null)
+  return uci ? [{ startSquare: uci.slice(0, 2), endSquare: uci.slice(2, 4), color: 'rgba(80, 140, 230, 0.85)' }] : []
 }
 
 export function sourceLabel(source: Question['source']): string | null {

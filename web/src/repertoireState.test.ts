@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBanner, historyText, openingCard, sourceLabel, summaryText, type OpeningRow } from './repertoireState'
+import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type Question, type OpeningRow } from './repertoireState'
 
 const row = (o: Partial<OpeningRow> = {}): OpeningRow => ({
   key: 'caro_kann',
@@ -68,24 +68,50 @@ describe('historyText', () => {
 
 describe('answerBanner', () => {
   it('names the move when it is right', () => {
-    expect(answerBanner({ matched: true, expected_san: 'c6', your_san: 'c6' })).toEqual({ tone: 'right', text: 'Right: c6.' })
+    expect(answerBanner({ matched: true, expected_san: 'c6' })).toEqual({ tone: 'right', text: 'Right: c6.' })
   })
 
-  it('names both moves when it is wrong and says the line goes on', () => {
-    expect(answerBanner({ matched: false, expected_san: 'c6', your_san: 'e5' })).toEqual({
+  it('says it is not the line and to try again, without naming the move, on a first wrong try', () => {
+    expect(answerBanner({ matched: false, expected_san: null })).toEqual({ tone: 'wrong', text: "Not the line's move. Try again." })
+  })
+
+  it('names the move and points at the arrow once it is revealed', () => {
+    expect(answerBanner({ matched: false, expected_san: 'c6' })).toEqual({
       tone: 'wrong',
-      text: 'You played e5. The line plays c6. It will come back sooner.',
+      text: "Not the line's move. The line plays c6: follow the arrow.",
     })
   })
 })
 
 describe('summaryText', () => {
-  it('gives the answers as a count out of the total', () => {
-    expect(summaryText({ answered: 6, hits: 5, misses: 1 })).toBe('5 of 6 right. 1 will come back sooner.')
+  it('says how many were right first time out of those asked', () => {
+    expect(summaryText({ answered: 6, hits: 5, misses: 1, shown: 0 })).toBe('5 of 6 right first time. 1 will come back sooner.')
   })
 
   it('has nothing to say about misses when there were none', () => {
-    expect(summaryText({ answered: 4, hits: 4, misses: 0 })).toBe('4 of 4 right.')
+    expect(summaryText({ answered: 4, hits: 4, misses: 0, shown: 0 })).toBe('4 of 4 right first time.')
+  })
+
+  it('does not call an arrow-guided run right or wrong', () => {
+    expect(summaryText({ answered: 6, hits: 0, misses: 0, shown: 6 })).toBe('You played all 6 moves with the arrow.')
+  })
+})
+
+describe('arrowFor', () => {
+  const q = (arrow: string | null) => ({ arrow }) as Question
+  const a = (o: Partial<Answer>) => ({ retry: true, expected_uci: null, ...o }) as Answer
+
+  it('draws the arrow of a learn run from the start', () => {
+    expect(arrowFor(q('c7c6'), null)).toEqual([{ startSquare: 'c7', endSquare: 'c6', color: 'rgba(80, 140, 230, 0.85)' }])
+  })
+
+  it('draws nothing in a recall run until the move is revealed', () => {
+    expect(arrowFor(q(null), null)).toEqual([])
+    expect(arrowFor(q(null), a({ expected_uci: null }))).toEqual([])
+  })
+
+  it('draws the revealed move after repeated wrong tries', () => {
+    expect(arrowFor(q(null), a({ expected_uci: 'c7c6' }))).toHaveLength(1)
   })
 })
 

@@ -68,8 +68,9 @@ def overview(conn: Conn):
 
 
 @router.post("/{key}/runs")
-def start(key: str, conn: Conn):
-    return D.start(conn, key, _book(key))
+def start(key: str, conn: Conn, learn: bool = True):
+    """`learn` (default) shows the move as an arrow; `learn=false` is a recall run that names nothing before the answer."""
+    return D.start(conn, key, _book(key), learn=learn)
 
 
 @router.post("/{key}/runs/{run_id}/answer")
