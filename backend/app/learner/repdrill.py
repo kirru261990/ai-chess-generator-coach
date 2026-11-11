@@ -255,11 +255,17 @@ def answer(
         (nxt, hits, shown, 1 if done else 0, _now() if done else None, run_id),
     )
     conn.commit()
+    moved = board.copy(stack=False)
+    moved.push(move)
     out = base | {
         "retry": False,
         "attempts": run["attempts"],
         "expected_san": expected,
         "expected_uci": expected_uci,
+        # So the screen can draw the player's move at once and the opponent's reply a beat later (as Practice does).
+        "after_fen": moved.fen(),
+        "reply_san": line[ply + 1 : nxt],
+        "reply_fen": repertoire.board_after(line[:nxt]).fen(),
         "next": None if done else _question(run_id, run["key"], book, line, nxt, learn),
     }
     if done:

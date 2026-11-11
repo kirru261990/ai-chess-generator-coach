@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type Question, type OpeningRow } from './repertoireState'
+import { answerBanner, arrowFor, END_HOLD_MS, REPLY_DELAY_MS, stagesFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type Question, type OpeningRow } from './repertoireState'
 
 const row = (o: Partial<OpeningRow> = {}): OpeningRow => ({
   key: 'caro_kann',
@@ -119,5 +119,35 @@ describe('sourceLabel', () => {
   it('labels an engine position and says nothing for a players position', () => {
     expect(sourceLabel('engine')).toBe("Engine line: the engine's choice here, not what most players at this level play.")
     expect(sourceLabel('players')).toBeNull()
+  })
+})
+
+describe('stagesFor', () => {
+  const next = { fen: 'F2' } as Question
+
+  it('draws the player move at once, then the reply a beat later, then goes on', () => {
+    expect(stagesFor({ after_fen: 'F1', reply_fen: 'F2', reply_san: ['d4'], next })).toEqual([
+      { fen: 'F1', afterMs: 0, then: null },
+      { fen: 'F2', afterMs: REPLY_DELAY_MS, then: 'next' },
+    ])
+  })
+
+  it('holds the last position of a finished line before the summary', () => {
+    expect(stagesFor({ after_fen: 'F1', reply_fen: 'F2', reply_san: ['d4'], next: null })).toEqual([
+      { fen: 'F1', afterMs: 0, then: null },
+      { fen: 'F2', afterMs: REPLY_DELAY_MS, then: null },
+      { fen: 'F2', afterMs: END_HOLD_MS, then: 'finish' },
+    ])
+  })
+
+  it('goes straight on when there was no reply to draw', () => {
+    expect(stagesFor({ after_fen: 'F1', reply_fen: 'F1', reply_san: [], next })).toEqual([
+      { fen: 'F1', afterMs: 0, then: null },
+      { fen: 'F1', afterMs: REPLY_DELAY_MS, then: 'next' },
+    ])
+  })
+
+  it('draws nothing for a wrong move', () => {
+    expect(stagesFor({ next: null })).toEqual([])
   })
 })

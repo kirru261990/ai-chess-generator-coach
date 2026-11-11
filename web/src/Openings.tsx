@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
-import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
+import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, stagesFor, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
 
 const LEARN_KEY = 'openings-show-move'
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
@@ -19,7 +19,8 @@ function savedLearn(): boolean {
 export default function Openings() {
   const [learn, setLearn] = useState(savedLearn)
   const [wrong, setWrong] = useState<string | null>(null) // the square the player tried: a cross shows there for a moment
-  const timer = useRef<number | undefined>(undefined)
+  const [shown, setShown] = useState<string | null>(null) // a position drawn between the player's move and the next question
+  const timer = useRef<number[]>([])
   const [rows, setRows] = useState<OpeningRow[]>([])
   const [q, setQ] = useState<Question | null>(null)
   const [ans, setAns] = useState<Answer | null>(null)
@@ -52,24 +53,31 @@ export default function Openings() {
   }
 
   async function submit(move: string) {
-    if (!q || busy || ans) return
+    if (!q || busy || (ans && !ans.retry)) return
     setBusy(true)
     setError(null)
     try {
       const a = await api<Answer>(`/repertoire/${q.key}/runs/${q.run_id}/answer`, { move })
       if (a.retry) {
         // Not the line's move: the board does not change (the piece stays where it was), a cross shows on the square, and the
-        // player tries again.
+        // player tries again at once.
         setWrong(move.slice(2, 4))
-        window.clearTimeout(timer.current)
-        timer.current = window.setTimeout(() => setWrong(null), 1500)
+        clearTimers()
+        timer.current.push(window.setTimeout(() => setWrong(null), 1500))
         setAns(a)
       } else {
         setWrong(null)
         setAns(a)
-        window.clearTimeout(timer.current)
-        // A right move shows a tick for a moment, then the line goes on by itself.
-        timer.current = window.setTimeout(() => finish(a), 700)
+        clearTimers()
+        // The player's move is drawn at once; the opponent's reply follows a beat later, as in Practice.
+        for (const st of stagesFor(a)) {
+          timer.current.push(
+            window.setTimeout(() => {
+              setShown(st.fen)
+              if (st.then) finish(a)
+            }, st.afterMs),
+          )
+        }
       }
     } catch (e) {
       setError((e as Error).message)
@@ -78,13 +86,20 @@ export default function Openings() {
     }
   }
 
+  function clearTimers() {
+    for (const t of timer.current) window.clearTimeout(t)
+    timer.current = []
+  }
+
   function finish(a: Answer) {
     if (a.next) {
+      setShown(null)
       setQ(a.next)
       setAns(null)
       setFrom(null)
       setNote(null)
     } else {
+      setShown(null)
       setDone(a.summary ?? null)
       setQ(null)
       setAns(null)
@@ -92,7 +107,7 @@ export default function Openings() {
     }
   }
 
-  useEffect(() => () => window.clearTimeout(timer.current), [])
+  useEffect(() => clearTimers, [])
 
   function pickLearn(on: boolean) {
     setLearn(on)
@@ -104,7 +119,7 @@ export default function Openings() {
   }
 
   function onSquareClick({ square }: { square: string }) {
-    if (!q || ans || busy) return
+    if (!q || (ans && !ans.retry) || busy) return
     const mine = q.side === 'white' ? 'w' : 'b'
     const castle = from ? castleMove(q.legal, q.fen, from, square) : null
     if (castle) return submit(castle)
@@ -170,7 +185,7 @@ export default function Openings() {
           {!ans && <p>Your move.</p>}
           {sourceLabel(q.source) && <p className="chip">{sourceLabel(q.source)}</p>}
           <div className="board">
-            <Chessboard options={{ position: q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false, arrows: arrowFor(q, ans) }} />
+            <Chessboard options={{ position: shown ?? q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false, arrows: arrowFor(q, ans) }} />
           </div>
           {note && (
             <p className="note" aria-live="polite">

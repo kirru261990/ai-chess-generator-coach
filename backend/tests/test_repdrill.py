@@ -289,3 +289,26 @@ def test_an_engine_led_position_is_counted_apart_and_labelled(conn):
     )
     s = D.stats(conn, "caro_kann", led)
     assert s["nodes_engine"] > 0 and s["nodes_ours"] > s["nodes_engine"]
+
+
+def test_a_right_move_returns_the_position_after_it_and_after_the_opponents_reply_so_the_screen_can_show_both(
+    conn,
+):
+    run = start(conn)
+    got = D.answer(conn, run["run_id"], "c7c6", BOOK)
+    assert got["after_fen"].split()[0] == "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR"
+    assert len(got["reply_san"]) == 1 and got["reply_san"][0] in ("d4", "Nc3")
+    assert got["reply_fen"] == got["next"]["fen"]
+
+
+def test_a_wrong_move_returns_no_position_to_draw(conn):
+    run = start(conn)
+    got = D.answer(conn, run["run_id"], "e7e5", BOOK)
+    assert "after_fen" not in got and "reply_fen" not in got
+
+
+def test_the_last_answer_still_returns_where_the_line_ended(conn):
+    run = start(conn)
+    D.answer(conn, run["run_id"], "c7c6", BOOK)
+    last = D.answer(conn, run["run_id"], "d7d5", BOOK)
+    assert last["next"] is None and last["reply_fen"] == last["after_fen"]
