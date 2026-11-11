@@ -96,7 +96,7 @@ def _popularity(book: dict, line: list[str]) -> float:
 
 
 def pick_line(conn: sqlite3.Connection, key: str, book: dict, rng: random.Random) -> list[str]:
-    """The line to drill next: misses first, then lines not yet seen, then the most common line. Ties are broken at random."""
+    """The line to drill next (see `priority`). Ties are broken at random."""
     lines = repertoire.lines(book)
     if not lines:
         raise DrillError("no_lines", f"the {key} book has no lines")
@@ -107,17 +107,20 @@ def pick_line(conn: sqlite3.Connection, key: str, book: dict, rng: random.Random
         )
     }
 
-    def priority(line: list[str]) -> float:
-        score = 0.0
+    def priority(line: list[str]) -> tuple[float, int, int, float]:
+        """Misses first (spaced repetition), then the line with the most positions never seen, then the one with the fewest positions
+        only shown with the arrow, then the most common. Unseen positions come before shown ones in a fixed order, so a long line that
+        has been learned cannot keep winning over a branch that has not been seen at all."""
+        missed, unseen, shown_only = 0.0, 0, 0
         for position in _our_positions(book, line):
             hits, misses, shown = stats.get(position, (0, 0, 0))
             if hits + misses > 0:
-                score += 3.0 * misses / (hits + misses)  # how often it was missed
+                missed += 3.0 * misses / (hits + misses)  # how often it was missed
+            elif shown:
+                shown_only += 1
             else:
-                score += (
-                    0.5 if shown else 1.0
-                )  # only shown with the arrow counts as half known; never seen counts in full
-        return score + 0.5 * _popularity(book, line)
+                unseen += 1
+        return (round(missed, 6), unseen, -shown_only, _popularity(book, line))
 
     best = max(priority(ln) for ln in lines)
     return rng.choice([ln for ln in lines if priority(ln) == best])
@@ -184,11 +187,34 @@ def _count(conn: sqlite3.Connection, key: str, position: str, col: str) -> None:
 
 
 def answer(
-    conn: sqlite3.Connection, run_id: int, uci: str, book: dict, key: str | None = None
+    conn: sqlite3.Connection,
+    run_id: int,
+    uci: str,
+    book: dict,
+    key: str | None = None,
+    ply: int | None = None,
 ) -> dict:
     """One try at the position. A wrong move does not move the line on: the player tries again (the board shows a cross and the
     piece stays). In a recall run the first wrong try on a position counts as one miss, and a right first try as one hit; in a learn
     run nothing is counted as right or wrong, because the arrow showed the move."""
+    conn.execute(
+        "BEGIN IMMEDIATE"
+    )  # read, count and update as one step: two requests cannot both answer the same question
+    try:
+        return _answer(conn, run_id, uci, book, key, ply)
+    except BaseException:
+        conn.rollback()
+        raise
+
+
+def _answer(
+    conn: sqlite3.Connection,
+    run_id: int,
+    uci: str,
+    book: dict,
+    key: str | None,
+    expected_ply: int | None,
+) -> dict:
     run = conn.execute("SELECT * FROM rep_run WHERE id = ?", (run_id,)).fetchone()
     if run is None:
         raise DrillError("no_such_run", "that run does not exist")
@@ -200,6 +226,11 @@ def answer(
         )
     if run["finished"]:
         raise DrillError("run_finished", "that run is already finished")
+    if expected_ply is not None and expected_ply != run["ply"]:
+        raise DrillError(
+            "stale_question",
+            "that question was already answered; reload the run to see where it is",
+        )
     line, ply, learn = run["line"].split(), run["ply"], bool(run["learn"])
     board = repertoire.board_after(line[:ply])
     try:
@@ -299,4 +330,33 @@ def stats(conn: sqlite3.Connection, key: str, book: dict) -> dict:
         "hits": sum(r["hits"] for r in rows),
         "misses": sum(r["misses"] for r in rows),
         "assisted_only": True,
+    }
+
+
+def current(conn: sqlite3.Connection, run_id: int, book: dict, key: str | None = None) -> dict:
+    """Where a run is now: its open question, or its summary when it has finished. Lets a screen resynchronise after a lost response."""
+    run = conn.execute("SELECT * FROM rep_run WHERE id = ?", (run_id,)).fetchone()
+    if run is None:
+        raise DrillError("no_such_run", "that run does not exist")
+    if key is not None and run["key"] != key:
+        raise DrillError("run_key_mismatch", f"that run belongs to {run['key']}, not {key}")
+    if run["book_id"] != book["id"]:
+        raise DrillError(
+            "book_changed", "the book was rebuilt since this run started; start a new run"
+        )
+    line = run["line"].split()
+    if run["finished"]:
+        return {
+            "finished": True,
+            "fen": repertoire.board_after(line).fen(),
+            "summary": {
+                "answered": run["hits"] + run["misses"] + run["shown"],
+                "hits": run["hits"],
+                "misses": run["misses"],
+                "shown": run["shown"],
+            },
+        }
+    return {
+        "finished": False,
+        "question": _question(run_id, run["key"], book, line, run["ply"], bool(run["learn"])),
     }

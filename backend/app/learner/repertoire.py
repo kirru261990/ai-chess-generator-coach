@@ -27,7 +27,7 @@ MIN_LINE_SHARE = 0.003  # of all the opening's games
 MIN_LINE_GAMES = 5  # and never fewer than this many games, so a line is not built on a handful
 ENGINE_FLOOR_CP = 50
 MAX_PLIES = 20  # how far the players' games are followed
-ENGINE_MAX_PLIES = 24  # how far the engine continues a line (Black's 12th move)
+ENGINE_MAX_PLIES = 40  # how far the engine continues a line (Black's 20th move, the owner's choice)
 
 
 def pos_key(board: chess.Board) -> str:
@@ -312,6 +312,7 @@ def main() -> None:
         help="skip the engine check (moves are marked unchecked)",
     )
     ap.add_argument("--depth", type=int, default=18)
+    ap.add_argument("--engine-plies", type=int, default=ENGINE_MAX_PLIES, help="how far the engine continues a line, in plies")
     a = ap.parse_args()
     data = openingtrie.load(Path(a.counts))
     keys = [a.opening] if a.opening else list(data["openings"])
@@ -329,7 +330,7 @@ def main() -> None:
         run = [(k, analyser) for k in keys]
     try:
         for key, analyser in run:
-            book = build(data["openings"][key], engine=analyser, depth=a.depth)
+            book = build(data["openings"][key], engine=analyser, depth=a.depth, engine_plies=a.engine_plies)
             book["source"] = {
                 "counts": Path(a.counts).name,
                 "month": data["month"],

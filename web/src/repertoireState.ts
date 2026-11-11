@@ -85,6 +85,18 @@ export function historyText(history: string[]): string {
   return history.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${m}` : m)).join(' ')
 }
 
+/** The last few moves, on one line, so the line does not grow and push the board down as the game goes on. */
+export function recentText(history: string[], plies = 6): string {
+  if (history.length === 0) return 'No moves yet. You play the first move.'
+  const start = Math.max(0, history.length - plies)
+  const moves = history.slice(start).map((m, i) => {
+    const n = start + i
+    if (n % 2 === 0) return `${n / 2 + 1}. ${m}`
+    return i === 0 ? `${(n - 1) / 2 + 1}... ${m}` : m // a line that starts on Black's move says so
+  })
+  return (start > 0 ? '… ' : '') + moves.join(' ')
+}
+
 export function answerBanner(a: Pick<Answer, 'matched' | 'expected_san'>): { tone: 'right' | 'wrong'; text: string } {
   if (a.matched) return { tone: 'right', text: `Right: ${a.expected_san}.` }
   return a.expected_san
@@ -123,4 +135,12 @@ export function stagesFor(a: Pick<Answer, 'after_fen' | 'reply_fen' | 'reply_san
   if (!a.next) out.push({ fen: (replied ? a.reply_fen : a.after_fen) as string, afterMs: END_HOLD_MS, then: 'finish' })
   else if (!replied) out.push({ fen: a.after_fen, afterMs: REPLY_DELAY_MS, then: 'next' })
   return out
+}
+
+export type Current = { finished: false; question: Question } | { finished: true; fen: string; summary: NonNullable<Answer['summary']> }
+
+/** True when the screen cannot tell whether the server took the answer (the response was lost, or the question was already answered),
+ *  so it should ask the server where the run is instead of guessing. */
+export function needsResync(e: { code?: string; status?: number }): boolean {
+  return e.code === 'stale_question' || e.status === undefined
 }

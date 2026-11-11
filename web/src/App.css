@@ -161,3 +161,7 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .openings .banner.right { background: #d6f0dc; color: #1c5a2a; }
 .openings .banner.wrong { background: #f5e6b8; color: #6b4e00; }
 .openings .caution { color: #6b4e00; }
+.openings .run-head { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; min-height: 1.6em; }
+.openings .history { margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.4em; }
+.openings .status-row { min-height: 2.6em; margin-top: 8px; display: flex; align-items: center; }
+.openings .status-row .banner { margin: 0; padding: 4px 10px; }

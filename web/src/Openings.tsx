@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
-import { answerBanner, arrowFor, historyText, openingCard, sourceLabel, stagesFor, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
+import { answerBanner, arrowFor, needsResync, recentText, openingCard, sourceLabel, stagesFor, summaryText, type Answer, type Current, type OpeningRow, type Question } from './repertoireState'
 
 const LEARN_KEY = 'openings-show-move'
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
@@ -24,7 +24,7 @@ export default function Openings() {
   const [rows, setRows] = useState<OpeningRow[]>([])
   const [q, setQ] = useState<Question | null>(null)
   const [ans, setAns] = useState<Answer | null>(null)
-  const [done, setDone] = useState<Answer['summary'] | null>(null)
+  const [ended, setEnded] = useState<{ key: string; name: string; side: 'white' | 'black'; fen: string; summary: Answer['summary'] | null } | null>(null)
   const [from, setFrom] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +42,7 @@ export default function Openings() {
       const first = await api<Question>(`/repertoire/${key}/runs?learn=${learn}`, {})
       setQ(first)
       setAns(null)
-      setDone(null)
+      setEnded(null)
       setFrom(null)
       setNote(null)
     } catch (e) {
@@ -57,7 +57,7 @@ export default function Openings() {
     setBusy(true)
     setError(null)
     try {
-      const a = await api<Answer>(`/repertoire/${q.key}/runs/${q.run_id}/answer`, { move })
+      const a = await api<Answer>(`/repertoire/${q.key}/runs/${q.run_id}/answer`, { move, ply: q.ply })
       if (a.retry) {
         // Not the line's move: the board does not change (the piece stays where it was), a cross shows on the square, and the
         // player tries again at once.
@@ -80,9 +80,33 @@ export default function Openings() {
         }
       }
     } catch (e) {
-      setError((e as Error).message)
+      const err = e as Error & { code?: string; status?: number }
+      if (needsResync(err)) await resync(q)
+      else setError(err.message)
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** The answer may or may not have been taken (the response was lost, or the question was already answered): ask where the run is. */
+  async function resync(from: Question) {
+    clearTimers()
+    setWrong(null)
+    setShown(null)
+    try {
+      const now = await api<Current>(`/repertoire/${from.key}/runs/${from.run_id}`)
+      setAns(null)
+      setFrom(null)
+      if (now.finished) {
+        setEnded({ key: from.key, name: from.name, side: from.side, fen: now.fen, summary: now.summary })
+        setQ(null)
+        load()
+      } else {
+        setQ(now.question)
+        setNote('Caught up with where the line is.')
+      }
+    } catch (e) {
+      setError((e as Error).message)
     }
   }
 
@@ -99,8 +123,9 @@ export default function Openings() {
       setFrom(null)
       setNote(null)
     } else {
+      // The line is over: keep its last position on the board with the summary and the next steps, instead of dropping back to the list.
+      setEnded(q ? { key: q.key, name: q.name, side: q.side, fen: a.reply_fen ?? shown ?? q.fen, summary: a.summary ?? null } : null)
       setShown(null)
-      setDone(a.summary ?? null)
       setQ(null)
       setAns(null)
       load()
@@ -165,7 +190,7 @@ export default function Openings() {
     </div>
   )
 
-  const banner = ans ? answerBanner(ans) : null
+  const banner = ans && !ans.matched ? answerBanner(ans) : null // only a wrong try gets a message; a right move shows just the tick
   return (
     <section className="openings">
       <h2>
@@ -178,35 +203,45 @@ export default function Openings() {
       )}
       {q && (
         <>
-          <p>
+          <p className="run-head">
             <strong>{q.name}</strong> · You are {q.side === 'white' ? 'White' : 'Black'}
+            {sourceLabel(q.source) && <span className="chip engine-chip">Engine line</span>}
           </p>
-          <p className="history">{historyText(q.history)}</p>
-          {!ans && <p>Your move.</p>}
-          {sourceLabel(q.source) && <p className="chip">{sourceLabel(q.source)}</p>}
+          <p className="history">{recentText(q.history)}</p>
           <div className="board">
             <Chessboard options={{ position: shown ?? q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false, arrows: arrowFor(q, ans) }} />
           </div>
-          {note && (
-            <p className="note" aria-live="polite">
-              {note}
-            </p>
-          )}
-          {banner && (
-            <div className={`banner ${banner.tone}`} role="status">
-              <p>{banner.text}</p>
-
-            </div>
-          )}
+          {/* One row of fixed height under the board for a message, so the board never moves when a message comes and goes. */}
+          <div className="status-row" aria-live="polite">
+            {banner ? <span className={`banner ${banner.tone}`}>{banner.text}</span> : note}
+          </div>
         </>
       )}
-      {!q && (
+      {!q && ended && (
+        <div className="ended">
+          <p>
+            <strong>{ended.name}</strong> · line finished
+          </p>
+          <p className="banner right" role="status">
+            {ended.summary ? summaryText(ended.summary) : 'Line finished.'}
+          </p>
+          <div className="board">
+            <Chessboard options={{ position: ended.fen, boardOrientation: ended.side, allowDragging: false }} />
+          </div>
+          <p>
+            <button autoFocus disabled={busy} onClick={() => start(ended.key)}>
+              Another line
+            </button>{' '}
+            <button onClick={() => setEnded(null)}>Back to openings</button>
+          </p>
+        </div>
+      )}
+      {!q && !ended && (
         <>
           <label className="threat-toggle" title="Draw the move to play as an arrow while you learn a line">
             <input type="checkbox" checked={learn} onChange={(e) => pickLearn(e.target.checked)} /> Show the move as an arrow
           </label>
           <p className="note">With the arrow on you learn a line. Switch it off to recall it: a wrong move shows a cross and you try again.</p>
-          {done && <p className="banner right">Line finished. {summaryText(done)}</p>}
           {rows.map((o) => {
             const c = openingCard(o)
             return (

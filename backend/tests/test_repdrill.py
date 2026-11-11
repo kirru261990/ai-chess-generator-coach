@@ -312,3 +312,96 @@ def test_the_last_answer_still_returns_where_the_line_ended(conn):
     D.answer(conn, run["run_id"], "c7c6", BOOK)
     last = D.answer(conn, run["run_id"], "d7d5", BOOK)
     assert last["next"] is None and last["reply_fen"] == last["after_fen"]
+
+
+def test_an_answer_to_a_question_that_was_already_answered_is_refused_not_counted_twice(conn):
+    run = start(conn)
+    first = D.answer(conn, run["run_id"], "c7c6", BOOK, ply=run["ply"])
+    with pytest.raises(D.DrillError) as e:
+        D.answer(conn, run["run_id"], "c7c6", BOOK, ply=run["ply"])  # a repeat of the same request
+    assert e.value.code == "stale_question"
+    assert D.stats(conn, "caro_kann", BOOK)["hits"] == 1
+    assert first["next"]["ply"] > run["ply"]
+
+
+def test_two_requests_answering_the_same_question_at_once_count_once(tmp_path, monkeypatch):
+    import threading
+
+    monkeypatch.setattr(D, "ledger_path", lambda: tmp_path / "drills.sqlite3")
+    setup = D.connect()
+    run = D.start(setup, "caro_kann", BOOK, rng=random.Random(1), learn=False)
+    results: list = []
+
+    def go():
+        c = D.connect()
+        try:
+            results.append(D.answer(c, run["run_id"], "c7c6", BOOK, ply=run["ply"])["matched"])
+        except D.DrillError as e:
+            results.append(e.code)
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=go) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(map(str, results)) == ["True", "stale_question"]
+    assert D.stats(setup, "caro_kann", BOOK)["hits"] == 1
+    setup.close()
+
+
+def test_current_gives_the_open_question_so_a_screen_can_resynchronise_after_a_lost_response(conn):
+    run = start(conn)
+    D.answer(
+        conn, run["run_id"], "c7c6", BOOK, ply=run["ply"]
+    )  # the response is lost on its way back
+    now = D.current(conn, run["run_id"], BOOK, key="caro_kann")
+    assert (
+        now["finished"] is False
+        and now["question"]["ply"] == 3
+        and now["question"]["history"][:2] == ["e4", "c6"]
+    )
+
+
+def test_current_of_a_finished_run_gives_its_summary_and_last_position(conn):
+    run = start(conn)
+    D.answer(conn, run["run_id"], "c7c6", BOOK, ply=1)
+    D.answer(conn, run["run_id"], "d7d5", BOOK, ply=3)
+    now = D.current(conn, run["run_id"], BOOK)
+    assert now["finished"] is True and now["summary"]["hits"] == 2 and "fen" in now
+
+
+def test_current_refuses_another_openings_run(conn):
+    run = start(conn)
+    with pytest.raises(D.DrillError) as e:
+        D.current(conn, run["run_id"], BOOK, key="italian")
+    assert e.value.code == "run_key_mismatch"
+
+
+def test_a_long_line_that_has_been_learned_does_not_starve_a_branch_never_seen(conn):
+    book = book_of(
+        "black",
+        100,
+        [
+            ("e4", 100),
+            ("e4 c6", 100),
+            ("e4 c6 d4", 60),
+            ("e4 c6 d4 d5", 60),
+            ("e4 c6 d4 d5 e5", 40),
+            ("e4 c6 d4 d5 e5 Bf5", 40),
+            ("e4 c6 d4 d5 e5 Bf5 Nf3", 30),
+            ("e4 c6 d4 d5 e5 Bf5 Nf3 e6", 30),
+            ("e4 c6 Nc3", 30),
+            ("e4 c6 Nc3 d5", 30),
+        ],
+    )
+    long_line = next(ln for ln in R.lines(book) if len(ln) > 6)
+    for position in D._our_positions(
+        book, long_line
+    ):  # every position of the long line was learned with the arrow
+        conn.execute(
+            "INSERT INTO rep_node (key, position, shown) VALUES ('caro_kann', ?, 3)", (position,)
+        )
+    assert D.pick_line(conn, "caro_kann", book, random.Random(1)) != long_line
+    assert D.pick_line(conn, "caro_kann", book, random.Random(1))[:3] == ["e4", "c6", "Nc3"]

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBanner, arrowFor, END_HOLD_MS, REPLY_DELAY_MS, stagesFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type Question, type OpeningRow } from './repertoireState'
+import { answerBanner, arrowFor, END_HOLD_MS, needsResync, recentText, REPLY_DELAY_MS, stagesFor, historyText, openingCard, sourceLabel, summaryText, type Answer, type Question, type OpeningRow } from './repertoireState'
 
 const row = (o: Partial<OpeningRow> = {}): OpeningRow => ({
   key: 'caro_kann',
@@ -149,5 +149,39 @@ describe('stagesFor', () => {
 
   it('draws nothing for a wrong move', () => {
     expect(stagesFor({ next: null })).toEqual([])
+  })
+})
+
+describe('recentText', () => {
+  it('shows the whole line while it is short', () => {
+    expect(recentText(['e4', 'c6', 'd4'])).toBe('1. e4 c6 2. d4')
+  })
+
+  it('shows only the last moves once it is long, so the line stays on one row', () => {
+    const h = ['e4', 'c6', 'd4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Bf5']
+    expect(recentText(h, 6)).toBe('… 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5')
+  })
+
+  it('says it is Black move when the shown part starts on a Black move', () => {
+    expect(recentText(['e4', 'c6', 'd4', 'd5', 'Nc3'], 4)).toBe('… 1... c6 2. d4 d5 3. Nc3')
+  })
+
+  it('says it is the first move when nothing has been played', () => {
+    expect(recentText([])).toBe('No moves yet. You play the first move.')
+  })
+})
+
+describe('needsResync', () => {
+  it('asks the server where the run is when a question was already answered', () => {
+    expect(needsResync({ code: 'stale_question', status: 409 })).toBe(true)
+  })
+
+  it('asks too when no answer came back at all, because the server may have taken the move', () => {
+    expect(needsResync({})).toBe(true)
+  })
+
+  it('shows other refusals as they are', () => {
+    expect(needsResync({ code: 'illegal_move', status: 400 })).toBe(false)
+    expect(needsResync({ code: 'book_changed', status: 409 })).toBe(false)
   })
 })

@@ -510,14 +510,19 @@ def test_repertoire_endpoints_list_openings_run_a_line_and_refuse_a_missing_book
     assert run["learn"] is True and run["arrow"] == "c7c6"  # learn is the default: the move is shown as an arrow
     recall = client.post("/repertoire/caro_kann/runs?learn=false").json()
     assert recall["learn"] is False and recall["arrow"] is None
-    bad = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "e2e4"})
+    bad = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "e2e4", "ply": 1})
     assert bad.status_code == 400 and bad.json()["error"] == "illegal_move"
-    wrong_route = client.post(f"/repertoire/italian/runs/{run['run_id']}/answer", json={"move": "c7c6"})
+    wrong_route = client.post(f"/repertoire/italian/runs/{run['run_id']}/answer", json={"move": "c7c6", "ply": 1})
     assert wrong_route.status_code in (404, 409)  # no italian book here, or the run belongs to another opening
-    too_long = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6c7c6c7c6"})
+    too_long = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6c7c6c7c6", "ply": 1})
     assert too_long.status_code == 422
-    ok = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6"}).json()
+    ok = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6", "ply": 1}).json()
     assert ok["matched"] is True and ok["expected_san"] == "c6"
+    stale = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6", "ply": 1})
+    assert stale.status_code == 409 and stale.json()["error"] == "stale_question"
+    assert client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6"}).status_code == 422
+    now = client.get(f"/repertoire/caro_kann/runs/{run['run_id']}").json()
+    assert now["finished"] is False and now["question"]["ply"] == 3
     unchecked = repertoire.build({"name": "x", "side": "black", "games": 10, "lines": lines})
     (tmp_path / "repertoire" / f"book_caro_kann_v{repertoire.VERSION}.json").write_text(json.dumps(unchecked))
     assert client.post("/repertoire/caro_kann/runs").json()["error"] == "book_unchecked"
