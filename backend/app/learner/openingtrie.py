@@ -214,36 +214,39 @@ def build(month: str, max_gb: float, low: int, high: int) -> Path:
             "User-Agent": "ai-chess-coach-research (github.com/kirru261990/ai-chess-generator-coach)"
         },
     )
-    with urllib.request.urlopen(req) as resp:
+    with urllib.request.urlopen(req, timeout=60) as resp:
         src = _Capped(resp, int(max_gb * 1e9))
         text = io.TextIOWrapper(
             zstandard.ZstdDecompressor().stream_reader(io.BufferedReader(src)),
             encoding="utf-8",
             errors="replace",
         )
-        try:
-            counts = count(_progress(text, src), low, high, MAX_PLIES, MIN_PLIES)
-        except Exception as e:
-            print(f"stream ended: {type(e).__name__}", file=sys.stderr)
-            raise
+        counts = count(_progress(text, src), low, high, MAX_PLIES, MIN_PLIES)
+    how = "capped at" if src.n >= src.cap else "ended after"
     return save(
         counts,
         data_dir(),
         month,
         low,
         high,
-        f"{url} (first {src.n / 1e9:.2f} GB; start of the month)",
+        f"{url} ({how} {src.n / 1e9:.2f} GB; start of the month)",
     )
 
 
 def _progress(lines: Iterable[str], src: _Capped) -> Iterator[str]:
+    """Pass the lines on, print progress, and tell a planned stop at the cap (fine) from a stream fault before it (raised)."""
     n = 0
-    for line in lines:
-        if line.startswith("[Event "):
-            n += 1
-            if n % 50000 == 0:
-                print(f"{n} games, {src.n / 1e9:.2f} GB read", file=sys.stderr, flush=True)
-        yield line
+    try:
+        for line in lines:
+            if line.startswith("[Event "):
+                n += 1
+                if n % 50000 == 0:
+                    print(f"{n} games, {src.n / 1e9:.2f} GB read", file=sys.stderr, flush=True)
+            yield line
+    except Exception as e:
+        if src.n < src.cap:
+            print(f"stream failed after {src.n / 1e9:.2f} GB: {type(e).__name__}", file=sys.stderr)
+            raise
 
 
 def main() -> None:

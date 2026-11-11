@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.learner import repdrill as D
 from app.learner import repertoire
@@ -38,7 +38,7 @@ Conn = Annotated[sqlite3.Connection, Depends(db)]
 
 
 class AnswerIn(BaseModel):
-    move: str
+    move: str = Field(min_length=4, max_length=5)  # a move in UCI, e.g. e2e4 or e7e8q
 
 
 def _book(key: str) -> dict:
@@ -61,14 +61,10 @@ def overview(conn: Conn):
             row |= {
                 "games": book["games"],
                 "stopped": len(book["stopped"]),
-                "unchecked": book_unchecked(book),
+                "unchecked": not repertoire.is_checked(book),
             }
         out.append(row)
     return {"openings": out, "assisted_only": True}
-
-
-def book_unchecked(book: dict) -> bool:
-    return any(n.get("check", {}).get("status") == "unchecked" for n in book["nodes"].values())
 
 
 @router.post("/{key}/runs")
@@ -78,4 +74,4 @@ def start(key: str, conn: Conn):
 
 @router.post("/{key}/runs/{run_id}/answer")
 def answer(key: str, run_id: int, body: AnswerIn, conn: Conn):
-    return D.answer(conn, run_id, body.move, _book(key))
+    return D.answer(conn, run_id, body.move, _book(key), key=key)

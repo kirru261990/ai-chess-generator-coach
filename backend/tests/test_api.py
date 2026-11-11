@@ -479,6 +479,16 @@ def test_loss_map_endpoint_sorts_synced_games_and_is_empty_when_nothing_is_synce
     assert got["sorted"] == 1 and got["zones"][0]["zone"] == "ahead" and got["zones"][0]["wins"] == 1
 
 
+class _AnyMove:
+    """An analyser that finds every legal move equally good, so every played move passes the engine check."""
+
+    def analyse(self, board, depth=None):
+        from types import SimpleNamespace as NS
+
+        lines = tuple(NS(move=m.uci(), pv=(m.uci(),), cp=0, mate=None, mate_sign=None, depth=18) for m in board.legal_moves)
+        return NS(lines=lines, best=lines[0] if lines else None)
+
+
 def test_repertoire_endpoints_list_openings_run_a_line_and_refuse_a_missing_book(tmp_path, monkeypatch):
     import json
 
@@ -492,12 +502,19 @@ def test_repertoire_endpoints_list_openings_run_a_line_and_refuse_a_missing_book
     assert client.post("/repertoire/caro_kann/runs").status_code == 409
     assert client.post("/repertoire/nonsense/runs").status_code == 404
     lines = [["e4", 10], ["e4 c6", 10], ["e4 c6 d4", 9], ["e4 c6 d4 d5", 9]]
-    book = repertoire.build({"name": "Caro-Kann Defence", "side": "black", "games": 10, "lines": lines})
+    book = repertoire.build({"name": "Caro-Kann Defence", "side": "black", "games": 10, "lines": lines}, engine=_AnyMove(), engine_plies=0)
     (tmp_path / "repertoire").mkdir(exist_ok=True)
     (tmp_path / "repertoire" / f"book_caro_kann_v{repertoire.VERSION}.json").write_text(json.dumps(book))
     run = client.post("/repertoire/caro_kann/runs").json()
     assert run["history"] == ["e4"] and run["assisted"] is True and "ours" not in run
     bad = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "e2e4"})
     assert bad.status_code == 400 and bad.json()["error"] == "illegal_move"
+    wrong_route = client.post(f"/repertoire/italian/runs/{run['run_id']}/answer", json={"move": "c7c6"})
+    assert wrong_route.status_code in (404, 409)  # no italian book here, or the run belongs to another opening
+    too_long = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6c7c6c7c6"})
+    assert too_long.status_code == 422
     ok = client.post(f"/repertoire/caro_kann/runs/{run['run_id']}/answer", json={"move": "c7c6"}).json()
     assert ok["matched"] is True and ok["expected_san"] == "c6"
+    unchecked = repertoire.build({"name": "x", "side": "black", "games": 10, "lines": lines})
+    (tmp_path / "repertoire" / f"book_caro_kann_v{repertoire.VERSION}.json").write_text(json.dumps(unchecked))
+    assert client.post("/repertoire/caro_kann/runs").json()["error"] == "book_unchecked"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerBanner, historyText, openingCard, summaryText, type OpeningRow } from './repertoireState'
+import { answerBanner, historyText, openingCard, sourceLabel, summaryText, type OpeningRow } from './repertoireState'
 
 const row = (o: Partial<OpeningRow> = {}): OpeningRow => ({
   key: 'caro_kann',
@@ -11,6 +11,7 @@ const row = (o: Partial<OpeningRow> = {}): OpeningRow => ({
   nodes_seen: 12,
   hits: 30,
   misses: 10,
+  nodes_engine: 0,
   games: 900,
   stopped: 0,
   unchecked: false,
@@ -25,6 +26,11 @@ describe('openingCard', () => {
     expect(c.progress).toBe('12 of 80 positions practised')
     expect(c.accuracy).toBe('30 of 40 answers right')
     expect(c.canStart).toBe(true)
+  })
+
+  it('says how many positions are the engine choice, so they are not mistaken for what players play', () => {
+    expect(openingCard(row({ nodes_engine: 30 })).engineNote).toBe("30 of those positions are the engine's choice where players' games run out.")
+    expect(openingCard(row()).engineNote).toBeNull()
   })
 
   it('shows no accuracy before the first answer', () => {
@@ -80,5 +86,12 @@ describe('summaryText', () => {
 
   it('has nothing to say about misses when there were none', () => {
     expect(summaryText({ answered: 4, hits: 4, misses: 0 })).toBe('4 of 4 right.')
+  })
+})
+
+describe('sourceLabel', () => {
+  it('labels an engine position and says nothing for a players position', () => {
+    expect(sourceLabel('engine')).toBe("Engine line: the engine's choice here, not what most players at this level play.")
+    expect(sourceLabel('players')).toBeNull()
   })
 })

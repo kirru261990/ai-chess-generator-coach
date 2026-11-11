@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
-import { answerBanner, historyText, openingCard, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
+import { answerBanner, historyText, openingCard, sourceLabel, summaryText, type Answer, type OpeningRow, type Question } from './repertoireState'
 
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
 
@@ -110,7 +110,11 @@ export default function Openings() {
       <h2>
         Opening lines <span className="badge">assisted</span>
       </h2>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       {q && (
         <>
           <p>
@@ -118,14 +122,21 @@ export default function Openings() {
           </p>
           <p className="history">{historyText(q.history)}</p>
           {!ans && <p>Your move.</p>}
+          {sourceLabel(q.source) && <p className="chip">{sourceLabel(q.source)}</p>}
           <div className="board">
             <Chessboard options={{ position: q.fen, boardOrientation: q.side, onSquareClick, squareRenderer, allowDragging: false }} />
           </div>
-          {note && <p className="note">{note}</p>}
+          {note && (
+            <p className="note" aria-live="polite">
+              {note}
+            </p>
+          )}
           {banner && (
             <div className={`banner ${banner.tone}`} role="status">
               <p>{banner.text}</p>
-              <button onClick={carryOn}>{ans?.next ? 'Continue' : 'Finish line'}</button>
+              <button autoFocus onClick={carryOn}>
+                {ans?.next ? 'Continue' : 'Finish line'}
+              </button>
             </div>
           )}
         </>
@@ -142,6 +153,7 @@ export default function Openings() {
                   <span className="chip">{c.side}</span>
                 </div>
                 {c.progress && <p className="what">{c.progress}</p>}
+                {c.engineNote && <p className="what">{c.engineNote}</p>}
                 {c.accuracy && <p className="what">{c.accuracy}</p>}
                 {c.note && <p className="what caution">{c.note}</p>}
                 <button disabled={!c.canStart || busy} onClick={() => start(o.key)}>

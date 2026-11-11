@@ -6,6 +6,7 @@ export interface OpeningRow {
   lines?: number
   nodes_ours?: number
   nodes_seen?: number
+  nodes_engine?: number
   hits?: number
   misses?: number
   games?: number
@@ -23,6 +24,7 @@ export interface Question {
   history: string[]
   legal: string[]
   assisted: true
+  source: 'players' | 'engine'
 }
 
 export interface Answer {
@@ -40,6 +42,7 @@ export interface OpeningCard {
   title: string
   side: string
   progress: string | null
+  engineNote: string | null
   accuracy: string | null
   note: string | null
   canStart: boolean
@@ -48,7 +51,7 @@ export interface OpeningCard {
 export function openingCard(o: OpeningRow): OpeningCard {
   const side = o.side === 'white' ? 'You play White' : 'You play Black'
   if (!o.available) {
-    return { title: o.name, side, progress: null, accuracy: null, note: 'No book built yet. Run the line builder first.', canStart: false }
+    return { title: o.name, side, progress: null, engineNote: null, accuracy: null, note: 'No book built yet. Run the line builder first.', canStart: false }
   }
   const answered = (o.hits ?? 0) + (o.misses ?? 0)
   const notes = [
@@ -61,6 +64,8 @@ export function openingCard(o: OpeningRow): OpeningCard {
     title: o.name,
     side,
     progress: `${o.nodes_seen ?? 0} of ${o.nodes_ours ?? 0} positions practised`,
+    engineNote:
+      (o.nodes_engine ?? 0) > 0 ? `${o.nodes_engine} of those positions are the engine's choice where players' games run out.` : null,
     accuracy: answered > 0 ? `${o.hits ?? 0} of ${answered} answers right` : null,
     note: notes.length ? notes.join(' ') : null,
     canStart: true,
@@ -81,4 +86,8 @@ export function answerBanner(a: Pick<Answer, 'matched' | 'expected_san' | 'your_
 export function summaryText(s: { answered: number; hits: number; misses: number }): string {
   const base = `${s.hits} of ${s.answered} right.`
   return s.misses > 0 ? `${base} ${s.misses} will come back sooner.` : base
+}
+
+export function sourceLabel(source: Question['source']): string | null {
+  return source === 'engine' ? "Engine line: the engine's choice here, not what most players at this level play." : null
 }

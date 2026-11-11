@@ -1,44 +1,50 @@
 """Opening line drills (ADR 0022): Practice only, always assisted, never evidence. Misses bring a line back sooner."""
 
 import random
+from types import SimpleNamespace as NS
 
-import chess
 import pytest
 
 from app.learner import repdrill as D
+from app.learner import repertoire as R
+
+
+class AnyMove:
+    """An analyser that finds every legal move equally good, so every played move passes the engine check."""
+
+    config = NS(version="Stockfish 19", network="nn", multipv=3, id="ec-test")
+
+    def analyse(self, board, depth=None):
+        lines = tuple(
+            NS(move=m.uci(), pv=(m.uci(),), cp=0, mate=None, mate_sign=None, depth=18)
+            for m in board.legal_moves
+        )
+        return NS(lines=lines, best=lines[0] if lines else None)
+
+
+def book_of(side, games, lines, **kw):
+    return R.build(
+        {"name": "Test", "side": side, "games": games, "lines": [[ln, n] for ln, n in lines]},
+        engine=AnyMove(),
+        engine_plies=0,
+        **kw,
+    )
+
 
 # Black repertoire: 1.e4 c6 2.d4 d5 (also 2.Nc3 d5). Theirs: e4, d4/Nc3. Ours: c6, d5.
-BOOK = {
-    "side": "black",
-    "name": "Caro-Kann Defence",
-    "games": 100,
-    "version": "1",
-    "nodes": {
-        "": {"mover": "white", "theirs": [{"san": "e4", "count": 100, "share": 1.0}]},
-        "e4": {"mover": "black", "ours": "c6", "check": {"status": "ok"}},
-        "e4 c6": {
-            "mover": "white",
-            "theirs": [
-                {"san": "d4", "count": 60, "share": 0.6},
-                {"san": "Nc3", "count": 30, "share": 0.3},
-            ],
-        },
-        "e4 c6 d4": {"mover": "black", "ours": "d5", "check": {"status": "ok"}},
-        "e4 c6 Nc3": {"mover": "black", "ours": "d5", "check": {"status": "ok"}},
-    },
-    "stopped": [],
-}
-WHITE_BOOK = {
-    "side": "white",
-    "name": "Test",
-    "games": 10,
-    "version": "1",
-    "nodes": {
-        "": {"mover": "white", "ours": "e4", "check": {"status": "ok"}},
-        "e4": {"mover": "black", "theirs": [{"san": "e5", "count": 9, "share": 0.9}]},
-    },
-    "stopped": [],
-}
+BOOK = book_of(
+    "black",
+    100,
+    [
+        ("e4", 100),
+        ("e4 c6", 100),
+        ("e4 c6 d4", 60),
+        ("e4 c6 Nc3", 30),
+        ("e4 c6 d4 d5", 50),
+        ("e4 c6 Nc3 d5", 25),
+    ],
+)
+WHITE_BOOK = book_of("white", 10, [("e4", 10), ("e4 e5", 9)])
 
 
 @pytest.fixture
@@ -56,10 +62,7 @@ def start(conn, book=BOOK, seed=1):
 def test_a_black_run_starts_after_white_has_played_the_first_move(conn):
     run = start(conn)
     assert run["side"] == "black" and run["history"] == ["e4"] and run["ply"] == 1
-    assert run["fen"] == chess.Board().fen().replace(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-    )
+    assert run["fen"] == "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
 
 
 def test_a_white_run_starts_at_the_first_move_with_nothing_played(conn):
@@ -79,19 +82,20 @@ def test_the_question_leaks_nothing_before_the_answer(conn):
         "history",
         "legal",
         "assisted",
+        "source",
     }
-    assert "ours" not in run and "expected" not in str(run)  # the expected move is not named
+    assert "ours" not in run and "expected" not in str(run)
+
+
+def test_the_question_says_whether_the_position_comes_from_players_or_the_engine(conn):
+    assert start(conn)["source"] == "players"
 
 
 def test_the_right_move_is_a_hit_and_the_run_moves_on_past_their_reply(conn):
     run = start(conn)
     got = D.answer(conn, run["run_id"], "c7c6", BOOK)
     assert got["matched"] is True and got["expected_san"] == "c6"
-    assert got["next"]["ply"] == 3 and got["next"]["history"][:3] == [
-        "e4",
-        "c6",
-        got["next"]["history"][2],
-    ]
+    assert got["next"]["ply"] == 3 and got["next"]["history"][:2] == ["e4", "c6"]
 
 
 def test_a_wrong_move_is_a_miss_the_right_one_is_shown_and_the_run_goes_on(conn):
@@ -136,6 +140,32 @@ def test_misses_and_hits_are_kept_per_position_and_always_assisted(conn):
     assert s["misses"] == 1 and s["hits"] == 0 and s["assisted_only"] is True
 
 
+def test_a_run_answered_through_another_openings_route_is_refused(conn):
+    run = start(conn)
+    with pytest.raises(D.DrillError) as e:
+        D.answer(conn, run["run_id"], "c7c6", BOOK, key="italian")
+    assert e.value.code == "run_key_mismatch"
+
+
+def test_a_run_started_before_the_book_was_rebuilt_is_refused_not_crashed(conn):
+    run = start(conn)
+    rebuilt = book_of(
+        "black", 100, [("e4", 100), ("e4 c6", 100), ("e4 c6 d4", 60), ("e4 c6 d4 d5", 50)]
+    )
+    with pytest.raises(D.DrillError) as e:
+        D.answer(conn, run["run_id"], "c7c6", rebuilt)
+    assert e.value.code == "book_changed"
+
+
+def test_a_book_built_without_the_engine_check_is_not_drilled(conn):
+    unchecked = R.build(
+        {"name": "T", "side": "black", "games": 10, "lines": [["e4", 10], ["e4 c6", 10]]}
+    )
+    with pytest.raises(D.DrillError) as e:
+        D.start(conn, "caro_kann", unchecked, rng=random.Random(1))
+    assert e.value.code == "book_unchecked"
+
+
 def test_a_line_with_a_miss_comes_back_before_an_unseen_one(conn):
     run = start(conn, seed=3)
     played = (
@@ -143,29 +173,59 @@ def test_a_line_with_a_miss_comes_back_before_an_unseen_one(conn):
         .fetchone()["line"]
         .split()
     )
-    D.answer(conn, run["run_id"], "e7e5", BOOK)  # a miss at "e4"
-    picks = {tuple(D.pick_line(conn, "caro_kann", BOOK, random.Random(s))) for s in range(10)}
-    assert len(picks) == 1 and picks.pop()[:1] == tuple(played[:1])
-    # the miss was at the shared first position, so both lines carry it; a miss deeper in one line singles that line out
-    other = next(ln for ln in ("e4 c6 d4 d5", "e4 c6 Nc3 d5") if ln.split() != played).split()
+    D.answer(conn, run["run_id"], "e7e5", BOOK)  # a miss at the shared first position
+    assert {tuple(D.pick_line(conn, "caro_kann", BOOK, random.Random(s))) for s in range(10)}.pop()[
+        :1
+    ] == tuple(played[:1])
+    other = next(ln for ln in (["e4", "c6", "d4", "d5"], ["e4", "c6", "Nc3", "d5"]) if ln != played)
+    deeper = R.pos_key(R.board_after(other[:3]))
     conn.execute(
-        "INSERT INTO rep_node (key, prefix, hits, misses) VALUES ('caro_kann', ?, 0, 2)",
-        (" ".join(other[:3]),),
+        "INSERT INTO rep_node (key, position, hits, misses) VALUES ('caro_kann', ?, 0, 2)",
+        (deeper,),
     )
     assert D.pick_line(conn, "caro_kann", BOOK, random.Random(1)) == other
 
 
-def test_a_new_run_is_not_started_while_the_book_has_no_lines(conn):
+def test_a_position_reached_by_two_move_orders_is_one_ledger_row():
+    transposed = book_of(
+        "black",
+        100,
+        [
+            ("e4", 60),
+            ("e4 c6", 60),
+            ("e4 c6 d4", 60),
+            ("e4 c6 d4 d5", 60),
+            ("d4", 40),
+            ("d4 c6", 40),
+            ("d4 c6 e4", 40),
+            ("d4 c6 e4 d5", 40),
+        ],
+    )
+    lines = R.lines(transposed)
+    last_ours = {D._our_positions(transposed, ln)[-1] for ln in lines}
+    assert len(lines) == 2 and len(last_ours) == 1
+
+
+def test_a_book_with_no_lines_cannot_be_started(conn):
+    empty = {"side": "black", "nodes": {}, "games": 0, "stopped": [], "id": "x", "engine": None}
     with pytest.raises(D.DrillError) as e:
-        D.start(
-            conn,
-            "x",
-            {"side": "black", "nodes": {}, "games": 0, "stopped": []},
-            rng=random.Random(1),
-        )
+        D.start(conn, "x", empty, rng=random.Random(1))
     assert e.value.code == "no_lines"
 
 
-def test_stats_count_lines_and_how_many_have_been_seen(conn):
+def test_stats_count_lines_positions_and_how_many_have_been_seen(conn):
     s = D.stats(conn, "caro_kann", BOOK)
-    assert s["lines"] == 2 and s["nodes_ours"] == 3 and s["nodes_seen"] == 0
+    assert (
+        s["lines"] == 2 and s["nodes_ours"] == 3 and s["nodes_seen"] == 0 and s["nodes_engine"] == 0
+    )
+
+
+def test_an_engine_led_position_is_counted_apart_and_labelled(conn):
+    led = R.build(
+        {"name": "T", "side": "black", "games": 10, "lines": [["e4", 10], ["e4 c6", 10]]},
+        engine=AnyMove(),
+        max_plies=2,
+        engine_plies=6,
+    )
+    s = D.stats(conn, "caro_kann", led)
+    assert s["nodes_engine"] > 0 and s["nodes_ours"] > s["nodes_engine"]
