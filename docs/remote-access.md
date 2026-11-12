@@ -26,7 +26,8 @@ address is new on every run, so copy it somewhere you can reach from the office 
 
 - Your normal setup (`pnpm dev` on 5173, the API on 8000) is unaffected: this runs on its own port, and requests from this Mac
   need no password.
-- Wrong password five times locks the remote door for 15 minutes. Restarting the script clears the lock.
+- Build the web app only through the script (`VITE_API_URL` must be empty, or the page calls the office computer's own localhost). After a run `web/dist` exists, so your port-8000 API also serves that page; harmless.
+- Wrong password five times locks the remote door for 15 minutes. A browser already signed in keeps working during a lock (so a stranger cannot cut you off), but a new sign-in waits. Restarting the script clears the lock.
 - Change the password by running the `set` command again (it takes effect at once). Delete `data/access.json` to shut the remote
   door completely.
 - A game you started stays in the Mac's memory only: restarting the script ends it. Opening drills are saved as usual.

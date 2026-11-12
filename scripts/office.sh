@@ -18,16 +18,19 @@ if lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 echo "Building the web app (same-address mode)..."
-(cd web && pnpm install --frozen-lockfile >/dev/null && VITE_API_URL= pnpm exec vite build >/dev/null)
+(cd web && pnpm install --frozen-lockfile >/dev/null && VITE_API_URL= pnpm exec vite build)
 
 (cd backend && exec uv run uvicorn app.api.main:app --host 127.0.0.1 --port "$PORT") &
 API_PID=$!
 trap 'kill $API_PID 2>/dev/null || true' EXIT INT TERM
 
+UP=0
 for _ in $(seq 1 60); do
-  curl -fs "http://127.0.0.1:$PORT/usage" >/dev/null 2>&1 && break
+  kill -0 "$API_PID" 2>/dev/null || break
+  curl -fs "http://127.0.0.1:$PORT/usage" >/dev/null 2>&1 && { UP=1; break; }
   sleep 0.5
 done
+[ "$UP" = 1 ] || { echo "The server did not start; no tunnel opened. Run it by hand to see why: cd backend && uv run uvicorn app.api.main:app --port $PORT"; exit 1; }
 
 echo
 echo "Starting the tunnel. Open the https://....trycloudflare.com address below on any computer;"

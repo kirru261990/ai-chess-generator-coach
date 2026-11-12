@@ -96,4 +96,38 @@ def test_the_real_app_is_gated_from_outside(tmp_path, monkeypatch):
     remote = TestClient(app, base_url=REMOTE)
     assert remote.get("/usage").status_code == 503  # no password set: shut
     assert remote.post("/games", json={}).status_code == 503
-    assert TestClient(app).get("/usage").status_code == 200  # this Mac is unaffected
+    assert TestClient(app, base_url=LOCAL).get("/usage").status_code == 200  # this Mac is unaffected
+
+
+def test_a_stranger_cannot_lock_out_a_session_that_already_passed(make):
+    c = TestClient(make(), base_url=REMOTE)
+    assert c.get("/ping", headers=basic(PASSWORD)).status_code == 200
+    for _ in range(5):
+        c.get("/ping", headers=basic("nope"))
+    assert c.get("/ping", headers=basic("nope")).status_code == 429
+    assert c.get("/ping", headers=basic(PASSWORD)).status_code == 200  # the owner's open session carries on
+
+
+def test_a_loopback_host_from_a_network_client_is_remote(make):
+    c = TestClient(make(), base_url=LOCAL, client=("203.0.113.9", 4000))
+    assert c.get("/ping").status_code == 401
+
+
+def test_a_short_password_is_refused(tmp_path):
+    with pytest.raises(ValueError):
+        access.set_password("short", tmp_path / "a.json")
+
+
+def test_static_app_is_served_after_the_api_routes(tmp_path):
+    from fastapi.staticfiles import StaticFiles
+
+    (tmp_path / "index.html").write_text("<p>web</p>")
+    app = FastAPI()
+
+    @app.get("/usage")
+    def usage():
+        return {"api": True}
+
+    app.mount("/", StaticFiles(directory=tmp_path, html=True))
+    c = TestClient(app)
+    assert c.get("/usage").json() == {"api": True} and "web" in c.get("/").text

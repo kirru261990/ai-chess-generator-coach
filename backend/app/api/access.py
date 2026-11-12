@@ -17,17 +17,23 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app.mcp.auth import check_password_hash, hash_password
+from app.mcp.auth import (
+    LOCK_SECONDS,
+    MAX_FAILURES,
+    MIN_PASSWORD,
+    check_password_hash,
+    hash_password,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 # "testserver" is the host name FastAPI's test client uses; a tunnel always adds a proxy header, so it cannot be used to skip the gate.
 LOOPBACK = {"localhost", "127.0.0.1", "[::1]", "::1", "testserver"}
+CLIENTS = {"127.0.0.1", "::1", "testclient"}
 PROXY_HEADERS = (b"cf-connecting-ip", b"x-forwarded-for", b"forwarded", b"cf-ray", b"x-forwarded-host")
-MAX_FAILS = 5
-LOCK_SECONDS = 15 * 60
 
 
 def access_file() -> Path:
@@ -35,6 +41,8 @@ def access_file() -> Path:
 
 
 def set_password(password: str, path: Path | None = None) -> None:
+    if len(password) < MIN_PASSWORD:
+        raise ValueError(f"the password needs at least {MIN_PASSWORD} characters")
     p = path or access_file()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({"password": hash_password(password)}))
@@ -56,13 +64,16 @@ def is_remote(scope: Scope) -> bool:
     name = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
     if name not in LOOPBACK:
         return True
+    client = (scope.get("client") or ("", 0))[0]  # a real server always gives an address; the test client gives "testclient"
+    if client not in CLIENTS:
+        return True
     return any(h in headers for h in PROXY_HEADERS)
 
 
 class AccessGate:
     """ASGI middleware: local requests pass; remote ones need the password."""
 
-    def __init__(self, app: ASGIApp, path: Path | None = None, clock: Callable[[], float] = time.time):
+    def __init__(self, app: ASGIApp, path: Path | None = None, clock: Callable[[], float] = time.monotonic):
         self.app, self.path, self.clock = app, path, clock
         self.fails = 0
         self.locked_until = 0.0
@@ -71,7 +82,7 @@ class AccessGate:
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] not in ("http", "websocket") or not is_remote(scope):
             return await self.app(scope, receive, send)
-        denied = self.check(dict(scope.get("headers") or []).get(b"authorization", b"").decode("latin-1"))
+        denied = await run_in_threadpool(self.check, dict(scope.get("headers") or []).get(b"authorization", b"").decode("latin-1"))
         if denied is None:
             return await self.app(scope, receive, send)
         if scope["type"] == "websocket":
@@ -82,18 +93,18 @@ class AccessGate:
         stored = stored_hash(self.path)
         if stored is None:
             return PlainTextResponse("Remote access is off. On the Mac run: uv run python -m app.api.access set", 503)
+        key = hashlib.sha256((stored + authorization).encode()).hexdigest()
+        if key in self.accepted:  # before the lock: a stranger's wrong tries must not cut off a session that already passed
+            return None
         if self.clock() < self.locked_until:
             return PlainTextResponse("Too many wrong passwords. Try again in 15 minutes.", 429)
-        key = hashlib.sha256((stored + authorization).encode()).hexdigest()
-        if key in self.accepted:
-            return None
         if self._password_ok(stored, authorization):
             self.fails = 0
             self.accepted.add(key)
             return None
         if authorization:  # a first visit with no credentials is just the browser asking for the login box
             self.fails += 1
-            if self.fails >= MAX_FAILS:
+            if self.fails >= MAX_FAILURES:
                 self.fails, self.locked_until = 0, self.clock() + LOCK_SECONDS
         return PlainTextResponse("Password needed", 401, {"WWW-Authenticate": 'Basic realm="AI Chess Coach", charset="UTF-8"'})
 
@@ -114,8 +125,8 @@ def main(argv: list[str]) -> int:
         print("usage: python -m app.api.access set   (choose the password for reaching the app from outside this Mac)")
         return 2
     first = getpass.getpass("New access password (12+ characters): ")
-    if len(first) < 12:
-        print("Too short: use at least 12 characters (anyone on the internet can try it).")
+    if len(first) < MIN_PASSWORD:
+        print(f"Too short: use at least {MIN_PASSWORD} characters (anyone on the internet can try it).")
         return 1
     if getpass.getpass("Again: ") != first:
         print("They did not match; nothing saved.")
