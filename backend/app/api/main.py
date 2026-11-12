@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.api import blind_spots, coach, drills, repertoire, slip_rounds, synced, tools
+from app.api import access, blind_spots, coach, drills, repertoire, slip_rounds, synced, tools
 from app.coach import usage
 from app.core.game import GameError
 from app.engine.shared import close_engine
@@ -27,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Outermost: from outside this Mac (a tunnel) every request needs the access password (ADR 0023).
+app.add_middleware(access.AccessGate)
 
 _STATUS = {
     "not_found": 404,
@@ -203,3 +207,10 @@ def resign(game_id: str):
 @app.get("/games/{game_id}/pgn", response_class=PlainTextResponse)
 def pgn(game_id: str):
     return tools.export_pgn(game_id)
+
+
+# One address for the office (ADR 0023): when the web app has been built (`pnpm build` with VITE_API_URL empty) the API serves it,
+# last, so every API route above wins. Without a build this does nothing and Vite serves the page as before.
+_WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+if (_WEB_DIST / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=_WEB_DIST, html=True), name="web")
