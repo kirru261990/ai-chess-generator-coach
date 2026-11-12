@@ -88,6 +88,8 @@ uv run python -m app.learner.assessment supersede ID --reason TEXT    # set a su
 uv run python -m app.mcp.setup                                        # choose the chat connector's login password (hidden prompt, stored hashed)
 uv run python -m app.mcp.server http|stdio                            # practice tools for Claude chat / ChatGPT (http, behind a tunnel; see docs/mcp-setup.md) or a local client (stdio)
 uv run python -m app.mcp.server public                             # the open games-only connector (no login, no data, needs MCP_PUBLIC_URL; hosted on Render, see docs/public-connector.md; deploy by hand after a merge)
+uv run python -m app.api.access set                            # choose the password for reaching the app from outside this Mac (hidden prompt, stored hashed; remote stays shut without it, ADR 0023)
+../scripts/office.sh                                                # from backend/ or the root: builds the web app, serves it with the API on OFFICE_PORT (8001) and opens a Cloudflare quick tunnel (docs/remote-access.md)
 uv run python -m app.learner.realgame_rates run [--workers 4]   # real-game rates (PRD §8): import new games, check every player move of both windows (resumable; local CPU, about 30 min)
 uv run python -m app.learner.handcheck_m3 scan [--db COPY] | make | score ANSWERS.txt   # M3 hand-check (gate 27 of 30); scan on a COPY of data/coach.sqlite3 to leave the real store alone
 uv run python -m app.learner.realgame_rates status|report       # windows and how many games are checked; the rates with their denominators and floors
