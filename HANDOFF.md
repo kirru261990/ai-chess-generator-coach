@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-17 (build) · second Mac · Claude Code: Scandinavian added to the opening repertoire (branch `feat/scandinavian-book`, ADR 0022 amendment)
+
+- **Why:** the owner's 450 Chess.com games: as Black against 1.e4, 1...e5 scored 45% (61 games, median engine score about -2.6 after move 10), 1...d5 scored 50% (35 games) with about level middlegames. Owner asked for a Scandinavian book.
+- **Built:** `openingtrie` gate `scandinavian` (`1.e4 d5`), counts file version 2 (other gates unchanged; their counts match the 2026-11-11 build exactly). `repertoire` CLI says which key is missing from an old counts file instead of a KeyError. Tests for the gate in `test_openingtrie.py`.
+- **Data on this Mac (git-ignored):** `data/repertoire/openings_2026-09_700_1500.json` (925,802 games seen; Scandinavian 4,699) and `book_scandinavian_v2.json` (340 positions, 305 engine-led, 12 lines, 0 stopped; Stockfish 19 depth 18; about 15 min). The other five books are not built on this Mac. On the MacBook: rebuild the counts (`openingtrie build`), then `repertoire --counts ... --opening scandinavian`, restart the API.
+- **Tests:** backend 1372 passed, 1 skipped; ruff clean. No web change (the Openings tab lists whatever the API returns). Not checked by hand: a drill run in the browser.
+
 ### 2026-11-12 (build) · MacBook · Claude Code: practise from the office (branch `feat/office-access`, ADR 0023)
 - **Owner asked to practise from the office through the server.** Chose: home Mac + Cloudflare tunnel + password. The grilling step was skipped; decisions are in ADR 0023.
 - **Built:** `app/api/access.py` (outermost middleware: a request from outside, meaning a non-loopback host or any proxy header, needs HTTP Basic with the access password; scrypt hash in `data/access.json`; shut with 503 when no password is set; five wrong tries lock it for 15 minutes), the API serves `web/dist` at `/` when built (`VITE_API_URL=` empty), `scripts/office.sh` (build, serve on 8001, tunnel, `caffeinate`), `docs/remote-access.md`, tests `test_access.py`.

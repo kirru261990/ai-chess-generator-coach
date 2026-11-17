@@ -44,6 +44,8 @@ def test_only_as_many_moves_as_asked_for_are_returned():
         ("italian", ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"]),
         ("queens_gambit", ["d4", "d5", "c4", "e6"]),
         ("caro_kann", ["e4", "c6", "d4", "d5"]),
+        ("scandinavian", ["e4", "d5", "exd5", "Qxd5"]),
+        ("scandinavian", ["e4", "d5", "exd5", "Nf6"]),
         ("kings_indian", ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7", "e4", "d6"]),
     ],
 )
@@ -58,6 +60,8 @@ def test_each_opening_recognises_its_own_move_orders(key, moves):
         ("italian", ["e4", "e5", "Nf3", "Nc6", "Bb5"]),  # Ruy Lopez
         ("queens_gambit", ["d4", "d5", "Nf3", "Nf6"]),
         ("caro_kann", ["e4", "e6"]),
+        ("scandinavian", ["e4", "e6", "d4", "d5"]),  # French: d5 on the second move, not the first
+        ("scandinavian", ["d4", "d5"]),
         ("kings_indian", ["d4", "Nf6", "c4", "e6"]),
     ],
 )
@@ -68,8 +72,8 @@ def test_a_different_opening_is_not_counted(key, moves):
 def test_each_opening_names_the_side_the_player_has():
     assert [
         T.OPENINGS[k].side
-        for k in ("jobava", "italian", "queens_gambit", "caro_kann", "kings_indian")
-    ] == ["white", "white", "white", "black", "black"]
+        for k in ("jobava", "italian", "queens_gambit", "caro_kann", "scandinavian", "kings_indian")
+    ] == ["white", "white", "white", "black", "black", "black"]
 
 
 def test_counting_adds_every_prefix_of_each_matching_game():
