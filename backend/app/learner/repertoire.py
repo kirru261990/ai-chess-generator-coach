@@ -305,7 +305,7 @@ def main() -> None:
     ap.add_argument(
         "--counts", required=True, help="data/repertoire/openings_<month>_<low>_<high>.json"
     )
-    ap.add_argument("--opening", help="one key, e.g. caro_kann (default: all five)")
+    ap.add_argument("--opening", help="one key, e.g. caro_kann (default: every opening in the counts file)")
     ap.add_argument(
         "--no-engine",
         action="store_true",
@@ -316,6 +316,9 @@ def main() -> None:
     a = ap.parse_args()
     data = openingtrie.load(Path(a.counts))
     keys = [a.opening] if a.opening else list(data["openings"])
+    missing = [k for k in keys if k not in data["openings"]]
+    if missing:
+        ap.error(f"{', '.join(missing)} is not in {Path(a.counts).name}: rebuild the counts with `openingtrie build`")
     if a.no_engine:
         run = [(k, None) for k in keys]
         ctx = None

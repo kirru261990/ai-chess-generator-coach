@@ -1,7 +1,7 @@
 """What players in a rating band actually play in each repertoire opening (ADR 0022).
 
-Counts the first moves of rated Rapid games from the public Lichess database (CC0) for five openings: Jobava London, Italian
-and Queen's Gambit (White), Caro-Kann and King's Indian (Black). The games are read as a stream and only the counts of move
+Counts the first moves of rated Rapid games from the public Lichess database (CC0) for six openings: Jobava London, Italian
+and Queen's Gambit (White), Caro-Kann, Scandinavian and King's Indian (Black). The games are read as a stream and only the counts of move
 prefixes are kept, never the games. Imports no LLM or detector code. PGN text is data only.
 
 Run (from backend/; reads part of https://database.lichess.org, about 300 MB, CC0):
@@ -26,7 +26,7 @@ from pathlib import Path
 
 from app import config
 
-VERSION = "1"  # the opening gates and the saved layout; changing a gate is a new version (rule 6)
+VERSION = "2"  # the opening gates and the saved layout; changing a gate is a new version (rule 6); v2 adds the Scandinavian
 MIN_COUNT = 2  # a line seen once is noise and is not saved
 MAX_PLIES = 20  # to Black's 10th move
 MIN_PLIES = 12  # a game must reach at least this far to show the opening
@@ -76,6 +76,10 @@ def _caro_kann(m: list[str]) -> bool:
     return m[:2] == ["e4", "c6"]
 
 
+def _scandinavian(m: list[str]) -> bool:
+    return m[:2] == ["e4", "d5"]
+
+
 def _kings_indian(m: list[str]) -> bool:
     return m[:1] == ["d4"] and {"Nf6", "g6", "Bg7", "d6"} <= _by(m, False, 10)
 
@@ -87,6 +91,7 @@ OPENINGS: dict[str, Opening] = {
         Opening("italian", "Italian Game", "white", _italian),
         Opening("queens_gambit", "Queen's Gambit", "white", _queens_gambit),
         Opening("caro_kann", "Caro-Kann Defence", "black", _caro_kann),
+        Opening("scandinavian", "Scandinavian Defence", "black", _scandinavian),
         Opening("kings_indian", "King's Indian Defence", "black", _kings_indian),
     )
 }

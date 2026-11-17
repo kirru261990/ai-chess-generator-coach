@@ -28,3 +28,7 @@ How "all lines" ends beyond move 10; plan notes and principles per line; middleg
 ## Reversal
 
 Delete `app/learner/openingtrie.py`, `repertoire.py`, `repdrill.py`, `app/api/repertoire.py`, the `/repertoire` router and error handler in `app/api/main.py`, the Openings tab (`web/src/Openings.tsx`, `repertoireState.ts`, the tab in `Shell.tsx`) and `data/repertoire/`. No other code reads them, and nothing in Play or in the study rates depends on them.
+
+## Amendment, 2026-11-17: the Scandinavian is a sixth opening
+
+The owner asked for it after a look at their own games (450 Chess.com games): as Black against 1.e4 they scored 45% with 1...e5 (median engine score about -2.6 after move 10) and 50% with 1...d5, whose middlegames were about level. `openingtrie.OPENINGS` gains `scandinavian` (gate: `1.e4 d5`, every second move for White), so the counts file is version 2. The other gates are unchanged, so their counts and books do not change. Book and drill rules are as above. The Caro-Kann stays; which Black defence to keep is the owner's choice once both have been tried.
