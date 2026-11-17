@@ -395,7 +395,6 @@ export default function App() {
 
   return (
     <main className="app">
-      <h1>AI Chess Coach</h1>
       <div className="controls">
         <label>
           Play as{' '}
@@ -567,7 +566,7 @@ export default function App() {
                 Undo
               </button>
             )}
-            <button onClick={() => void resign()} disabled={!!game.outcome}>
+            <button className="quiet" onClick={() => void resign()} disabled={!!game.outcome}>
               Resign
             </button>
             <a href={`${API}/games/${game.id}/pgn`} download={`game-${game.id.slice(0, 8)}.pgn`}>

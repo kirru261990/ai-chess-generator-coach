@@ -246,7 +246,7 @@ export default function SlipRounds() {
                 <p><strong>{ans.cause.sentence}</strong></p>
                 {ans.cause.habit && <p className="slip-habit">{ans.cause.habit}</p>}
               </div>
-              <button onClick={next} disabled={busy}>Next position</button>
+              <button className="primary" onClick={next} disabled={busy}>Next position</button>
             </div>
           )}
         </>
@@ -254,7 +254,7 @@ export default function SlipRounds() {
         <>
           <p><strong>Round {done.round} finished.</strong></p>
           <p>{roundLine(done.summary)}</p>
-          <button onClick={next} disabled={busy}>Start next round</button>
+          <button className="primary" onClick={next} disabled={busy}>Start next round</button>
         </>
       ) : (
         <>
@@ -267,7 +267,7 @@ export default function SlipRounds() {
               </label>
             ))}
           </fieldset>
-          <button onClick={next} disabled={busy}>
+          <button className="primary" onClick={next} disabled={busy}>
             {open && open.summary.answered > 0 ? `Continue round ${open.round}` : `Start round ${rounds.length + (open ? 0 : 1)}`}
           </button>
           {rounds.length > 0 && (

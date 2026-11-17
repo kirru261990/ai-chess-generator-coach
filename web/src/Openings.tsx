@@ -229,7 +229,7 @@ export default function Openings() {
             <Chessboard options={{ position: ended.fen, boardOrientation: ended.side, allowDragging: false }} />
           </div>
           <p>
-            <button autoFocus disabled={busy} onClick={() => start(ended.key)}>
+            <button className="primary" autoFocus disabled={busy} onClick={() => start(ended.key)}>
               Another line
             </button>{' '}
             <button onClick={() => setEnded(null)}>Back to openings</button>
@@ -254,7 +254,7 @@ export default function Openings() {
                 {c.engineNote && <p className="what">{c.engineNote}</p>}
                 {c.accuracy && <p className="what">{c.accuracy}</p>}
                 {c.note && <p className="what caution">{c.note}</p>}
-                <button disabled={!c.canStart || busy} onClick={() => start(o.key)}>
+                <button className="primary" disabled={!c.canStart || busy} onClick={() => start(o.key)}>
                   Practise a line
                 </button>
               </article>

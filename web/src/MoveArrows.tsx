@@ -51,7 +51,8 @@ export function LaneLegend({ lanes }: { lanes: Lane[] }) {
         if (row.length === 0) return null
         const st = SERIES[series]
         return (
-          <div key={series} className="lane-row" style={{ borderLeftColor: st.color }}>
+          <div key={series} className="lane-row">
+            <span className="lane-swatch" style={{ background: st.color }} aria-hidden="true" />
             <span className="lane-title">{st.title}</span>
             <span className="lane-moves">
               {row.map((l) => (

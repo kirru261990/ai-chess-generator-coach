@@ -72,6 +72,13 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-17 (build) · second Mac · Claude Code: visual system, step 1 of the redesign (branch `feat/visual-system`)
+
+- **Why:** an Impeccable critique scored the web app 20/40 (template leftovers, browser-default buttons, 8 flat tabs, developer text, cramped Play). The owner chose a warmer, bolder look ("Chess Magazine Cover", direction contract in `.impeccable/surfaces/web-src.md`) and wants to see each step before it merges.
+- **Built:** design tokens in `web/src/index.css` (bottle-green masthead, tangerine primary, mustard highlight, light and dark), Barlow Condensed self-hosted via `@fontsource/barlow-condensed` (OFL-1.1, row in THIRD_PARTY.md), three button styles (primary, secondary, quiet) with the main action per screen marked primary, a masthead with the wordmark and tabs (`aria-current`), title "AI Chess Coach", styles for Drill cycles and Slip rounds, no thick side stripes (detector 0 findings, was 2).
+- **Not in this step:** grouped navigation and a Today strip (step 2), player-facing wording (3), Play layout and phone width (4), remaining contrast work (5).
+- **Tests:** web 206 passed, tsc clean, oxlint 3 known warnings in App.tsx; licensing test passes.
+
 ### 2026-11-17 (build) · second Mac · Claude Code: Scandinavian added to the opening repertoire (branch `feat/scandinavian-book`, ADR 0022 amendment)
 
 - **Why:** the owner's 450 Chess.com games: as Black against 1.e4, 1...e5 scored 45% (61 games, median engine score about -2.6 after move 10), 1...d5 scored 50% (35 games) with about level middlegames. Owner asked for a Scandinavian book.

@@ -202,7 +202,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
                 <button className={tap === NO_THREAT ? 'on' : ''} onClick={() => { setNote(null); setTap(tap === NO_THREAT ? null : NO_THREAT) }}>
                   No immediate threat
                 </button>
-                <button disabled={!tap || busy} onClick={() => send('recognition', { ord: cur.ord, tap })}>
+                <button className="primary" disabled={!tap || busy} onClick={() => send('recognition', { ord: cur.ord, tap })}>
                   {busy ? 'Saving…' : 'Next: make your move'}
                 </button>
               </div>
@@ -212,7 +212,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
             <>
               <p>Your answer to the question: {tapWords(cur.your_tap ?? NO_THREAT)}. {move ? `Your move: ${move.slice(0, 2)} to ${move.slice(2, 4)}.` : ''}</p>
               <div className="controls">
-                <button disabled={!move || busy} onClick={() => send('move', { ord: cur.ord, move })}>
+                <button className="primary" disabled={!move || busy} onClick={() => send('move', { ord: cur.ord, move })}>
                   {busy ? 'Checking…' : 'Submit this move'}
                 </button>
               </div>
@@ -238,7 +238,7 @@ export default function Practice({ id, onHome, backend = restBackend, initial }:
               {showGame ? 'Back to my move' : 'Replay what I played in the game'}
             </button>
             <button disabled={busy} onClick={() => send('retry', { ord: cur.ord })}>Try this position again</button>
-            <button disabled={busy} onClick={() => send('next', { ord: cur.ord })}>{lastOne ? 'Finish' : 'Next position'}</button>
+            <button className="primary" disabled={busy} onClick={() => send('next', { ord: cur.ord })}>{lastOne ? 'Finish' : 'Next position'}</button>
           </div>
         </div>
       )}

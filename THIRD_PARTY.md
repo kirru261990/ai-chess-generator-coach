@@ -38,6 +38,7 @@ Used through the above (not declared directly): pydantic 2.13.5 (MIT), starlette
 | react | 19.3.0 | MIT | https://react.dev | UI |
 | react-dom | 19.3.0 | MIT | https://react.dev | UI |
 | react-chessboard | 5.12.1 | MIT | https://github.com/Clariity/react-chessboard | The board |
+| @fontsource/barlow-condensed | 5.3.0 | OFL-1.1 (font), MIT (packaging) | https://fontsource.org/fonts/barlow-condensed | Display face (headings, tabs, buttons), self-hosted |
 
 ## Web, development only (`devDependencies`)
 

@@ -135,7 +135,7 @@ function MomentCard({
             />
           </label>
           <div className="controls">
-            <button onClick={() => void submit(false)} disabled={busy || text.trim() === ''}>
+            <button className="primary" onClick={() => void submit(false)} disabled={busy || text.trim() === ''}>
               Compare with the board
             </button>
             <button onClick={() => void submit(true)} disabled={busy}>

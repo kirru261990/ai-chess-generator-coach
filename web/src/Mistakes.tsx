@@ -88,7 +88,7 @@ function Home({ onOpen, onStarted, onPractice, onSummary, onTake, onProgress }: 
 
   return (
     <div className="spots">
-      <h2>Test yourself first <button onClick={onProgress}>My progress</button></h2>
+      <h2>Test yourself first <button className="quiet" onClick={onProgress}>My progress</button></h2>
       <p className="note">
         Before practising a kind of mistake, take a short test of 5 positions from your own games that you have not seen
         here before. There is no help and no feedback until you finish. This is your starting point, so later tests can show
@@ -110,7 +110,7 @@ function Home({ onOpen, onStarted, onPractice, onSummary, onTake, onProgress }: 
               </p>
               {short && <p className="note">{short}</p>}
               {t.baseline?.status === 'submitted' && <p className="note">Starting test done.</p>}
-              {label && <button disabled={busy} onClick={() => go(t)}>{label}</button>}
+              {label && <button className={t.baseline?.status === 'submitted' ? '' : 'primary'} disabled={busy} onClick={() => go(t)}>{label}</button>}
               <hr />
               <h4>Practise your own mistakes</h4>
               <p className="note small">{practiceLabel(t.practice).note}</p>
@@ -125,7 +125,7 @@ function Home({ onOpen, onStarted, onPractice, onSummary, onTake, onProgress }: 
                 return (
                   <>
                     {d.note && <p className="note small">{d.note}</p>}
-                    {d.takeId !== null && <button onClick={() => onTake(d.takeId!)}>Take your delayed test</button>}
+                    {d.takeId !== null && <button className="primary" onClick={() => onTake(d.takeId!)}>Take your delayed test</button>}
                   </>
                 )
               })()}
@@ -179,7 +179,7 @@ function Test({ id, onDone, onHome }: { id: number; onDone: () => void; onHome: 
       <div className="app">
         <h2>{view.label}</h2>
         <p>You answered all {view.total} positions. Submit to see your answers and your score.</p>
-        <button disabled={busy} onClick={() => {
+        <button className="primary" disabled={busy} onClick={() => {
           setBusy(true)
           api(`/coach/assessments/${id}/submit`, {}).then(onDone).catch((e: Error) => setError(e.message))
             .finally(() => setBusy(false))
@@ -270,7 +270,7 @@ function Test({ id, onDone, onHome }: { id: number; onDone: () => void; onHome: 
             <button className={tap === NO_THREAT ? 'on' : ''} onClick={() => { setNote(null); setTap(tap === NO_THREAT ? null : NO_THREAT) }}>
               No immediate threat
             </button>
-            <button disabled={!tap} onClick={() => { setNote(null); setStep('move') }}>Next: make your move</button>
+            <button className="primary" disabled={!tap} onClick={() => { setNote(null); setStep('move') }}>Next: make your move</button>
           </div>
           {tap && <p>Your answer: {tapWords(tap)}.</p>}
         </div>
@@ -282,7 +282,7 @@ function Test({ id, onDone, onHome }: { id: number; onDone: () => void; onHome: 
           <p>Your answer: {tapWords(tap ?? NO_THREAT)}. {move ? `Your move: ${move.slice(0, 2)} to ${move.slice(2, 4)}.` : ''}</p>
           <div className="controls">
             <button disabled={busy} onClick={() => { setStep('tap'); setFrom(null); setMove(null); setNote(null) }}>Back</button>
-            <button disabled={!move || busy} onClick={send}>{busy ? 'Saving…' : 'Submit this position'}</button>
+            <button className="primary" disabled={!move || busy} onClick={send}>{busy ? 'Saving…' : 'Submit this position'}</button>
           </div>
           <p className="note small">A submitted position cannot be changed.</p>
         </div>

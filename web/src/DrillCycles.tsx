@@ -126,13 +126,13 @@ export default function DrillCycles() {
               </p>
               <p>{fb.note}</p>
               {fb.not_checked && <p className="muted">{fb.not_checked}</p>}
-              <button onClick={next} disabled={busy}>Next drill</button>
+              <button className="primary" onClick={next} disabled={busy}>Next drill</button>
             </div>
           )}
         </>
       ) : (
         <>
-          <button onClick={next} disabled={busy}>
+          <button className="primary" onClick={next} disabled={busy}>
             {open && open.answered > 0 ? `Continue cycle ${open.number}` : `Start cycle ${rows.length + (open ? 0 : 1)}`}
           </button>
           {goal && <p>{goal}</p>}
