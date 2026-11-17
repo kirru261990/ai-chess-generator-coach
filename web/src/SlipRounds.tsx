@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
@@ -8,7 +8,7 @@ import {
 } from './slipRoundState'
 
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
-const GREEN = 'rgba(80, 180, 90, 0.55)'
+const GREEN = 'rgba(0, 220, 140, 0.7)'
 const TIMER_KEY = 'slip-rounds-timer'
 
 type RoundRow = { round: number; finished: boolean; summary: RoundSummary }
@@ -246,7 +246,7 @@ export default function SlipRounds() {
                 <p><strong>{ans.cause.sentence}</strong></p>
                 {ans.cause.habit && <p className="slip-habit">{ans.cause.habit}</p>}
               </div>
-              <button onClick={next} disabled={busy}>Next position</button>
+              <button className="primary" onClick={next} disabled={busy}>Next position</button>
             </div>
           )}
         </>
@@ -254,7 +254,7 @@ export default function SlipRounds() {
         <>
           <p><strong>Round {done.round} finished.</strong></p>
           <p>{roundLine(done.summary)}</p>
-          <button onClick={next} disabled={busy}>Start next round</button>
+          <button className="primary" onClick={next} disabled={busy}>Start next round</button>
         </>
       ) : (
         <>
@@ -267,7 +267,7 @@ export default function SlipRounds() {
               </label>
             ))}
           </fieldset>
-          <button onClick={next} disabled={busy}>
+          <button className="primary" onClick={next} disabled={busy}>
             {open && open.summary.answered > 0 ? `Continue round ${open.round}` : `Start round ${rounds.length + (open ? 0 : 1)}`}
           </button>
           {rounds.length > 0 && (

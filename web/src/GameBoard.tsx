@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { applyMove } from './applyMove'
 import { playMove } from './optimisticMove'
 import { practiceOnly, toGameView, toHint, type GameBackend, type GamePayload } from './gameBackend'
@@ -125,18 +125,18 @@ export default function GameBoard({ initial, backend, enlarge }: { initial: Game
   if (last) for (const sq of [last.slice(0, 2), last.slice(2, 4)]) styles[sq] = { background: 'rgba(255, 230, 0, 0.3)' }
   for (const t of warn?.threats ?? []) if (t.square) styles[t.square] = { background: 'rgba(220, 60, 50, 0.45)' }
   for (const sq of marks.hanging) styles[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
-  for (const sq of marks.missed) styles[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
+  for (const sq of marks.missed) styles[sq] = { background: 'rgba(0, 220, 140, 0.75)' }
   if (selected) {
     styles[selected] = { background: 'rgba(255, 215, 0, 0.55)' }
     for (const m of game.legal_moves) if (m.startsWith(selected)) styles[m.slice(2, 4)] = { background: DOT }
   }
   if (hintFrom) {
     for (const m of game.legal_moves) if (m.startsWith(hintFrom)) styles[m.slice(2, 4)] = { background: DOT }
-    styles[hintFrom] = { background: 'rgba(60, 170, 90, 0.35)' }
-    if (hintUci) styles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
+    styles[hintFrom] = { background: 'rgba(0, 220, 140, 0.5)' }
+    if (hintUci) styles[hintUci.slice(2, 4)] = { background: 'rgba(0, 220, 140, 0.7)' }
   }
   const arrows = [
-    ...(hintUci ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }] : []),
+    ...(hintUci ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(0, 220, 140, 0.9)' }] : []),
     ...(warn ? threatArrows(warn) : []),
   ]
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (

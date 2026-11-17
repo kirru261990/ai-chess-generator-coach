@@ -1,22 +1,35 @@
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-800.css';
+
+/* Chess Magazine Cover: a bottle-green masthead, tangerine for the one primary action, mustard for highlights and the next
+   step. The older names (--text, --text-h, --bg, --border, --code-bg) are kept because every page uses them. */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --green: #0e4d3a;
+  --green-ink: #0e4d3a;
+  --green-soft: #e3eee9;
+  --masthead: #0e4d3a;
+  --masthead-text: #d3e6dd;
+  --tangerine: #f26a21;
+  --tangerine-hover: #ff7d36;
+  --on-tangerine: #141414;
+  --mustard: #f2b705;
+  --mustard-soft: #fdf1c9;
+  --mustard-ink: #4a3600;
+  --danger: #b8321f;
+
+  --text: #4a5550;
+  --text-h: #141414;
+  --bg: #f6f7f4;
+  --panel: #ffffff;
+  --border: #dfe3dd;
+  --code-bg: #eef1ec;
+  --accent: var(--tangerine);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  font: 16px/1.5 var(--sans);
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -24,75 +37,76 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  accent-color: var(--green);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --green-ink: #7cc9a8;
+    --green-soft: #1d3a30;
+    --masthead: #0b3d2e;
+    --mustard-soft: #3a3112;
+    --mustard-ink: #f6d77a;
+    --danger: #ff8a75;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --text: #a9b5af;
+    --text-h: #f2f4f1;
+    --bg: #121614;
+    --panel: #1a201d;
+    --border: #2c3531;
+    --code-bg: #222a26;
+    accent-color: #7cc9a8;
   }
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--bg);
+}
+
+::selection {
+  background: var(--mustard);
+  color: #141414;
+}
+
+:focus-visible {
+  outline: 3px solid var(--mustard);
+  outline-offset: 2px;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
+h2,
+h3 {
   color: var(--text-h);
+  text-wrap: balance;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font: 800 34px/1.05 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  margin: 12px 0 16px;
 }
+
+h3 {
+  font-size: 1.1em;
+  font-weight: 650;
+  margin: 18px 0 8px;
+}
+
 p {
   margin: 0;
+}
+
+a {
+  color: var(--green-ink);
+  text-underline-offset: 3px;
 }
 
 code,
@@ -108,4 +122,89 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+/* Buttons: secondary by default, .primary for the one main action on a screen, .quiet for minor actions. The board's own
+   squares are left alone. */
+button:not(:where(.board, .moment-board) *) {
+  font: 600 17px/1.1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green-ink);
+  background: var(--panel);
+  border: 1.5px solid currentColor;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+}
+
+button:not(:where(.board, .moment-board) *):hover:not(:disabled) {
+  background: var(--green-soft);
+}
+
+button:not(:where(.board, .moment-board) *):disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary:not(:where(.board, .moment-board) *) {
+  font-weight: 800;
+  color: var(--on-tangerine);
+  background: var(--tangerine);
+  border-color: var(--tangerine);
+}
+
+button.primary:not(:where(.board, .moment-board) *):hover:not(:disabled) {
+  background: var(--tangerine-hover);
+}
+
+button.quiet:not(:where(.board, .moment-board) *) {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 8px;
+}
+
+select,
+input:not([type='radio'], [type='checkbox']),
+textarea {
+  font: inherit;
+  color: var(--text-h);
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* The masthead: wordmark and tabs on bottle green. */
+.masthead {
+  background: var(--masthead);
+  color: var(--masthead-text);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 32px;
+  min-height: 64px;
+}
+
+.wordmark {
+  font: 800 30px/1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: #fff;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.wordmark b {
+  color: var(--mustard);
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .masthead {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 10px 16px 0;
+  }
 }

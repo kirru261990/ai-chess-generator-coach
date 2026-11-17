@@ -142,7 +142,7 @@ function TypeCard({ t, target, onResults, onTake }: { t: ProgressType; target: n
       {t.waiting && (
         <p className="note">
           Waiting: {dueText(t.waiting.due_at)}.{' '}
-          {t.waiting.available && <button onClick={() => onTake(t.waiting!.assessment_id)}>Take it</button>}
+          {t.waiting.available && <button className="primary" onClick={() => onTake(t.waiting!.assessment_id)}>Take it</button>}
         </p>
       )}
       {t.delayed.length === 0 && !t.waiting && <p className="note">A delayed test is set when you finish a practice session.</p>}

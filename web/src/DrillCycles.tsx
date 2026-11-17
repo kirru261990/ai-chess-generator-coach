@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
@@ -8,7 +8,7 @@ import {
 } from './drillCycleState'
 
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
-const GREEN = 'rgba(80, 180, 90, 0.55)'
+const GREEN = 'rgba(0, 220, 140, 0.7)'
 
 /** Drill cycles (ADR 0018): the same fixed set of drills again and again, each pass faster. Practice, so always assisted. */
 export default function DrillCycles() {
@@ -126,13 +126,13 @@ export default function DrillCycles() {
               </p>
               <p>{fb.note}</p>
               {fb.not_checked && <p className="muted">{fb.not_checked}</p>}
-              <button onClick={next} disabled={busy}>Next drill</button>
+              <button className="primary" onClick={next} disabled={busy}>Next drill</button>
             </div>
           )}
         </>
       ) : (
         <>
-          <button onClick={next} disabled={busy}>
+          <button className="primary" onClick={next} disabled={busy}>
             {open && open.answered > 0 ? `Continue cycle ${open.number}` : `Start cycle ${rows.length + (open ? 0 : 1)}`}
           </button>
           {goal && <p>{goal}</p>}

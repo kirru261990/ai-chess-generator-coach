@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import { answerBanner, arrowFor, needsResync, recentText, openingCard, sourceLabel, stagesFor, summaryText, type Answer, type Current, type OpeningRow, type Question } from './repertoireState'
@@ -172,7 +172,7 @@ export default function Openings() {
     for (const t of targetsFrom(q.legal, from)) styles[t] = { background: DOT }
   }
   if (ans?.matched) {
-    styles[ans.your_uci.slice(2, 4)] = { background: 'rgba(80, 180, 90, 0.55)' }
+    styles[ans.your_uci.slice(2, 4)] = { background: 'rgba(0, 220, 140, 0.7)' }
   }
   const squareRenderer = ({ square, children }: { square: string; children?: React.ReactNode }) => (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...styles[square] }}>
@@ -229,7 +229,7 @@ export default function Openings() {
             <Chessboard options={{ position: ended.fen, boardOrientation: ended.side, allowDragging: false }} />
           </div>
           <p>
-            <button autoFocus disabled={busy} onClick={() => start(ended.key)}>
+            <button className="primary" autoFocus disabled={busy} onClick={() => start(ended.key)}>
               Another line
             </button>{' '}
             <button onClick={() => setEnded(null)}>Back to openings</button>
@@ -254,7 +254,7 @@ export default function Openings() {
                 {c.engineNote && <p className="what">{c.engineNote}</p>}
                 {c.accuracy && <p className="what">{c.accuracy}</p>}
                 {c.note && <p className="what caution">{c.note}</p>}
-                <button disabled={!c.canStart || busy} onClick={() => start(o.key)}>
+                <button className="primary" disabled={!c.canStart || busy} onClick={() => start(o.key)}>
                   Practise a line
                 </button>
               </article>

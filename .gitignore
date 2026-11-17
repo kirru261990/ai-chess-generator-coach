@@ -49,3 +49,7 @@ evals/sets/missed_threat_v4/check_key*.json
 
 # Impeccable per-developer settings
 .impeccable/config.local.json
+
+# Impeccable working files (the surface brief is kept)
+.impeccable/*
+!.impeccable/surfaces/

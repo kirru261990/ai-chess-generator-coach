@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { gameLabel, intentMessage, type IntentResult, type Review, type SyncedGame } from './reviewMoments'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -135,7 +135,7 @@ function MomentCard({
             />
           </label>
           <div className="controls">
-            <button onClick={() => void submit(false)} disabled={busy || text.trim() === ''}>
+            <button className="primary" onClick={() => void submit(false)} disabled={busy || text.trim() === ''}>
               Compare with the board
             </button>
             <button onClick={() => void submit(true)} disabled={busy}>

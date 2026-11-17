@@ -32,37 +32,43 @@ export default function Shell() {
 
   return (
     <>
-      <nav className="tabs">
-        <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')}>
-          Play
-        </button>
-        <button className={tab === 'test' ? 'on' : ''} onClick={() => setTab('test')}>
-          My mistakes
-        </button>
-        <button className={tab === 'drills' ? 'on' : ''} onClick={() => setTab('drills')}>
-          Drill cycles
-        </button>
-        <button className={tab === 'slips' ? 'on' : ''} onClick={() => setTab('slips')}>
-          Slip rounds
-        </button>
-        <button className={tab === 'openings' ? 'on' : ''} onClick={() => setTab('openings')}>
-          Openings
-        </button>
-        {SHOW_ANALYSIS_TABS && (
-          <>
-            <button className={tab === 'review' ? 'on' : ''} onClick={() => setTab('review')}>
-              Review
-            </button>
-            <button className={tab === 'spots' ? 'on' : ''} onClick={() => setTab('spots')}>
-              Blind spots
-            </button>
-            <button className={tab === 'lossmap' ? 'on' : ''} onClick={() => setTab('lossmap')}>
-              Loss map
-            </button>
-          </>
-        )}
-      </nav>
-      {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
+      <header className="masthead">
+        <h1 className="wordmark">
+          AI Chess <b>Coach</b>
+        </h1>
+        <nav className="tabs" aria-label="Sections">
+          <button className={tab === 'play' ? 'on' : ''} aria-current={tab === 'play' ? 'page' : undefined} onClick={() => setTab('play')}>
+            Play
+          </button>
+          <button className={tab === 'test' ? 'on' : ''} aria-current={tab === 'test' ? 'page' : undefined} onClick={() => setTab('test')}>
+            My mistakes
+          </button>
+          <button className={tab === 'drills' ? 'on' : ''} aria-current={tab === 'drills' ? 'page' : undefined} onClick={() => setTab('drills')}>
+            Drill cycles
+          </button>
+          <button className={tab === 'slips' ? 'on' : ''} aria-current={tab === 'slips' ? 'page' : undefined} onClick={() => setTab('slips')}>
+            Slip rounds
+          </button>
+          <button className={tab === 'openings' ? 'on' : ''} aria-current={tab === 'openings' ? 'page' : undefined} onClick={() => setTab('openings')}>
+            Openings
+          </button>
+          {SHOW_ANALYSIS_TABS && (
+            <>
+              <button className={tab === 'review' ? 'on' : ''} aria-current={tab === 'review' ? 'page' : undefined} onClick={() => setTab('review')}>
+                Review
+              </button>
+              <button className={tab === 'spots' ? 'on' : ''} aria-current={tab === 'spots' ? 'page' : undefined} onClick={() => setTab('spots')}>
+                Blind spots
+              </button>
+              <button className={tab === 'lossmap' ? 'on' : ''} aria-current={tab === 'lossmap' ? 'page' : undefined} onClick={() => setTab('lossmap')}>
+                Loss map
+              </button>
+            </>
+          )}
+        </nav>
+      </header>
+      {/* Spend is shown only near or over the monthly budget, when it changes what the coach can do. */}
+      {spend && spend.level !== 'ok' && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
         <App />
