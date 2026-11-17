@@ -194,7 +194,7 @@ export default function Openings() {
   return (
     <section className="openings">
       <h2>
-        Opening lines <span className="badge">assisted</span>
+        Openings <span className="badge">assisted</span>
       </h2>
       {error && (
         <p className="error" role="alert">

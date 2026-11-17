@@ -177,3 +177,33 @@
 .card > * + * { margin-top: 10px; }
 .card hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .card h4 { margin: 0; color: var(--text-h); }
+
+/* Second row of the masthead: the pages inside Train or Insights, on the ground colour so the green band stays one line. */
+.subtabs { display: flex; gap: 4px; padding: 0 32px; border-bottom: 1px solid var(--border); background: var(--panel); overflow-x: auto; scrollbar-width: none; }
+.subtabs button:not(:where(.board, .moment-board) *) { font-size: 16px; color: var(--text); background: transparent; border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 12px 12px 9px; white-space: nowrap; }
+.subtabs button:not(:where(.board, .moment-board) *):hover:not(:disabled) { color: var(--text-h); background: transparent; }
+.subtabs button.on:not(:where(.board, .moment-board) *) { color: var(--text-h); border-bottom-color: var(--tangerine); }
+
+/* Today: the one next step, on a mustard band. */
+.today { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 32px; background: var(--mustard-soft); border-bottom: 1px solid var(--mustard); color: var(--text-h); }
+.today-mark { font: 800 20px/1 var(--display); text-transform: uppercase; color: var(--mustard-ink); }
+.today-text { font-weight: 600; flex: 1 1 280px; }
+.today .error { flex-basis: 100%; }
+
+.page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+/* A cover line: one figure with its denominator, then the sentence, then the rate as a rank of eight squares. */
+.cover { margin: 4px 0 24px; color: var(--text-h); }
+.cover-figure { font: 800 88px/0.9 var(--display); letter-spacing: -0.01em; color: var(--green-ink); font-variant-numeric: tabular-nums; }
+.cover-figure small { font-size: 30px; color: var(--text); letter-spacing: 0.01em; margin-left: 6px; }
+.cover-line { font-size: 1.15em; font-weight: 600; margin-top: 6px; max-width: 40ch; }
+.rank { display: grid; grid-template-columns: repeat(8, 36px); gap: 4px; margin-top: 14px; }
+.rank i { height: 36px; box-sizing: border-box; border: 3px solid var(--green-ink); border-radius: 4px; }
+.rank i.f { background: var(--green-ink); }
+
+@media (max-width: 720px) {
+  .subtabs, .today { padding-inline: 16px; }
+  .cover-figure { font-size: 64px; }
+  .rank { grid-template-columns: repeat(8, 1fr); max-width: 320px; }
+  .rank i { height: auto; aspect-ratio: 1; }
+}

@@ -72,6 +72,12 @@ Update this at the end of every session (any agent, any machine). Newest entry o
 
 ## Log
 
+### 2026-11-17 (build) · second Mac · Claude Code: navigation and Today, step 2 of the redesign (branch `feat/nav-today`)
+
+- **Done:** step 1 merged (PR 133). Eight tabs become three groups, **Play / Train / Insights**, with a second row for the pages inside Train (My mistakes, Openings, Drill cycles, Slip rounds) and Insights (Where you lose, Blind spots, Review; still hidden by `?analysis=0`). Each tab label is now its page title (h2 "My mistakes", "Openings", "Blind spots", "Review"; the Loss map tab is "Where you lose"); "My progress" moved out of the heading. A **Today** band on Train and Insights (never on Play) names the one next step from `/coach/home` (`web/src/todayState.ts`, tested: a half-done starting test, then an open delayed test, then practice in progress, then a new starting test, then new practice, else Play) and opens My mistakes on that screen. **Conversion** (ADR 0019 headline: games won of those ahead after move 5, with n of m) now leads Insights as a cover figure, drawn as a rank of eight squares (`web/src/Rank.tsx`). `analysisTabs.test.ts` reads Shell's source: its two strings now match the group list instead of `setTab('review')`, same intent.
+- **Verified:** web tests 214 passed, tsc clean; checked at 1280×860 light and dark and at 375 wide. The Today button's route into an existing test was not clicked on the real store (it would open the owner's delayed test); the same path as the page's own "Take your delayed test" button.
+- **Next:** owner reviews on 5174, then merge; step 3 (clarify developer text).
+
 ### 2026-11-17 (build) · second Mac · Claude Code: visual system, step 1 of the redesign (branch `feat/visual-system`)
 
 - **Why:** an Impeccable critique scored the web app 20/40 (template leftovers, browser-default buttons, 8 flat tabs, developer text, cramped Play). The owner chose a warmer, bolder look ("Chess Magazine Cover", direction contract in `.impeccable/surfaces/web-src.md`) and wants to see each step before it merges.

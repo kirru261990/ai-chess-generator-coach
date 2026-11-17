@@ -26,7 +26,7 @@ import {
 
 const RESULTS_POLL_MS = 4000 // while the random-guess move rate is still being calculated
 
-type Screen =
+export type Screen =
   | { name: 'home' }
   | { name: 'test'; id: number }
   | { name: 'results'; id: number }
@@ -35,8 +35,8 @@ type Screen =
   | { name: 'progress' }
 
 /** PRD v2 home and the unassisted baseline test (Step 2). No hints, no eval, no feedback until the end. */
-export default function Mistakes() {
-  const [screen, setScreen] = useState<Screen>({ name: 'home' })
+export default function Mistakes({ initial = { name: 'home' } }: { initial?: Screen }) {
+  const [screen, setScreen] = useState<Screen>(initial)
   if (screen.name === 'progress') {
     return <ProgressPage onHome={() => setScreen({ name: 'home' })} onResults={(id) => setScreen({ name: 'results', id })} onTake={(id) => setScreen({ name: 'test', id })} />
   }
@@ -88,9 +88,12 @@ function Home({ onOpen, onStarted, onPractice, onSummary, onTake, onProgress }: 
 
   return (
     <div className="spots">
-      <h2>Test yourself first <button className="quiet" onClick={onProgress}>My progress</button></h2>
+      <div className="page-head">
+        <h2>My mistakes</h2>
+        <button className="quiet" onClick={onProgress}>My progress</button>
+      </div>
       <p className="note">
-        Before practising a kind of mistake, take a short test of 5 positions from your own games that you have not seen
+        Test yourself first. Before practising a kind of mistake, take a short test of 5 positions from your own games that you have not seen
         here before. There is no help and no feedback until you finish. This is your starting point, so later tests can show
         whether practice helped.
       </p>

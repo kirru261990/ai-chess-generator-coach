@@ -28,7 +28,7 @@ export default function BlindSpots() {
   const entries = Object.entries(data.results.by_time_control)
   return (
     <section className="spots">
-      <h2>Your blind spots</h2>
+      <h2>Blind spots</h2>
       <p className="note">
         What happened in your 100 baseline games (the last 100 before coaching started), one list for each time
         control. They are never mixed together.
