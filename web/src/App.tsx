@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import './App.css'
 import EvalBar from './EvalBar'
 import { evalIsCurrent, type Evaluation } from './evaluation'
@@ -259,7 +259,7 @@ export default function App() {
   // After a suboptimal move: mark on the board your piece(s) that can be taken (red) and a free piece you missed (green).
   const marks = game && fb ? boardMarks(game.fen, fb) : { hanging: [], missed: [] }
   for (const sq of marks.hanging) highlights[sq] = { background: 'rgba(220, 60, 50, 0.6)' }
-  for (const sq of marks.missed) highlights[sq] = { background: 'rgba(60, 170, 90, 0.6)' }
+  for (const sq of marks.missed) highlights[sq] = { background: 'rgba(0, 220, 140, 0.75)' }
   // The badge for the player's last move, drawn on the square it was played to.
   const badge = fb ? moveBadge(fb.classification.key, fb.classification.opening) : null
   const badgeSquare = fb ? fb.played.uci.slice(2, 4) : null
@@ -277,7 +277,7 @@ export default function App() {
   )
   // A suggestion only: nothing stops the player from playing anything.
   const hintArrows = [
-    ...(hintUci ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }] : []),
+    ...(hintUci ? [{ startSquare: hintUci.slice(0, 2), endSquare: hintUci.slice(2, 4), color: 'rgba(0, 220, 140, 0.9)' }] : []),
     ...(warn && threatsOn ? threatArrows(warn) : []),
   ]
   if (game && selected) {
@@ -295,8 +295,8 @@ export default function App() {
   if (hintFrom) {
     // The hinted piece gets its own move dots, and the suggested move is tinted green.
     for (const m of game?.legal_moves ?? []) if (m.startsWith(hintFrom)) boardStyles[m.slice(2, 4)] = { background: DOT }
-    boardStyles[hintFrom] = { background: 'rgba(60, 170, 90, 0.35)' }
-    if (hintUci) boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(60, 170, 90, 0.55)' }
+    boardStyles[hintFrom] = { background: 'rgba(0, 220, 140, 0.5)' }
+    if (hintUci) boardStyles[hintUci.slice(2, 4)] = { background: 'rgba(0, 220, 140, 0.7)' }
   }
 
   async function switchMode(next: 'play' | 'practice') {

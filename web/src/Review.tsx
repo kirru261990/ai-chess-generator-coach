@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { gameLabel, intentMessage, type IntentResult, type Review, type SyncedGame } from './reviewMoments'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'

@@ -67,7 +67,8 @@ export default function Shell() {
           )}
         </nav>
       </header>
-      {spend && <p className={`usage ${spend.level}`}>{spend.text}</p>}
+      {/* Spend is shown only near or over the monthly budget, when it changes what the coach can do. */}
+      {spend && spend.level !== 'ok' && <p className={`usage ${spend.level}`}>{spend.text}</p>}
       {/* Both stay mounted so a game in progress is not lost when you look at the map. */}
       <div hidden={tab !== 'play'}>
         <App />

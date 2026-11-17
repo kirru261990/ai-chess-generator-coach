@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { api } from './api'
 import { castleMove, pickMove, pieceColorAt, targetsFrom } from './assessState'
 import {
@@ -8,7 +8,7 @@ import {
 } from './slipRoundState'
 
 const DOT = 'radial-gradient(circle, rgba(0,0,0,0.28) 22%, transparent 24%)'
-const GREEN = 'rgba(80, 180, 90, 0.55)'
+const GREEN = 'rgba(0, 220, 140, 0.7)'
 const TIMER_KEY = 'slip-rounds-timer'
 
 type RoundRow = { round: number; finished: boolean; summary: RoundSummary }

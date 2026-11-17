@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { restBackend, type BoardPayload, type PracticeBackend } from './practiceBackend'
 import { delayedSummaryLine } from './progressState'
 import { NO_THREAT, castleMove, pickMove, pieceColorAt, tapRefusal, tapWords, targetsFrom } from './assessState'
@@ -263,7 +263,7 @@ function SummaryPage({ summary, onHome }: { summary: PracticeSummary | null; onH
       {summary.items.map((it) => {
         const squares: Record<string, React.CSSProperties> = {}
         const own = pieceColorAt(it.fen, it.target_squares[0] ?? '') === (it.side_to_move === 'white' ? 'w' : 'b')
-        for (const sq of it.target_squares) squares[sq] = { background: own ? 'rgba(220, 60, 50, 0.6)' : 'rgba(60, 170, 90, 0.6)' }
+        for (const sq of it.target_squares) squares[sq] = { background: own ? 'rgba(220, 60, 50, 0.6)' : 'rgba(0, 220, 140, 0.75)' }
         return (
           <div key={it.number} className={`feedback ${it.first_attempt_correct ? 'good' : 'slip'}`}>
             <p>

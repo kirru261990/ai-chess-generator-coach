@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Chessboard } from 'react-chessboard'
+import { Chessboard } from './Board'
 import { api } from './api'
 import Practice from './Practice'
 import { practiceLabel } from './practiceState'
@@ -341,13 +341,13 @@ function ResultsPage({ id, onBack }: { id: number; onBack: () => void }) {
 function ResultCard({ item }: { item: ResultItem }) {
   const styles: Record<string, React.CSSProperties> = {}
   const own = pieceColorAt(item.fen, item.answer_squares[0] ?? '') === (item.side_to_move === 'white' ? 'w' : 'b')
-  for (const sq of item.answer_squares) styles[sq] = { background: own ? 'rgba(220, 60, 50, 0.6)' : 'rgba(60, 170, 90, 0.6)' }
+  for (const sq of item.answer_squares) styles[sq] = { background: own ? 'rgba(220, 60, 50, 0.6)' : 'rgba(0, 220, 140, 0.75)' }
   if (item.your_tap !== NO_THREAT) styles[item.your_tap] = { ...styles[item.your_tap], boxShadow: 'inset 0 0 0 4px rgba(80, 140, 230, 0.9)' }
   const good = item.good_moves[0]
   const arrows = [
     { startSquare: item.your_move.uci.slice(0, 2), endSquare: item.your_move.uci.slice(2, 4), color: 'rgba(80, 140, 230, 0.8)' },
     ...(good && good.uci !== item.your_move.uci
-      ? [{ startSquare: good.uci.slice(0, 2), endSquare: good.uci.slice(2, 4), color: 'rgba(60, 170, 90, 0.85)' }]
+      ? [{ startSquare: good.uci.slice(0, 2), endSquare: good.uci.slice(2, 4), color: 'rgba(0, 220, 140, 0.9)' }]
       : []),
   ]
   return (
