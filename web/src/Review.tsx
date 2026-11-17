@@ -41,7 +41,7 @@ export default function ReviewPage() {
 
   return (
     <section className="spots">
-      <h2>Review a game</h2>
+      <h2>Review</h2>
       <p className="note">
         Pick a game. I show up to three moments that cost you the most. You can say what you were thinking at each one;
         it is optional, and your words are saved exactly as you wrote them.

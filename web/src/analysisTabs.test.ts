@@ -13,7 +13,8 @@ describe('showAnalysisTabs', () => {
 
   it('is what the page uses to decide whether the tabs are drawn', () => {
     expect(shell).toContain('showAnalysisTabs(window.location.search)')
-    expect(shell).toContain("setTab('review')")
-    expect(shell).toContain("setTab('spots')")
+    // Review and Blind spots are listed only inside the group the flag switches on.
+    expect(shell).toMatch(/SHOW_ANALYSIS_TABS\s*\?[^:]*\[[\s\S]*key: 'review'[\s\S]*\]\s*:\s*\[\]/)
+    expect(shell).toMatch(/SHOW_ANALYSIS_TABS\s*\?[^:]*\[[\s\S]*key: 'spots'[\s\S]*\]\s*:\s*\[\]/)
   })
 })

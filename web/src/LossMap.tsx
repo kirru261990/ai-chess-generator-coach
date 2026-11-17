@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Rank from './Rank'
 import { biggestLossZone, emptyText, leftOutText, searchText, zoneRows, type LossMap as LossMapData } from './lossMapState'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -29,9 +30,20 @@ export default function LossMap() {
   const rows = zoneRows(data)
   const biggest = biggestLossZone(data)
   const leftOut = leftOutText(data.left_out)
+  // The headline (ADR 0019): conversion, the games won of those that started ahead. Shown only with enough games to read.
+  const ahead = data.zones.find((z) => z.zone === 'ahead' && z.enough && z.games > 0)
   return (
     <section className="lossmap">
       <h2>Where you lose</h2>
+      {ahead && (
+        <div className="cover">
+          <p className="cover-figure">
+            {Math.round((100 * ahead.wins) / ahead.games)}% <small>{ahead.wins} of {ahead.games}</small>
+          </p>
+          <p className="cover-line">of the games where you were ahead after move {data.zone_ply / 2} ended in a win.</p>
+          <Rank n={ahead.wins} of={ahead.games} />
+        </div>
+      )}
       <p className="note">
         Each of your {data.sorted} games, sorted by who stood better after Black&apos;s {data.zone_ply / 2}th move (half a pawn
         or more counts as ahead or behind), with how it ended.
